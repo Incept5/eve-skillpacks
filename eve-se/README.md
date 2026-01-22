@@ -8,6 +8,7 @@ Skills specific to working with the Eve Horizon platform and conforming to its p
 - **eve-manifest-authoring** - Author and maintain the Eve manifest
 - **eve-deploy-debugging** - Deploy and debug Eve-compatible apps
 - **eve-pipelines-workflows** - Define and run pipelines and workflows
+- **eve-aws-provisioning** - Provision AWS VPS (k3s) for the P0 baseline deployment
 
 ## Installation
 
