@@ -5,6 +5,9 @@ Skills for doing productive work using Eve Horizon patterns.
 ## Skills Included
 
 - **eve-orchestration** - Orchestrate jobs via depth propagation, parallel decomposition, relations, and control signals
+- **eve-job-lifecycle** - Create, manage, and review jobs and dependencies
+- **eve-job-debugging** - Monitor and debug jobs via CLI
+- **eve-skill-distillation** - Turn repeated patterns into reusable skills
 
 ## Installation
 

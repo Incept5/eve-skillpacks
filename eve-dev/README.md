@@ -5,6 +5,10 @@ Internal skills for developing and maintaining the Eve Horizon platform itself.
 ## Skills Included
 
 - **beads-task-management** - Work tracking with Beads - setup, maintenance, task breakdown, and finding work
+- **eve-dev-workflow** - Internal dev workflow, runtime options, and testing guardrails
+- **eve-platform-debugging** - Debug jobs, provisioning, and platform services
+- **eve-docs-upkeep** - Keep docs current and cross-linked
+- **eve-system-map** - Architecture, docs, and code navigation map
 
 ## Installation
 

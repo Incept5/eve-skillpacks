@@ -9,9 +9,10 @@ Add to your `skills.txt`:
 https://github.com/incept5/eve-skillpacks
 ```
 
-This installs all skills in the repo. For interactive selection, run:
+This installs all skills in the repo for on-clone installs. For local installs, run:
 ```
-openskills install https://github.com/incept5/eve-skillpacks
+openskills install https://github.com/incept5/eve-skillpacks --universal --yes
+openskills sync
 ```
 
 ## Packs

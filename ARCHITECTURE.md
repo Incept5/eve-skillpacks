@@ -19,17 +19,37 @@ Key characteristics:
 eve-skillpacks/
 ├── ARCHITECTURE.md        # This file
 ├── eve-se/                # Platform-specific skills
-│   └── README.md          # Pack documentation
+│   ├── README.md
+│   ├── eve-project-bootstrap/
+│   │   └── SKILL.md
+│   ├── eve-manifest-authoring/
+│   │   └── SKILL.md
+│   ├── eve-deploy-debugging/
+│   │   └── SKILL.md
+│   └── eve-pipelines-workflows/
+│       └── SKILL.md
 ├── eve-work/              # General work patterns
 │   ├── README.md
-│   └── eve-orchestration/
-│       ├── SKILL.md
-│       └── references/
+│   ├── eve-orchestration/
+│   │   └── SKILL.md
+│   ├── eve-job-lifecycle/
+│   │   └── SKILL.md
+│   ├── eve-job-debugging/
+│   │   └── SKILL.md
+│   └── eve-skill-distillation/
+│       └── SKILL.md
 └── eve-dev/               # Internal development
     ├── README.md
-    └── beads-task-management/
-        ├── SKILL.md
-        └── QUICKREF.md
+    ├── beads-task-management/
+    │   └── SKILL.md
+    ├── eve-dev-workflow/
+    │   └── SKILL.md
+    ├── eve-platform-debugging/
+    │   └── SKILL.md
+    ├── eve-docs-upkeep/
+    │   └── SKILL.md
+    └── eve-system-map/
+        └── SKILL.md
 ```
 
 ## Skill Packs
@@ -37,13 +57,11 @@ eve-skillpacks/
 ### eve-se (Software Engineering)
 Skills for working with the Eve Horizon platform and conforming to its patterns.
 
-**Status**: Under development
-
-**Future skills**:
-- Platform conventions and patterns
-- API usage patterns
-- CLI command helpers
-- Job creation workflows
+**Skills included**:
+- **eve-project-bootstrap**: Bootstrap a repo, org, and project for Eve
+- **eve-manifest-authoring**: Author and maintain the Eve manifest
+- **eve-deploy-debugging**: Deploy and debug Eve-compatible apps
+- **eve-pipelines-workflows**: Define and run pipelines and workflows
 
 **Who should use**: Teams building applications on Eve Horizon.
 
@@ -52,6 +70,9 @@ Skills for doing productive work using Eve Horizon patterns.
 
 **Skills included**:
 - **eve-orchestration**: Orchestrate jobs via depth propagation, parallel decomposition, relations, and control signals
+- **eve-job-lifecycle**: Create, manage, and review jobs and dependencies
+- **eve-job-debugging**: Monitor and debug jobs via CLI
+- **eve-skill-distillation**: Turn repeated patterns into reusable skills
 
 **Who should use**: Anyone using Eve Horizon for knowledge work - whether software engineering, research, writing, or other domains.
 
@@ -60,6 +81,10 @@ Internal skills for developing and maintaining the Eve Horizon platform itself.
 
 **Skills included**:
 - **beads-task-management**: Work tracking with Beads - setup, maintenance, task breakdown, and finding work
+- **eve-dev-workflow**: Internal dev workflow, runtime options, and testing guardrails
+- **eve-platform-debugging**: Debug jobs, provisioning, and platform services
+- **eve-docs-upkeep**: Keep docs current and cross-linked
+- **eve-system-map**: Architecture, docs, and code navigation map
 
 **Who should use**: Eve Horizon platform developers and contributors.
 
@@ -71,10 +96,12 @@ Add this repo to `skills.txt` to install all packs:
 https://github.com/incept5/eve-skillpacks
 ```
 
-This installs every skill in the repo. For selective installs, run:
+This installs every skill in the repo. For selective installs, clone the repo and list only the packs/skills you want in `skills.txt`, then run:
 
 ```bash
-openskills install https://github.com/incept5/eve-skillpacks
+eve-worker skills install
+# or, from Eve Horizon
+./bin/eh skills install
 ```
 
 If you have a local clone and want to install only a subset, you can reference paths directly:
@@ -86,7 +113,7 @@ If you have a local clone and want to install only a subset, you can reference p
 
 The installation process:
 1. `skills.txt` references the repo or local pack paths
-2. `./bin/eh skills install` (or `openskills install`) installs to `.agent/skills/`
+2. `eve-worker skills install` (or `./bin/eh skills install`) installs to `.agent/skills/`
 3. Workers execute the installer on clone via `.eve/hooks/on-clone.sh`
 
 ## Creating a New Skill Pack
@@ -121,6 +148,7 @@ https://github.com/incept5/eve-skillpacks
 
 Target audience and use cases.
 ```
+```
 
 ### 3. Create Skill Directories
 
@@ -134,7 +162,7 @@ Each skill needs:
 ### 4. Install and Test
 
 ```bash
-openskills install https://github.com/incept5/eve-skillpacks
+eve-worker skills install
 openskills list
 openskills read <skill-name>
 ```
@@ -170,7 +198,7 @@ See references/guide.md for details.
 
 - **name**: Required, hyphen-case identifier
 - **description**: Required, 1-2 sentences with trigger phrases
-- **Body**: Imperative form ("To do X, execute Y"), not "You should..."
+- **Body**: Imperative form ("Do X"), not "You should..."
 - **Size**: Keep SKILL.md under 5,000 words; move details to `references/`
 - **Resources**: Use `references/` for documentation, `scripts/` for utilities, `assets/` for templates
 

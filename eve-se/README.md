@@ -4,13 +4,10 @@ Skills specific to working with the Eve Horizon platform and conforming to its p
 
 ## Skills Included
 
-*No skills yet - this pack is being developed*
-
-Future skills may include:
-- Platform conventions and patterns
-- API usage patterns
-- CLI command helpers
-- Job creation workflows
+- **eve-project-bootstrap** - Bootstrap a repo, org, and project for Eve
+- **eve-manifest-authoring** - Author and maintain the Eve manifest
+- **eve-deploy-debugging** - Deploy and debug Eve-compatible apps
+- **eve-pipelines-workflows** - Define and run pipelines and workflows
 
 ## Installation
 

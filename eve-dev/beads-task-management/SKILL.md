@@ -198,3 +198,9 @@ This:
 4. Commits and pushes back to remote
 
 Issues are tracked directly on your working branch (typically main), so they're always visible alongside your code.
+
+## Recursive skill distillation
+
+- Capture new Beads workflows and edge cases here.
+- Split out a new skill when a focused pattern keeps repeating.
+- Update the eve-skillpacks README and ARCHITECTURE listings after changes.

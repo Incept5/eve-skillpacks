@@ -209,3 +209,9 @@ Deliverable: <clear outcome>
 - [ ] Add relations
 - [ ] Return `json-result` waiting (if children exist)
 - [ ] Resume and complete
+
+## Recursive skill distillation
+
+- Capture new orchestration patterns and edge cases here.
+- Split out a new skill when a focused pattern keeps repeating.
+- Update the eve-skillpacks README and ARCHITECTURE listings after changes.
