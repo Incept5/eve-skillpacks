@@ -51,15 +51,18 @@ If stack failures occur:
 
 To change ownership: `./bin/eh configure --k8s-owner` or `--no-k8s-owner`
 
-## Environment Access
+## Modes (Mutually Exclusive)
 
-| Environment | API URL | When to Use |
-|-------------|---------|-------------|
-| K8s (k3d) | `http://api.eve.lvh.me` | E2E tests, deployment testing |
-| Docker Compose | `http://localhost:{base_port+1}` | Integration tests |
-| Local pnpm | `http://localhost:{base_port+1}` | Hot-reload dev |
+| Mode | Command | API URL | When to Use |
+|------|---------|---------|-------------|
+| Local | `./bin/eh start local` | `http://localhost:4801` | Hot-reload development |
+| Docker | `./bin/eh start docker` | `http://localhost:4801` | Integration tests |
+| K8s | `./bin/eh k8s deploy` | `http://api.eve.lvh.me` | E2E tests |
 
-Default base_port is 4800, so API is typically 4801. Check `./bin/eh status` for exact values.
+**Local and Docker modes are exclusive** - starting one stops the other automatically.
+K8s is separate (shared resource with ownership model).
+
+Check `./bin/eh status` for current mode and exact URLs.
 
 ## Core Guardrails
 
@@ -67,20 +70,22 @@ Default base_port is 4800, so API is typically 4801. Check `./bin/eh status` for
 - Pre-deployment phase: simplify, refactor, delete dead code.
 - Fail fast on provisioning errors; do not swallow errors or add workarounds.
 
-## Local Runtimes
+## Starting Services
 
 ```bash
-# K8s stack (default for e2e)
+# Local mode - hot-reload development
+./bin/eh start local          # DB container + local node processes
+./bin/eh stop                 # Stop when done
+
+# Docker mode - containerized stack
+./bin/eh start docker         # All services in containers
+./bin/eh stop                 # Stop when done
+
+# K8s mode - e2e testing (requires k8s_owner)
 ./bin/eh k8s start && ./bin/eh k8s deploy
-
-# Docker compose (integration tests)
-./bin/eh docker start
-
-# Local watch mode (hot-reload)
-./bin/eh test integration
 ```
 
-Use `./bin/eh dev start` instead of `pnpm dev` to clean orphaned processes.
+**Always use `./bin/eh start`** instead of raw pnpm/docker commands - it manages mode tracking and cleans up orphaned processes.
 
 ## Multi-Instance Support
 
