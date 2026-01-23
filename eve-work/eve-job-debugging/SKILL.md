@@ -5,7 +5,11 @@ description: Monitor and debug Eve jobs with CLI follow, logs, wait, and diagnos
 
 # Eve Job Debugging
 
-Use CLI-first diagnostics before digging into service logs.
+## CLI-Only Debugging
+
+> **Debug via the Eve CLI exclusively.** This replicates the client experience — clients don't have kubectl or host access.
+
+Every debugging capability must be available through the CLI. If you find yourself needing system tools to diagnose a job issue, that's a gap in our CLI that should be fixed.
 
 ## Monitor
 

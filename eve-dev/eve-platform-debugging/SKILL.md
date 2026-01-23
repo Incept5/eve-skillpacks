@@ -5,7 +5,27 @@ description: Debug Eve Horizon platform failures and job execution issues across
 
 # Eve Platform Debugging
 
-Start CLI-first, then drill into service logs.
+## CLI-First Philosophy
+
+> **Always debug via the Eve CLI first.** kubectl is a last resort.
+
+**Why?**
+- Our clients don't have kubectl — we must replicate their experience
+- Every debugging gap is a product improvement opportunity
+- If it can't be diagnosed via CLI, that's a bug in our observability
+
+**The debugging ladder:**
+
+| Priority | Tool | When |
+|----------|------|------|
+| 1st | `eve` CLI | **Always start here** |
+| 2nd | `./bin/eh status` | Environment health |
+| 3rd | `kubectl` | **Only when CLI is insufficient** |
+
+**If you use kubectl to debug something:**
+1. Note what information was missing from the CLI
+2. Add it to `eve job diagnose`, `eve system logs`, or a new command
+3. Update this skill with the new pattern
 
 ## Fast triage
 
@@ -28,10 +48,21 @@ Start CLI-first, then drill into service logs.
 
 ## Environment-specific logs
 
-- Local dev: `/tmp/eve-api.log`, `/tmp/eve-orchestrator.log`, `/tmp/eve-worker.log`
-- Docker: `docker logs eve-api -f`, `docker logs eve-orchestrator -f`, `docker logs eve-worker -f`
-- K8s: `eve system logs api`, `eve system logs orchestrator`, `eve system logs worker`
-- Fallback k8s: `kubectl -n eve logs deployment/eve-orchestrator -f`
+**CLI first (preferred):**
+- `eve system logs api` — API service logs
+- `eve system logs orchestrator` — Orchestrator logs
+- `eve system logs worker` — Worker logs
+- `eve job runner-logs <id>` — Runner pod logs for a specific job
+
+**Local dev (files):**
+- `/tmp/eve-api.log`, `/tmp/eve-orchestrator.log`, `/tmp/eve-worker.log`
+
+**Docker (when CLI unavailable):**
+- `docker logs eve-api -f`, `docker logs eve-orchestrator -f`
+
+**kubectl (LAST RESORT — then improve the CLI):**
+- `kubectl -n eve logs deployment/eve-orchestrator -f`
+- If you need this, file an issue to add the capability to `eve system logs`
 
 ## Recursive skill distillation
 
