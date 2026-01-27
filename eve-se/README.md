@@ -10,8 +10,6 @@ Skills specific to working with the Eve Horizon platform and conforming to its p
 - **eve-pipelines-workflows** - Define and run pipelines and workflows
 - **eve-auth-and-secrets** - Extract OAuth tokens and manage project secrets
 - **eve-repo-upkeep** - Keep Eve repos aligned with platform best practices
-- **eve-aws-provisioning** - Provision AWS VPS (k3s) for the P0 baseline deployment
-- **eve-staging-operations** - Set up and operate Eve Horizon staging environments on AWS (k3s)
 
 ## Installation
 
@@ -27,4 +25,4 @@ This installs all packs in the repo. For a local clone or targeted installs, you
 
 ## Who Should Use This
 
-Teams building applications on Eve Horizon. These skills teach agents how to work effectively within the Eve ecosystem, use the CLI, create jobs, and follow platform conventions.
+Teams building applications on Eve Horizon. These skills teach agents how to work effectively within the Eve ecosystem, use the CLI, create jobs, and follow platform conventions. Prefer staging deployments for validation before production.

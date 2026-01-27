@@ -7,6 +7,11 @@ description: Deploy and debug Eve-compatible apps via CLI, including local tag w
 
 Use these steps to deploy and diagnose app issues quickly.
 
+## Environment preference
+
+- **Staging first** for validation: `https://api.eve-staging.incept5.dev`
+- Local k8s is optional for rapid iteration
+
 ## Deploy flows
 
 - Local k8s loop:
@@ -19,10 +24,20 @@ Use these steps to deploy and diagnose app issues quickly.
 
 ## Observe deploy
 
-- `eve job list` to find the deploy job.
+- `eve job list --all --phase active` to find the deploy job.
 - `eve job follow <id>` for live logs.
+- `eve job watch <id>` to combine status polling + logs.
 - `eve job diagnose <id>` for errors and timing.
 - `eve job dep list <id>` if the job is blocked.
+- `eve job result <id>` once it completes.
+
+## CLI-first debugging (CRITICAL)
+
+| Priority | Tool | When |
+|----------|------|------|
+| 1st | `eve` CLI | **Always start here** |
+| 2nd | `eve system health` | API + DB health |
+| 3rd | `kubectl` | **Only when CLI is insufficient** |
 
 ## Common failure points
 
@@ -33,8 +48,9 @@ Use these steps to deploy and diagnose app issues quickly.
 
 ## Access URLs
 
+- Staging ingress: `https://{component}.{project}-{env}.eve-staging.incept5.dev`.
 - Local ingress: `http://{component}.{project}-{env}.lvh.me`.
-- Production: `http://{component}.{project}-{env}.{domain}` (manifest domain or default domain).
+- Production: `https://{component}.{project}-{env}.{domain}` (manifest domain or default domain).
 
 ## Recursive skill distillation
 

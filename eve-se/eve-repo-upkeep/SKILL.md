@@ -32,7 +32,7 @@ Use this workflow to keep Eve-compatible repos current with platform changes and
 ### .eve/hooks/on-clone.sh
 
 - Make idempotent (check before install).
-- Use `claude mcp install` instead of deprecated methods.
+- Prefer `./bin/eh skills install` when present; otherwise fall back to `eve-skills install` or `openskills install`.
 - Test with a fresh clone to ensure hook executes cleanly.
 
 ### CLAUDE.md / AGENTS.md
@@ -58,10 +58,10 @@ For internal Eve repos:
 
 ## Testing after updates
 
-- Run a full deploy cycle: `eve env deploy <project> <env>`.
-- Use `eve job follow` and `eve job diagnose` to catch issues early.
+- Prefer staging for validation: `eve env deploy <project> <env>`.
+- Use `eve system health`, `eve job follow`, and `eve job diagnose` to catch issues early.
 - Access ingress URLs to verify runtime behavior.
-- Test local k8s flow if the repo supports it.
+- Use local k8s only for rapid iteration when needed.
 
 ## Recursive skill distillation
 

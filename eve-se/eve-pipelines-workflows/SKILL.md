@@ -7,11 +7,12 @@ description: Define and run Eve pipelines and workflows via manifest and CLI. Us
 
 Use these patterns to automate build and deploy actions and invoke workflow jobs.
 
-## Pipelines
+## Pipelines (v2 steps)
 
 - Define pipelines under `pipelines` in `.eve/manifest.yaml`.
 - Steps can be `action`, `script`, or `agent`.
 - Use `depends_on` to control ordering.
+- Built-in actions include `build`, `release`, `deploy`, `run`, `job`, `create-pr`.
 - Run manually:
   - `eve pipeline list`
   - `eve pipeline show <project> <name>`
@@ -21,6 +22,7 @@ Use these patterns to automate build and deploy actions and invoke workflow jobs
 ## Workflows
 
 - Define workflows under `workflows` in the manifest.
+- `db_access` is honored when present (`read_only`, `read_write`).
 - Invoke manually:
   - `eve workflow list`
   - `eve workflow show <project> <name>`

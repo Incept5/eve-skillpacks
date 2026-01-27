@@ -38,6 +38,11 @@ Ask for their email and SSH key path, then set defaults:
 eve profile set staging --default-email <their-email> --default-ssh-key <their-key-path>
 ```
 
+Confirm API health:
+```bash
+eve system health
+```
+
 ## Step 2: Authentication (if needed)
 
 If not authenticated:
@@ -122,6 +127,7 @@ Help them set up their own repo:
 
 Run verification:
 ```bash
+eve system health      # Confirm API + DB
 eve auth status        # Confirm authenticated
 eve profile show       # Confirm profile configured
 cat .eve/manifest.yaml # Confirm manifest updated

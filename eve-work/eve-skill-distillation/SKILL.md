@@ -12,7 +12,7 @@ Use this workflow to turn repeated patterns into reusable skills.
 - Identify repeated steps, commands, or failure modes.
 - Decide whether to update an existing skill or create a new one.
 - Choose the pack:
-  - `eve-dev` for platform development
+  - `private-eve-dev-skills/eve-dev` for platform development (private)
   - `eve-se` for Eve-compatible project work
   - `eve-work` for general knowledge work
 
@@ -26,7 +26,7 @@ Use this workflow to turn repeated patterns into reusable skills.
 ## Validate and publish
 
 - Use the skill in the next relevant job.
-- Update pack README and `ARCHITECTURE.md` listings.
+- Update pack README and `ARCHITECTURE.md` listings (or the private pack README for dev-only skills).
 - Sync or reinstall skills if needed (`openskills install` and `openskills sync`).
 
 ## Recursive skill distillation

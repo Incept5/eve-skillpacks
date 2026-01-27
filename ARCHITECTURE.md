@@ -13,6 +13,8 @@ Key characteristics:
 - Packs are installed by referencing this repo in `skills.txt`
 - The repo is visible (not hidden) to serve as reference examples
 
+Dev-only packs are hosted in the eve-horizon repo under `private-eve-dev-skills/` and are not published here.
+
 ## Directory Structure
 
 ```
@@ -26,33 +28,17 @@ eve-skillpacks/
 │   │   └── SKILL.md
 │   ├── eve-deploy-debugging/
 │   │   └── SKILL.md
-│   ├── eve-aws-provisioning/
-│   │   └── SKILL.md
-│   ├── eve-staging-operations/
-│   │   └── SKILL.md
 │   └── eve-pipelines-workflows/
 │       └── SKILL.md
-├── eve-work/              # General work patterns
-│   ├── README.md
-│   ├── eve-orchestration/
-│   │   └── SKILL.md
-│   ├── eve-job-lifecycle/
-│   │   └── SKILL.md
-│   ├── eve-job-debugging/
-│   │   └── SKILL.md
-│   └── eve-skill-distillation/
-│       └── SKILL.md
-└── eve-dev/               # Internal development
+└── eve-work/              # General work patterns
     ├── README.md
-    ├── beads-task-management/
+    ├── eve-orchestration/
     │   └── SKILL.md
-    ├── eve-dev-workflow/
+    ├── eve-job-lifecycle/
     │   └── SKILL.md
-    ├── eve-platform-debugging/
+    ├── eve-job-debugging/
     │   └── SKILL.md
-    ├── eve-docs-upkeep/
-    │   └── SKILL.md
-    └── eve-system-map/
+    └── eve-skill-distillation/
         └── SKILL.md
 ```
 
@@ -65,8 +51,6 @@ Skills for working with the Eve Horizon platform and conforming to its patterns.
 - **eve-project-bootstrap**: Bootstrap a repo, org, and project for Eve
 - **eve-manifest-authoring**: Author and maintain the Eve manifest
 - **eve-deploy-debugging**: Deploy and debug Eve-compatible apps
-- **eve-aws-provisioning**: Provision AWS VPS (k3s) for the P0 baseline deployment
-- **eve-staging-operations**: Staging environment setup, deployment, and troubleshooting
 - **eve-pipelines-workflows**: Define and run pipelines and workflows
 
 **Who should use**: Teams building applications on Eve Horizon.
@@ -82,17 +66,7 @@ Skills for doing productive work using Eve Horizon patterns.
 
 **Who should use**: Anyone using Eve Horizon for knowledge work - whether software engineering, research, writing, or other domains.
 
-### eve-dev
-Internal skills for developing and maintaining the Eve Horizon platform itself.
 
-**Skills included**:
-- **beads-task-management**: Work tracking with Beads - setup, maintenance, task breakdown, and finding work
-- **eve-dev-workflow**: Internal dev workflow, runtime options, and testing guardrails
-- **eve-platform-debugging**: Debug jobs, provisioning, and platform services
-- **eve-docs-upkeep**: Keep docs current and cross-linked
-- **eve-system-map**: Architecture, docs, and code navigation map
-
-**Who should use**: Eve Horizon platform developers and contributors.
 
 ## Installation
 

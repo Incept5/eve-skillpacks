@@ -7,10 +7,11 @@ description: Author and maintain Eve manifest files (.eve/manifest.yaml) for com
 
 Keep the manifest as the single source of truth for build and deploy behavior.
 
-## Minimal skeleton
+## Minimal skeleton (v2)
 
 ```yaml
-name: my-project
+schema: eve/compose/v1
+project: my-project
 
 registry:
   host: ghcr.io
@@ -19,46 +20,57 @@ registry:
     username_secret: GHCR_USERNAME
     token_secret: GHCR_TOKEN
 
-components:
+services:
   api:
-    image: ghcr.io/myorg/my-project-api
     build:
       context: ./apps/api
-    port: 3000
+    ports: [3000]
+    environment:
+      NODE_ENV: production
+    x-eve:
+      ingress:
+        public: true
+        port: 3000
 
 environments:
-  test:
-    pipeline: deploy-test
+  staging:
+    pipeline: deploy
 
 pipelines:
-  deploy-test:
+  deploy:
     steps:
       - name: build
-        action:
-          type: build
+        action: { type: build }
       - name: deploy
         depends_on: [build]
-        action:
-          type: deploy
+        action: { type: deploy }
 ```
 
-## Components
+## Services
 
 - Provide `image` and optionally `build` (context and dockerfile).
-- Use `port`, `env`, `healthcheck`, `depends_on`, and `migrations` as needed.
-- Use `external: true` and `connection_url` for externally hosted services.
+- Use `ports`, `environment`, `healthcheck`, `depends_on` as needed.
+- Use `x-eve.external: true` and `x-eve.connection_url` for externally hosted services.
+- Use `x-eve.role: job` for one-off services (migrations, seeds).
 
 ## Environments, pipelines, workflows
 
 - Link each environment to a pipeline.
 - Pipeline steps can be `action`, `script`, or `agent`.
-- Workflows live under `workflows` and are invoked via CLI; trigger blocks exist but auto triggers are planned.
+- Use `action.type: create-pr` for PR automation when configured.
+- Workflows live under `workflows` and are invoked via CLI; `db_access` is honored.
 
 ## Interpolation and secrets
 
 - Env interpolation: `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${COMPONENT_NAME}`.
 - Secret interpolation: `${secret.KEY}` pulls from Eve secrets or `.eve/secrets.yaml`.
 - Use `.eve/secrets.yaml` for local overrides; set real secrets via the API for production.
+
+## Eve extensions
+
+- Top-level defaults via `x-eve.defaults` (env, hints, git, workspace).
+- Service extensions under `x-eve` (ingress, role, api specs, worker pools).
+- API specs: `x-eve.api_spec` or `x-eve.api_specs` (spec URL relative to service by default).
 
 ## Recursive skill distillation
 

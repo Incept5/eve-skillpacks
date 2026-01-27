@@ -18,6 +18,13 @@ Use this workflow to configure authentication and secrets for Eve projects.
 
 Eve uses OAuth tokens from Claude Code and Codex for agent harnesses.
 
+**If you operate the Eve Horizon platform itself (internal):**
+
+```bash
+./bin/eh auth extract --save
+./bin/eh k8s secrets
+```
+
 ### macOS
 
 Tokens are stored in the macOS Keychain:
@@ -52,13 +59,13 @@ Set secrets via the Eve API:
 
 ```bash
 # Set a secret for a project
-eve secret set --project proj_xxx API_KEY "your-api-key"
+eve secrets set API_KEY "your-api-key" --scope project --project proj_xxx
 
 # List project secrets (keys only, not values)
-eve secret list --project proj_xxx
+eve secrets list --scope project --project proj_xxx
 
 # Delete a secret
-eve secret delete --project proj_xxx API_KEY
+eve secrets delete API_KEY --scope project --project proj_xxx
 ```
 
 ## Secret interpolation

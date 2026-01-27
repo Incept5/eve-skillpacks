@@ -1,6 +1,6 @@
 # Eve Skillpacks
 
-Public skill packs for Eve Horizon.
+Public skill packs for Eve Horizon. Dev-only packs live in the eve-horizon repo under `private-eve-dev-skills/`.
 
 ## Install
 
@@ -18,5 +18,4 @@ openskills sync
 ## Packs
 
 - `eve-work` - Productive work patterns (includes `eve-orchestration`)
-- `eve-dev` - Internal development workflows (includes `beads-task-management`)
 - `eve-se` - Platform-specific skills (in progress)
