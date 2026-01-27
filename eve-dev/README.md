@@ -9,6 +9,7 @@ Internal skills for developing and maintaining the Eve Horizon platform itself.
 - **eve-platform-debugging** - Debug jobs, provisioning, and platform services
 - **eve-docs-upkeep** - Keep docs current and cross-linked
 - **eve-system-map** - Architecture, docs, and code navigation map
+- **starter-upkeep** - Keep eve-horizon-starter template in sync with platform conventions
 
 ## Installation
 
