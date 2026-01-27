@@ -1,70 +1,53 @@
 ---
 name: eve-repo-upkeep
-description: Keep Eve-compatible repos aligned with platform best practices, including starter template updates and documentation maintenance
+description: Keep Eve-compatible repos aligned with platform best practices and current manifest conventions.
 ---
 
 # Eve Repo Upkeep
 
-Use this workflow to keep Eve-compatible repos current with platform changes and best practices.
+Use this workflow to keep an app repo current with Eve conventions.
 
-## When to use
+## When to Use
 
-- After Eve platform updates or schema changes.
-- When maintaining internal Eve projects.
-- Periodically to catch deprecated patterns or configuration drift.
-- Before major deploys or releases.
+- After Eve platform updates or manifest schema changes
+- Before a major deploy or release
+- When onboarding a new maintainer
 
-## Files to keep current
+## Files to Keep Current
 
-### .eve/manifest.yaml
+### `.eve/manifest.yaml`
 
-- Verify schema matches the latest version.
-- Check for new fields: `healthcheck`, `migrations`, `depends_on`, workflow triggers.
-- Ensure secret interpolation uses `${secret.KEY}` format.
-- Validate pipeline and workflow structure against current syntax.
+- Ensure `schema: eve/compose/v1` is present.
+- Prefer `services:` over legacy `components:`.
+- Keep `x-eve` ingress and pipeline definitions accurate.
+- Keep `x-eve.defaults` in sync with harness defaults (harness/profile/options).
+- Keep `x-eve.agents` profiles aligned with orchestration policy.
+- Confirm `${secret.KEY}` usage for secrets.
 
-### skills.txt
+### `skills.txt`
 
-- Reference latest skillpack versions or commit hashes.
-- Remove obsolete skillpacks.
-- Add new eve-se skills as they become available.
+- Keep Eve skillpack references up to date.
+- Remove obsolete packs or pinned versions.
 
-### .eve/hooks/on-clone.sh
+### Agent Instructions (AGENTS.md / CLAUDE.md)
 
-- Make idempotent (check before install).
-- Prefer `./bin/eh skills install` when present; otherwise fall back to `eve-skills install` or `openskills install`.
-- Test with a fresh clone to ensure hook executes cleanly.
+- Update skill references to include `eve-se-index`.
+- Remove stale commands or URLs.
 
-### CLAUDE.md / AGENTS.md
+## Check for Deprecated Patterns
 
-- Update agent instructions to reference current skills and workflows.
-- Remove stale instructions or deprecated commands.
-- Align with project's current architecture and conventions.
+- Old CLI commands (`eve deploy` vs `eve env deploy`)
+- Hardcoded domains in docs or manifests
+- Inline secrets in repo files
 
-## Syncing with starter template
+## Test After Updates
 
-For internal Eve repos:
+```bash
+# Local validation (Docker Compose)
+docker compose up --build
 
-- Compare against `eve-horizon-starter` or the canonical template.
-- Pull in structural improvements (hooks, manifest patterns, CI config).
-- Adapt rather than copy; preserve project-specific customizations.
+# Staging deploy
+eve env deploy proj_xxx staging
+```
 
-## Checking for deprecated patterns
-
-- Search for old CLI commands (`eve deploy` vs `eve env deploy`).
-- Look for hardcoded URLs or domains that should be manifest-driven.
-- Check for inline secrets that belong in `.eve/secrets.yaml` or the API.
-- Verify build contexts and Dockerfiles match current conventions.
-
-## Testing after updates
-
-- Prefer staging for validation: `eve env deploy <project> <env>`.
-- Use `eve system health`, `eve job follow`, and `eve job diagnose` to catch issues early.
-- Access ingress URLs to verify runtime behavior.
-- Use local k8s only for rapid iteration when needed.
-
-## Recursive skill distillation
-
-- Record recurring upkeep patterns as updates to this skill.
-- If a specific area (manifest upgrades, hook maintenance) grows complex, extract it into a new eve-se skill.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.
+Track the deploy job with `eve job follow`.

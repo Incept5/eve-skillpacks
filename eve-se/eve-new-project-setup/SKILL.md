@@ -1,6 +1,6 @@
 ---
 name: eve-new-project-setup
-description: Set up a new Eve Horizon project from template - configures auth, profile, and manifest
+description: Set up a new Eve Horizon project from the starter template (CLI, profile, auth, manifest, and repo linkage).
 triggers:
   - new project setup
   - initialize eve project
@@ -10,151 +10,127 @@ triggers:
 
 # Eve New Project Setup
 
-You are helping a developer set up a new Eve Horizon project. They've just cloned the eve-horizon-starter template and need to configure it for their use.
+Use this when a developer just cloned the starter template and needs it configured for Eve.
 
 ## Prerequisites Check
 
-First, verify their environment:
-
-1. **Check for eve CLI**: Run `eve --version`. If not found, guide them to install:
+1. **Eve CLI installed**:
    ```bash
-   npm install -g @eve/cli
+   eve --version
+   ```
+   If missing:
+   ```bash
+   npm install -g @eve-horizon/cli
    ```
 
-2. **Check for existing profile**: Run `eve profile show`. Look for a staging profile with api_url set.
+2. **Profile exists**:
+   ```bash
+   eve profile show
+   ```
 
-3. **Check auth status**: Run `eve auth status`. See if they're authenticated.
+3. **Auth status**:
+   ```bash
+   eve auth status
+   ```
 
-## Step 1: Profile Setup (if needed)
+## Step 1: Profile Setup
 
-If no staging profile exists:
+Get the staging API URL from the admin and create a profile:
 
 ```bash
 eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile use staging
 ```
 
-Ask for their email and SSH key path, then set defaults:
-```bash
-eve profile set staging --default-email <their-email> --default-ssh-key <their-key-path>
-```
-
-Confirm API health:
-```bash
-eve system health
-```
-
-## Step 2: Authentication (if needed)
-
-If not authenticated:
+Set defaults:
 
 ```bash
-eve auth bootstrap --status
+eve profile set --default-email you@example.com --default-ssh-key ~/.ssh/id_ed25519
 ```
 
-- If window open and they're the first user → `eve auth bootstrap --email <email>`
-- Otherwise → `eve auth login`
-- If login fails, offer GitHub key auto-discovery
+## Step 2: Authentication
 
-Verify with `eve auth status`.
+```bash
+eve auth login
+eve auth status
+```
 
-## Step 3: Project Interview
+Optional (for agent harnesses):
 
-Ask the user these questions to understand their project:
+```bash
+eve auth sync
+```
 
-### Required Information
-1. **Project name**: What should this project be called? (used for slug, e.g., `my-awesome-app`)
-2. **Brief description**: One sentence about what this project does
+## Step 3: Org + Project
 
-### Eve Horizon Capabilities Discussion
+Gather:
 
-Explain what Eve Horizon can help with:
+- Org name
+- Project name and slug
+- Repo URL
 
-> "Eve Horizon is a platform for running AI-powered jobs. Here's what it can do for your project:
->
-> **CI/CD & Automation**
-> - Run tests, builds, and deployments via AI agents
-> - Automated code review and PR feedback
-> - Release management and changelog generation
->
-> **Development Workflows**
-> - Code generation and scaffolding
-> - Documentation generation
-> - Dependency updates and security scanning
->
-> **AI-Powered Tasks**
-> - Natural language job definitions
-> - Multi-step workflows with approvals
-> - Secret management for API keys
->
-> What aspects interest you most for this project?"
+Create or ensure them:
 
-### Optional Configuration
-3. **GitHub repo URL**: If they want GitHub integration (webhooks, PR comments)
-4. **Default org**: If they're part of an org (check with `eve orgs`)
+```bash
+eve org ensure my-org
+eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
+```
 
-## Step 4: Configure Manifest
+Set defaults:
 
-Read the current `.eve/manifest.yaml` file. Update it with the user's information:
+```bash
+eve profile set --org org_xxx --project proj_xxx
+```
+
+## Step 4: Manifest (v2)
+
+If the repo uses an old `components:` manifest, migrate to `services:` and add
+`schema: eve/compose/v1`.
+
+Minimal example:
 
 ```yaml
-version: "1"
-project:
-  slug: <project-name-slug>  # lowercase, hyphens, from their project name
-  name: <Project Name>
-  description: <their description>
+schema: eve/compose/v1
+project: my-app
 
-# If they provided GitHub URL:
-integrations:
-  github:
-    repo: <owner/repo>
+services:
+  api:
+    image: ghcr.io/myorg/my-app-api:latest
+    ports: [3000]
+    x-eve:
+      ingress:
+        public: true
+        port: 3000
+
+environments:
+  staging:
+    pipeline: deploy
+
+pipelines:
+  deploy:
+    steps:
+      - name: deploy
+        action: { type: deploy }
 ```
 
-Write the updated manifest.
+## Step 5: Git Remote
 
-## Step 5: Git Configuration
-
-Help them set up their own repo:
-
-1. Check current remote: `git remote -v`
-2. If it's still pointing to eve-horizon-starter:
-   ```bash
-   git remote rename origin upstream  # Keep template as upstream for updates
-   git remote add origin <their-repo-url>
-   ```
-3. Update any template references (README, package.json name, etc.)
-
-## Step 6: Verification & Next Steps
-
-Run verification:
 ```bash
-eve system health      # Confirm API + DB
-eve auth status        # Confirm authenticated
-eve profile show       # Confirm profile configured
-cat .eve/manifest.yaml # Confirm manifest updated
+git remote -v
+git remote set-url origin git@github.com:me/my-app.git
 ```
 
-Provide next steps summary:
-```
-✅ Setup Complete!
+## Step 6: Verification + Next Steps
 
-Your project "<project-name>" is configured for Eve Horizon.
+```bash
+eve system health
+eve auth status
+eve profile show
+```
 
 Next steps:
-1. Push to your repo: git push -u origin main
-2. Create your first job: eve jobs create --prompt "Hello Eve!"
-3. Set up secrets: eve auth sync (syncs Claude/Codex tokens)
-4. Explore workflows in .eve/workflows/
 
-Need help? Run: eve --help
-```
-
-## Error Handling
-
-- **No SSH key found**: Guide them to generate one or check GitHub for existing keys
-- **Auth fails**: Check bootstrap status, suggest admin contact if needed
-- **Manifest parse error**: Show the error, help fix YAML syntax
-- **Git remote issues**: Provide manual commands to fix
-
-## Conversation Style
-
-Be friendly and efficient. Don't overwhelm with options - make smart defaults and ask for confirmation. The goal is to get them productive quickly.
+1. Run locally with Docker Compose (`eve-local-dev-loop`)
+2. Set secrets: `eve secrets set KEY "value" --project proj_xxx`
+3. Deploy: `eve env deploy proj_xxx staging`
+4. Create a job: `eve job create --description "Review the codebase"`

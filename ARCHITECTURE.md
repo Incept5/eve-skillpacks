@@ -22,13 +22,27 @@ eve-skillpacks/
 ├── ARCHITECTURE.md        # This file
 ├── eve-se/                # Platform-specific skills
 │   ├── README.md
+│   ├── eve-se-index/
+│   │   └── SKILL.md
+│   ├── eve-cli-primitives/
+│   │   └── SKILL.md
 │   ├── eve-project-bootstrap/
+│   │   └── SKILL.md
+│   ├── eve-new-project-setup/
 │   │   └── SKILL.md
 │   ├── eve-manifest-authoring/
 │   │   └── SKILL.md
+│   ├── eve-auth-and-secrets/
+│   │   └── SKILL.md
+│   ├── eve-local-dev-loop/
+│   │   └── SKILL.md
 │   ├── eve-deploy-debugging/
 │   │   └── SKILL.md
-│   └── eve-pipelines-workflows/
+│   ├── eve-troubleshooting/
+│   │   └── SKILL.md
+│   ├── eve-pipelines-workflows/
+│   │   └── SKILL.md
+│   └── eve-repo-upkeep/
 │       └── SKILL.md
 └── eve-work/              # General work patterns
     ├── README.md
@@ -48,10 +62,17 @@ eve-skillpacks/
 Skills for working with the Eve Horizon platform and conforming to its patterns.
 
 **Skills included**:
+- **eve-se-index**: Load this first; route to the right skill
+- **eve-cli-primitives**: Core CLI commands and capabilities
+- **eve-new-project-setup**: Set up a new project from the starter
 - **eve-project-bootstrap**: Bootstrap a repo, org, and project for Eve
 - **eve-manifest-authoring**: Author and maintain the Eve manifest
+- **eve-auth-and-secrets**: Authenticate and manage project secrets
+- **eve-local-dev-loop**: Docker Compose local dev loop + staging handoff
 - **eve-deploy-debugging**: Deploy and debug Eve-compatible apps
 - **eve-pipelines-workflows**: Define and run pipelines and workflows
+- **eve-troubleshooting**: CLI-first troubleshooting runbooks
+- **eve-repo-upkeep**: Keep repos aligned with platform best practices
 
 **Who should use**: Teams building applications on Eve Horizon.
 

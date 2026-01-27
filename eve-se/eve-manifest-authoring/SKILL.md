@@ -1,6 +1,6 @@
 ---
 name: eve-manifest-authoring
-description: Author and maintain Eve manifest files (.eve/manifest.yaml) for components, environments, pipelines, workflows, and secret interpolation. Use when changing deployment shape or runtime configuration in an Eve-compatible repo.
+description: Author and maintain Eve manifest files (.eve/manifest.yaml) for services, environments, pipelines, workflows, and secret interpolation. Use when changing deployment shape or runtime configuration in an Eve-compatible repo.
 ---
 
 # Eve Manifest Authoring
@@ -46,12 +46,22 @@ pipelines:
         action: { type: deploy }
 ```
 
+## Legacy manifests
+
+If the repo still uses `components:` from older manifests, migrate to `services:`
+and add `schema: eve/compose/v1`. Keep ports and env keys the same.
+
 ## Services
 
 - Provide `image` and optionally `build` (context and dockerfile).
 - Use `ports`, `environment`, `healthcheck`, `depends_on` as needed.
 - Use `x-eve.external: true` and `x-eve.connection_url` for externally hosted services.
 - Use `x-eve.role: job` for one-off services (migrations, seeds).
+
+## Local dev alignment
+
+- Keep service names and ports aligned with Docker Compose.
+- Prefer `${secret.KEY}` and use `.eve/secrets.yaml` for local values.
 
 ## Environments, pipelines, workflows
 
@@ -68,7 +78,8 @@ pipelines:
 
 ## Eve extensions
 
-- Top-level defaults via `x-eve.defaults` (env, hints, git, workspace).
+- Top-level defaults via `x-eve.defaults` (env, harness, harness_profile, harness_options, hints, git, workspace).
+- Top-level agent policy via `x-eve.agents` (profiles, councils, availability rules).
 - Service extensions under `x-eve` (ingress, role, api specs, worker pools).
 - API specs: `x-eve.api_spec` or `x-eve.api_specs` (spec URL relative to service by default).
 

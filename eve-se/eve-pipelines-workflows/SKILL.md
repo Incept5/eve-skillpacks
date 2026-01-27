@@ -17,7 +17,15 @@ Use these patterns to automate build and deploy actions and invoke workflow jobs
   - `eve pipeline list`
   - `eve pipeline show <project> <name>`
   - `eve pipeline run <name> --ref <sha> --env <env>`
-- Trigger blocks exist in the manifest; automatic trigger execution is planned.
+- Trigger blocks exist in the manifest; GitHub and Slack webhooks can create pipeline runs.
+
+Track pipeline execution like any job:
+
+```bash
+eve job list --phase active
+eve job follow <job-id>
+eve job result <job-id>
+```
 
 ## Workflows
 

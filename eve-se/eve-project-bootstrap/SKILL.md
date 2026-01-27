@@ -1,54 +1,57 @@
 ---
 name: eve-project-bootstrap
-description: Bootstrap an Eve-compatible project with org and project setup, CLI profile defaults, repo linkage, and first deploy. Use when onboarding a new repo or environment to Eve.
+description: Bootstrap an Eve-compatible project with org/project setup, profile defaults, repo linkage, and first deploy.
 ---
 
 # Eve Project Bootstrap
 
-Use this flow to connect a repo to Eve and get the first deploy running.
+Use this flow to connect an existing repo to Eve and get the first deploy running.
 
-## Set the API target (staging preferred)
+## Set the API Target
 
-- Prefer staging for real deploys: `https://api.eve-staging.incept5.dev`.
-- Use `eve profile create`/`set` to avoid repeating flags:
-  ```bash
-  eve profile create staging --api-url https://api.eve-staging.incept5.dev
-  eve profile set staging --default-email <email> --default-ssh-key <path>
-  ```
-- Local k8s (optional) uses `http://api.eve.lvh.me` (no port-forward needed).
+- Get the staging API URL from your admin.
+- Create and use a profile:
 
-## Create org and project
+```bash
+eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile use staging
+```
 
-- `eve org ensure <org-name>`
-- `eve project ensure --name <name> --slug <slug> --repo-url <git-url> --branch main`
-- Set defaults: `eve profile set --org <org-id> --project <proj-id>`
+## Create Org and Project
 
-## Add the manifest
+```bash
+eve org ensure my-org
+eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
+```
 
-- Create `.eve/manifest.yaml` in the repo.
-- Keep it as the source of truth for components and environments.
+Set defaults:
+
+```bash
+eve profile set --org org_xxx --project proj_xxx
+```
+
+## Add the Manifest
+
+- Ensure `.eve/manifest.yaml` is present and uses `schema: eve/compose/v1`.
 - Use the `eve-manifest-authoring` skill for structure details.
 
-## First deploy
+## First Deploy
 
-- **Staging (preferred):** ensure registry secrets exist, then run:
-  ```bash
-  eve env deploy <project> <env>
-  ```
-- **Local k8s (optional):** build images, import to k3d, run:
-  ```bash
-  eve env deploy <project> <env> --tag local
-  ```
+```bash
+# Create environment if needed
+eve env create staging --project proj_xxx --type persistent
+
+# Deploy
+eve env deploy proj_xxx staging
+```
 
 ## Verify
 
-- Check platform health: `eve system health`.
-- Track the deploy job with `eve job list --all --phase active` and `eve job follow <id>`.
-- Use `eve job result <id>` after completion for status + outputs.
-- Access apps via `http://{component}.{project}-{env}.lvh.me` or the manifest domain.
+```bash
+eve system health
+eve job list --phase active
+eve job follow <job-id>
+eve job result <job-id>
+```
 
-## Recursive skill distillation
-
-- Record onboarding friction and missing steps as updates to this skill.
-- Add a new eve-se skill if a distinct workflow repeats.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.
+Access apps via `{service}.{project}-{env}.{domain}`.

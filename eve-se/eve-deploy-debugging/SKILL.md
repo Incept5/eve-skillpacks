@@ -1,59 +1,63 @@
 ---
 name: eve-deploy-debugging
-description: Deploy and debug Eve-compatible apps via CLI, including local tag workflows, ingress URLs, and failure diagnosis. Use when deployments fail or behavior does not match expectations.
+description: Deploy and debug Eve-compatible apps via the CLI, with a focus on staging environments.
 ---
 
 # Eve Deploy and Debug
 
 Use these steps to deploy and diagnose app issues quickly.
 
-## Environment preference
+## Environment Setup
 
-- **Staging first** for validation: `https://api.eve-staging.incept5.dev`
-- Local k8s is optional for rapid iteration
+- Get the staging API URL from your admin.
+- Create and use a profile:
 
-## Deploy flows
+```bash
+eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile use staging
+```
 
-- Local k8s loop:
-  - `docker build -t ghcr.io/org/app-api:local ./apps/api`
-  - `k3d image import ghcr.io/org/app-api:local -c eve-local`
-  - `eve env deploy <project> <env> --tag local`
-- Registry deploy:
-  - Ensure registry secrets exist
-  - `eve env deploy <project> <env>`
+## Deploy Flow (Staging)
 
-## Observe deploy
+```bash
+# Create env if needed
+eve env create staging --project proj_xxx --type persistent
 
-- `eve job list --all --phase active` to find the deploy job.
-- `eve job follow <id>` for live logs.
-- `eve job watch <id>` to combine status polling + logs.
-- `eve job diagnose <id>` for errors and timing.
-- `eve job dep list <id>` if the job is blocked.
-- `eve job result <id>` once it completes.
+# Deploy
+eve env deploy proj_xxx staging
+```
 
-## CLI-first debugging (CRITICAL)
+## Observe the Deploy
 
-| Priority | Tool | When |
-|----------|------|------|
-| 1st | `eve` CLI | **Always start here** |
-| 2nd | `eve system health` | API + DB health |
-| 3rd | `kubectl` | **Only when CLI is insufficient** |
+```bash
+eve job list --phase active
+eve job follow <job-id>
+eve job watch <job-id>
+eve job diagnose <job-id>
+eve job result <job-id>
+```
 
-## Common failure points
+## CLI-First Debugging
 
-- Registry auth missing or wrong (`GHCR_USERNAME`, `GHCR_TOKEN`).
-- Secrets interpolation missing (`${secret.KEY}` not set).
-- Health check failing, blocking readiness.
-- Environment gate held by another deploy job.
+1. `eve job follow` and `eve job diagnose` for the deploy job
+2. `eve system health` for API + DB health
+
+Only use cluster tools if you have access and the CLI is insufficient.
+
+## Common Failure Points
+
+- Registry auth missing (`GHCR_USERNAME`, `GHCR_TOKEN`)
+- Secrets interpolation missing (`${secret.KEY}` not set)
+- Healthcheck failing, blocking readiness
+- Environment gate held by another deploy job
 
 ## Access URLs
 
-- Staging ingress: `https://{component}.{project}-{env}.eve-staging.incept5.dev`.
-- Local ingress: `http://{component}.{project}-{env}.lvh.me`.
-- Production: `https://{component}.{project}-{env}.{domain}` (manifest domain or default domain).
+- URL pattern: `{service}.{project}-{env}.{domain}`
+- Ask the admin for the correct domain (staging vs production).
 
-## Recursive skill distillation
+## Related Skills
 
-- Add new deploy pitfalls and fixes to this skill as they appear.
-- Extract distinct flows (registry, migrations, health checks) into new skills if needed.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.
+- Local dev loop: `eve-local-dev-loop`
+- Secrets: `eve-auth-and-secrets`
+- Manifest changes: `eve-manifest-authoring`
