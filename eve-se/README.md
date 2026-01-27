@@ -11,6 +11,7 @@ Skills specific to working with the Eve Horizon platform and conforming to its p
 - **eve-auth-and-secrets** - Extract OAuth tokens and manage project secrets
 - **eve-repo-upkeep** - Keep Eve repos aligned with platform best practices
 - **eve-aws-provisioning** - Provision AWS VPS (k3s) for the P0 baseline deployment
+- **eve-staging-operations** - Set up and operate Eve Horizon staging environments on AWS (k3s)
 
 ## Installation
 

@@ -28,6 +28,8 @@ eve-skillpacks/
 │   │   └── SKILL.md
 │   ├── eve-aws-provisioning/
 │   │   └── SKILL.md
+│   ├── eve-staging-operations/
+│   │   └── SKILL.md
 │   └── eve-pipelines-workflows/
 │       └── SKILL.md
 ├── eve-work/              # General work patterns
@@ -64,6 +66,7 @@ Skills for working with the Eve Horizon platform and conforming to its patterns.
 - **eve-manifest-authoring**: Author and maintain the Eve manifest
 - **eve-deploy-debugging**: Deploy and debug Eve-compatible apps
 - **eve-aws-provisioning**: Provision AWS VPS (k3s) for the P0 baseline deployment
+- **eve-staging-operations**: Staging environment setup, deployment, and troubleshooting
 - **eve-pipelines-workflows**: Define and run pipelines and workflows
 
 **Who should use**: Teams building applications on Eve Horizon.
