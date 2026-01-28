@@ -66,11 +66,7 @@ eve auth login
 
 The CLI will guide them through SSH key discovery (can fetch from GitHub if needed).
 
-Optional - sync OAuth tokens for agent harnesses:
-
-```bash
-eve auth sync
-```
+We'll set harness credentials after project creation.
 
 ## Step 4: Org + Project
 
@@ -93,7 +89,40 @@ Set as defaults in the profile:
 eve profile set --org org_xxx --project proj_xxx
 ```
 
-## Step 5: Manifest Configuration
+## Step 5: Choose Harness + Set API Keys
+
+Ask which harness they want to target (can be more than one):
+- **mclaude / claude** (Anthropic)
+- **code / codex** (OpenAI)
+- **zai** (Z.ai)
+- **gemini** (Google)
+
+Map harnesses to required secrets:
+- **mclaude/claude**: `ANTHROPIC_API_KEY` (preferred) or Claude OAuth via `eve auth sync`
+- **code/codex**: `OPENAI_API_KEY` (preferred) or `CODEX_AUTH_JSON_B64`
+- **zai**: `Z_AI_API_KEY`
+- **gemini**: `GEMINI_API_KEY` (or `GOOGLE_API_KEY`)
+
+Decide where to store secrets:
+- **Org** (recommended) for shared keys across projects
+- **Project** for app-specific keys
+- **User** for personal keys
+
+Use a secrets file for batch setup (starter repo includes `secrets.env.example`):
+
+```bash
+cp secrets.env.example secrets.env
+eve secrets import --org org_xxx --file ./secrets.env
+```
+
+For Claude/Codex OAuth tokens on the host:
+
+```bash
+# Store OAuth tokens in the project scope (or add --system if admin)
+eve auth sync --project proj_xxx
+```
+
+## Step 6: Manifest Configuration
 
 The starter template includes `.eve/manifest.yaml`. Update it with the project details:
 
@@ -127,7 +156,7 @@ Key fields to customize:
 - `services`: Define your app's services
 - `x-eve.ingress`: Configure public access
 
-## Step 6: Git Remote
+## Step 7: Git Remote
 
 The project starts with no remote. Help set one up:
 
@@ -137,7 +166,7 @@ git remote add origin git@github.com:user/my-app.git
 git push -u origin main
 ```
 
-## Step 7: Verification
+## Step 8: Verification
 
 Run these checks to confirm setup:
 
@@ -152,7 +181,7 @@ eve profile show
 After setup is complete, suggest:
 
 1. **Run locally**: `docker compose up --build`
-2. **Set secrets**: `eve secrets set MY_KEY "value"`
+2. **Set secrets**: `eve secrets set MY_KEY "value"` or `eve secrets import --file ./secrets.env`
 3. **Deploy to staging**: `eve env deploy staging --ref main`
 4. **Create a job**: `eve jobs create --prompt "Review the codebase"`
 
