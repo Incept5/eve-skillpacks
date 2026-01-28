@@ -153,8 +153,10 @@ After setup is complete, suggest:
 
 1. **Run locally**: `docker compose up --build`
 2. **Set secrets**: `eve secrets set MY_KEY "value"`
-3. **Deploy to staging**: `eve pipeline run deploy --env staging`
+3. **Deploy to staging**: `eve env deploy staging --ref main`
 4. **Create a job**: `eve jobs create --prompt "Review the codebase"`
+
+Note: If the environment has a `pipeline` configured in the manifest, `eve env deploy <env> --ref <sha>` will trigger that pipeline. Use `--direct` to bypass the pipeline and do a direct deploy.
 
 ## Troubleshooting
 

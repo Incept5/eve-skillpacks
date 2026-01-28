@@ -35,6 +35,8 @@ services:
 environments:
   staging:
     pipeline: deploy
+    pipeline_inputs:
+      some_key: default_value
 
 pipelines:
   deploy:
@@ -65,7 +67,11 @@ and add `schema: eve/compose/v1`. Keep ports and env keys the same.
 
 ## Environments, pipelines, workflows
 
-- Link each environment to a pipeline.
+- Link each environment to a pipeline via `environments.<env>.pipeline`.
+- When `pipeline` is set, `eve env deploy <env>` triggers that pipeline instead of direct deploy.
+- Use `environments.<env>.pipeline_inputs` to provide default inputs for pipeline runs.
+- Override inputs at runtime with `eve env deploy <env> --ref <sha> --inputs '{"key":"value"}'`.
+- Use `--direct` flag to bypass pipeline and do direct deploy: `eve env deploy <env> --ref <sha> --direct`.
 - Pipeline steps can be `action`, `script`, or `agent`.
 - Use `action.type: create-pr` for PR automation when configured.
 - Workflows live under `workflows` and are invoked via CLI; `db_access` is honored.

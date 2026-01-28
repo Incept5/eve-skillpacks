@@ -37,6 +37,7 @@ Use this workflow to keep an app repo current with Eve conventions.
 ## Check for Deprecated Patterns
 
 - Old CLI commands (`eve deploy` vs `eve env deploy`)
+- Old deploy syntax without `--ref` parameter
 - Hardcoded domains in docs or manifests
 - Inline secrets in repo files
 
@@ -46,8 +47,11 @@ Use this workflow to keep an app repo current with Eve conventions.
 # Local validation (Docker Compose)
 docker compose up --build
 
-# Staging deploy
-eve env deploy proj_xxx staging
+# Staging deploy (requires --ref with git SHA or branch name)
+eve env deploy staging --ref main
+
+# Use --direct to bypass pipeline if needed
+eve env deploy staging --ref main --direct
 ```
 
 Track the deploy job with `eve job follow`.

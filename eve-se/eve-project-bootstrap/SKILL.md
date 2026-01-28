@@ -41,8 +41,12 @@ eve profile set --org org_xxx --project proj_xxx
 # Create environment if needed
 eve env create staging --project proj_xxx --type persistent
 
-# Deploy
-eve env deploy proj_xxx staging
+# Deploy (requires --ref with git SHA or branch name)
+eve env deploy staging --ref main
+
+# If the environment has a pipeline configured, this triggers the pipeline.
+# Use --direct to bypass pipeline and deploy directly:
+eve env deploy staging --ref main --direct
 ```
 
 ## Verify

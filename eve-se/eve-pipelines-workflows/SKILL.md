@@ -27,6 +27,48 @@ eve job follow <job-id>
 eve job result <job-id>
 ```
 
+## Environment Deploy as Pipeline Alias
+
+When an environment has a `pipeline` configured in the manifest, `eve env deploy <env> --ref <sha>` automatically triggers that pipeline instead of doing a direct deploy.
+
+### Basic usage
+
+```bash
+# Triggers the configured pipeline for test environment
+eve env deploy test --ref abc123
+
+# Pass inputs to the pipeline
+eve env deploy staging --ref abc123 --inputs '{"release_id":"rel_xxx"}'
+
+# Bypass pipeline and do direct deploy
+eve env deploy staging --ref abc123 --direct
+```
+
+### Promotion flow example
+
+```bash
+# 1. Build and deploy to test environment
+eve env deploy test --ref abc123
+
+# 2. Get release info from the test build
+eve release resolve v1.2.3
+# Output: rel_xxx
+
+# 3. Promote to staging using the release_id
+eve env deploy staging --ref abc123 --inputs '{"release_id":"rel_xxx"}'
+```
+
+### Key behaviors
+
+- If `environments.<env>.pipeline` is set, `eve env deploy <env>` triggers that pipeline
+- Use `--direct` flag to bypass the pipeline and perform a direct deploy
+- Use `--inputs '{"key":"value"}'` to pass inputs to the pipeline run
+- Default inputs can be configured via `environments.<env>.pipeline_inputs` in the manifest
+- The `--ref` flag specifies which git SHA to deploy
+- Environment variables and secrets are interpolated as usual
+
+This pattern enables promotion workflows where you build once in a lower environment and promote the same artifact through higher environments.
+
 ## Workflows
 
 - Define workflows under `workflows` in the manifest.

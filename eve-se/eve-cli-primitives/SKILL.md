@@ -54,8 +54,15 @@ eve env list --project proj_xxx
 eve env show staging --project proj_xxx
 eve env status staging --project proj_xxx
 
-# Deploy an environment
-eve env deploy proj_xxx staging
+# Deploy an environment (requires --ref with git SHA or branch name)
+eve env deploy staging --ref main
+
+# When environment has a pipeline configured, the above triggers the pipeline.
+# Use --direct to bypass pipeline and deploy directly:
+eve env deploy staging --ref main --direct
+
+# Pass inputs to pipeline:
+eve env deploy staging --ref main --inputs '{"key":"value"}'
 ```
 
 ## Jobs (Create + Observe)
