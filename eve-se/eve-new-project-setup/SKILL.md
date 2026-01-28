@@ -1,101 +1,110 @@
 ---
 name: eve-new-project-setup
-description: Set up a new Eve Horizon project from the starter template (CLI, profile, auth, manifest, and repo linkage).
+description: Configure a new Eve Horizon project after running eve init (profile, auth, manifest, and repo linkage).
 triggers:
   - new project setup
   - initialize eve project
   - get started with eve
   - configure eve manifest
+  - run eve-new-project-setup
 ---
 
 # Eve New Project Setup
 
-Use this when a developer just cloned the starter template and needs it configured for Eve.
+Use this after a developer has run `eve init` and needs to configure the project for Eve Horizon.
 
-## Prerequisites Check
+## Context
 
-1. **Eve CLI installed**:
-   ```bash
-   eve --version
-   ```
-   If missing:
-   ```bash
-   npm install -g @eve-horizon/cli
-   ```
+The user has already run:
+```bash
+npm install -g @eve-horizon/cli
+eve init my-project
+cd my-project
+```
 
-2. **Profile exists**:
-   ```bash
-   eve profile show
-   ```
+This skill handles the remaining setup: profile, authentication, org/project registration, manifest customization, and git remote configuration.
 
-3. **Auth status**:
-   ```bash
-   eve auth status
-   ```
+## Step 1: Verify CLI
 
-## Step 1: Profile Setup
+```bash
+eve --version
+```
 
-Get the staging API URL from the admin and create a profile:
+If this fails, the CLI wasn't installed. Have them run:
+```bash
+npm install -g @eve-horizon/cli
+```
+
+## Step 2: Profile Setup
+
+Create a profile for the staging environment:
 
 ```bash
 eve profile create staging --api-url https://api.eve-staging.incept5.dev
 eve profile use staging
 ```
 
-Set defaults:
+Ask the user for their email and set defaults:
 
 ```bash
-eve profile set --default-email you@example.com --default-ssh-key ~/.ssh/id_ed25519
+eve profile set --default-email user@example.com
 ```
 
-## Step 2: Authentication
+## Step 3: Authentication
+
+Check current auth status:
 
 ```bash
-eve auth login
 eve auth status
 ```
 
-Optional (for agent harnesses):
+If not authenticated, log in:
+
+```bash
+eve auth login
+```
+
+The CLI will guide them through SSH key discovery (can fetch from GitHub if needed).
+
+Optional - sync OAuth tokens for agent harnesses:
 
 ```bash
 eve auth sync
 ```
 
-## Step 3: Org + Project
+## Step 4: Org + Project
 
-Gather:
+Ask the user for:
+- **Organization name** (e.g., "my-company")
+- **Project name** (e.g., "My App")
+- **Project slug** (e.g., "my-app")
+- **Repo URL** (e.g., "git@github.com:me/my-app.git")
 
-- Org name
-- Project name and slug
-- Repo URL
-
-Create or ensure them:
+Create or ensure they exist:
 
 ```bash
-eve org ensure my-org
+eve org ensure my-company
 eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
 ```
 
-Set defaults:
+Set as defaults in the profile:
 
 ```bash
 eve profile set --org org_xxx --project proj_xxx
 ```
 
-## Step 4: Manifest (v2)
+## Step 5: Manifest Configuration
 
-If the repo uses an old `components:` manifest, migrate to `services:` and add
-`schema: eve/compose/v1`.
-
-Minimal example:
+The starter template includes `.eve/manifest.yaml`. Update it with the project details:
 
 ```yaml
-schema: eve/compose/v1
+schema: eve/compose/v2
 project: my-app
 
 services:
   api:
-    image: ghcr.io/myorg/my-app-api:latest
+    build:
+      context: apps/api
     ports: [3000]
     x-eve:
       ingress:
@@ -113,14 +122,24 @@ pipelines:
         action: { type: deploy }
 ```
 
-## Step 5: Git Remote
+Key fields to customize:
+- `project`: Match the project slug
+- `services`: Define your app's services
+- `x-eve.ingress`: Configure public access
+
+## Step 6: Git Remote
+
+The project starts with no remote. Help set one up:
 
 ```bash
 git remote -v
-git remote set-url origin git@github.com:me/my-app.git
+git remote add origin git@github.com:user/my-app.git
+git push -u origin main
 ```
 
-## Step 6: Verification + Next Steps
+## Step 7: Verification
+
+Run these checks to confirm setup:
 
 ```bash
 eve system health
@@ -128,9 +147,28 @@ eve auth status
 eve profile show
 ```
 
-Next steps:
+## Next Steps
 
-1. Run locally with Docker Compose (`eve-local-dev-loop`)
-2. Set secrets: `eve secrets set KEY "value" --project proj_xxx`
-3. Deploy: `eve env deploy proj_xxx staging`
-4. Create a job: `eve job create --description "Review the codebase"`
+After setup is complete, suggest:
+
+1. **Run locally**: `docker compose up --build`
+2. **Set secrets**: `eve secrets set MY_KEY "value"`
+3. **Deploy to staging**: `eve pipeline run deploy --env staging`
+4. **Create a job**: `eve jobs create --prompt "Review the codebase"`
+
+## Troubleshooting
+
+### "eve: command not found"
+```bash
+npm install -g @eve-horizon/cli
+```
+
+### "Not authenticated"
+```bash
+eve auth login
+```
+
+### "No profile"
+```bash
+eve profile create staging --api-url https://api.eve-staging.incept5.dev
+```
