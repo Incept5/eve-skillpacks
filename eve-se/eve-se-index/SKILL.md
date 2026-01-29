@@ -24,6 +24,7 @@ Eve SE is for app developers using Eve to deploy and run their apps. It does not
 | Understand Eve CLI primitives | `eve-cli-primitives` |
 | Set up a new project from the starter | `eve-new-project-setup` |
 | Connect an existing repo to Eve | `eve-project-bootstrap` |
+| Implement a plan via Eve jobs | `eve-plan-implementation` |
 | Edit the manifest | `eve-manifest-authoring` |
 | Configure auth + secrets | `eve-auth-and-secrets` |
 | Local docker-compose dev loop | `eve-local-dev-loop` |

@@ -66,6 +66,7 @@ Skills for working with the Eve Horizon platform and conforming to its patterns.
 - **eve-cli-primitives**: Core CLI commands and capabilities
 - **eve-new-project-setup**: Set up a new project from the starter
 - **eve-project-bootstrap**: Bootstrap a repo, org, and project for Eve
+- **eve-plan-implementation**: Execute plan documents using Eve jobs
 - **eve-manifest-authoring**: Author and maintain the Eve manifest
 - **eve-auth-and-secrets**: Authenticate and manage project secrets
 - **eve-local-dev-loop**: Docker Compose local dev loop + staging handoff

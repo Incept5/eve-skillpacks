@@ -8,6 +8,7 @@ Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-co
 - **eve-cli-primitives** - Core CLI commands and capabilities
 - **eve-new-project-setup** - Set up a new project from the starter template
 - **eve-project-bootstrap** - Bootstrap a repo, org, and project for Eve
+- **eve-plan-implementation** - Turn plan documents into Eve jobs for execution
 - **eve-manifest-authoring** - Author and maintain the Eve manifest
 - **eve-auth-and-secrets** - Authenticate and manage project secrets
 - **eve-local-dev-loop** - Docker Compose local dev loop + staging handoff
