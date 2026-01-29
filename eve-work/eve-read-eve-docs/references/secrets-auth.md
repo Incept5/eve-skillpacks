@@ -87,13 +87,36 @@ The CLI can auto-fetch SSH keys from GitHub if none are registered.
 eve admin invite --email user@example.com --github-username user
 ```
 
-### OAuth Sync
+### Local Credentials
+
+Check what AI tool credentials are available on your machine:
 
 ```bash
-eve auth sync
+eve auth creds              # Show local Claude/Codex credentials
+eve auth creds --claude     # Only check Claude
+eve auth creds --codex      # Only check Codex
+eve auth creds --json       # JSON output
 ```
 
-Syncs local OAuth tokens (Claude/Codex) to Eve.
+Credential locations:
+- **Claude Code**: macOS Keychain (`Claude Code-credentials`) or `~/.claude/.credentials.json`
+- **Codex/Code**: macOS Keychain or `~/.codex/auth.json` / `~/.code/auth.json`
+
+### OAuth Sync
+
+Sync local OAuth tokens (Claude/Codex) to Eve:
+
+```bash
+eve auth sync                     # Sync to user-level (default)
+eve auth sync --org org_xxx       # Sync to org-level
+eve auth sync --project proj_xxx  # Sync to project-level
+eve auth sync --dry-run           # Preview without syncing
+eve auth sync --claude            # Only sync Claude tokens
+eve auth sync --codex             # Only sync Codex tokens
+```
+
+Scope priority: `--project` > `--org` > user (default).
+Default is user-level, so credentials are available to all your jobs.
 
 ## Harness Credentials (Current)
 

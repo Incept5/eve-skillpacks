@@ -32,7 +32,17 @@ eve profile set --org org_xxx --project proj_xxx
 ```bash
 eve auth status
 eve auth login --email you@example.com
-eve auth sync                       # sync OAuth tokens
+
+# Check local AI tool credentials (Claude Code, Codex)
+eve auth creds
+eve auth creds --claude             # Only check Claude
+eve auth creds --json               # JSON output
+
+# Sync local OAuth tokens to Eve
+eve auth sync                       # Sync to user-level (default)
+eve auth sync --org org_xxx         # Sync to org-level
+eve auth sync --project proj_xxx    # Sync to project-level
+eve auth sync --dry-run             # Preview without syncing
 
 eve auth bootstrap --email you@example.com --token $EVE_BOOTSTRAP_TOKEN
 
@@ -41,7 +51,8 @@ eve admin invite --email user@example.com --github-username user
 
 Notes:
 - CLI can auto-fetch SSH keys from GitHub when none are registered.
-- `auth sync` pushes local OAuth tokens to Eve.
+- `auth creds` shows what Claude/Codex credentials are available locally.
+- `auth sync` pushes local OAuth tokens to Eve (defaults to user-level).
 
 ## Org / Project
 
