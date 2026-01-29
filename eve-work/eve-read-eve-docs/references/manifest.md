@@ -114,7 +114,7 @@ Workflow invocation creates a job with the workflow hints merged.
 
 ## Manifest Defaults (`x-eve.defaults`)
 
-Default job settings applied on creation (job fields override defaults):
+Default job settings applied on creation (job fields override defaults). Default environment should be **staging** unless explicitly overridden:
 
 ```yaml
 x-eve:

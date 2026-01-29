@@ -8,6 +8,7 @@ Eve Horizon is a **job-first platform** that runs AI-powered skills against Git 
 - **Event-driven**: automation routes through an event spine in Postgres.
 - **Skills-based**: reusable capabilities live as OpenSkills `SKILL.md` files in repos.
 - **Isolated execution**: each job attempt runs in a fresh workspace with a cloned repo.
+- **Staging-first**: default guidance targets staging; local dev is opt-in.
 
 ## Core Architecture
 
@@ -44,6 +45,7 @@ Events are stored in Postgres and routed by the orchestrator. Sources include Gi
 ## Key Rules (Current)
 
 - **CLI only needs `EVE_API_URL`**; everything routes through the API.
+- **Default to staging** for user guidance unless explicitly asked for local dev.
 - **Pipelines and workflows are manifest-defined** and materialize into jobs.
 - **Git controls live on jobs** (ref, branch, commit/push policies).
 

@@ -1,20 +1,26 @@
 # CLI Quick Reference (Current)
 
+## Default Environment (Staging)
+
+Default to **staging** for user guidance. Use local/docker only when explicitly asked to do local development.
+Use the staging API URL: https://api.eve-staging.incept5.dev
+
 ## One Required Env Var
 
 Set the API endpoint and the CLI works everywhere:
 
 ```bash
-export EVE_API_URL=http://localhost:4801   # local/docker
-export EVE_API_URL=http://api.eve.lvh.me   # k8s ingress
+export EVE_API_URL=https://api.eve-staging.incept5.dev   # staging (default)
+export EVE_API_URL=http://localhost:4801               # local/docker (opt-in)
+export EVE_API_URL=http://api.eve.lvh.me               # k8s ingress (local)
 ```
 
-If you have access to `./bin/eh status`, use it to get the correct URL for the current instance.
+If you have access to `./bin/eh status`, use it to get the correct URL for the current instance. For staging, use https://api.eve-staging.incept5.dev.
 
 ## Profiles and Config
 
 ```bash
-eve profile create staging --api-url https://api.example.com
+eve profile create staging --api-url https://api.eve-staging.incept5.dev
 eve profile show
 eve config set --default-email you@example.com
 

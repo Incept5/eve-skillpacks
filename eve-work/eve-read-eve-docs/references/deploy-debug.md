@@ -1,9 +1,13 @@
 # Deployment + Debugging (Current)
 
+## Default Environment (Staging)
+
+Default to **staging** for user guidance. Use local/docker only when explicitly asked to do local development.
+
 ## Runtime Modes
 
-- **Docker Compose** (`EVE_RUNTIME=docker`): quick local dev
-- **Kubernetes** (`EVE_RUNTIME=k8s`): integration testing, manual validation, production
+- **Kubernetes** (`EVE_RUNTIME=k8s`): integration testing, staging, production
+- **Docker Compose** (`EVE_RUNTIME=docker`): local dev (opt-in)
 
 ## Deploying Environments
 
