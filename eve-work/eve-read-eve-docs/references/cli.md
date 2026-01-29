@@ -1,0 +1,113 @@
+# CLI Quick Reference (Current)
+
+## One Required Env Var
+
+Set the API endpoint and the CLI works everywhere:
+
+```bash
+export EVE_API_URL=http://localhost:4801   # local/docker
+export EVE_API_URL=http://api.eve.lvh.me   # k8s ingress
+```
+
+If you have access to `./bin/eh status`, use it to get the correct URL for the current instance.
+
+## Profiles and Config
+
+```bash
+eve profile create staging --api-url https://api.example.com
+eve profile show
+eve config set --default-email you@example.com
+
+eve profile set --org org_xxx --project proj_xxx
+```
+
+## Auth
+
+```bash
+eve auth status
+eve auth login --email you@example.com
+eve auth sync                       # sync OAuth tokens
+
+eve auth bootstrap --email you@example.com --token $EVE_BOOTSTRAP_TOKEN
+
+eve admin invite --email user@example.com --github-username user
+```
+
+Notes:
+- CLI can auto-fetch SSH keys from GitHub when none are registered.
+- `auth sync` pushes local OAuth tokens to Eve.
+
+## Org / Project
+
+```bash
+eve org list
+eve org ensure "my-org"
+
+eve project list
+eve project ensure --name "My Project" --slug myproj \
+  --repo-url https://github.com/org/repo --branch main
+
+eve project show proj_xxx
+eve project sync
+```
+
+## Jobs (see `references/jobs.md` for full detail)
+
+```bash
+eve job create --description "Fix bug"
+eve job list --phase active
+eve job show <job-id>
+eve job follow <job-id>
+eve job diagnose <job-id>
+```
+
+## Pipelines
+
+```bash
+eve pipeline list
+eve pipeline show <project> <name>
+eve pipeline run <name> --ref <sha> --env staging --inputs '{"k":"v"}'
+eve pipeline approve <run-id>
+eve pipeline cancel <run-id>
+```
+
+## Workflows
+
+```bash
+eve workflow list
+eve workflow show <project> <name>
+eve workflow run <project> <name> --input '{"k":"v"}'
+```
+
+## Deployments
+
+```bash
+eve env deploy staging --ref main
+
+eve env status staging
+```
+
+If an environment has a pipeline configured, `eve env deploy` triggers that pipeline.
+Use `--direct` to bypass the pipeline.
+
+## Secrets
+
+```bash
+eve secrets list --project proj_xxx
+eve secrets set KEY value --project proj_xxx
+
+eve secrets import --org org_xxx --file ./secrets.env
+
+eve secrets validate --project proj_xxx
+```
+
+## Events (Triggers)
+
+```bash
+eve event list --project proj_xxx --type github.push
+eve event emit --type manual.test --source manual --payload '{"k":"v"}'
+```
+
+## Debugging (CLI-first)
+
+See `references/deploy-debug.md` for the debugging ladder and system health commands.
