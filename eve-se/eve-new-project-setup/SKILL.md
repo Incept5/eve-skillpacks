@@ -40,7 +40,7 @@ npm install -g @eve-horizon/cli
 Create a profile for the staging environment:
 
 ```bash
-eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile create staging --api-url https://api.eh1.incept5.dev
 eve profile use staging
 ```
 
@@ -201,5 +201,5 @@ eve auth login
 
 ### "No profile"
 ```bash
-eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile create staging --api-url https://api.eh1.incept5.dev
 ```

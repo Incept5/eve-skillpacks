@@ -11,7 +11,7 @@ Use this skill as the command map for Eve. Keep examples short and concrete.
 
 ```bash
 # Create and use a profile
-eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile create staging --api-url https://api.eh1.incept5.dev
 eve profile use staging
 
 # Set defaults to avoid repeating flags

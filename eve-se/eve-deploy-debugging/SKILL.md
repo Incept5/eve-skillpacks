@@ -13,7 +13,7 @@ Use these steps to deploy and diagnose app issues quickly.
 - Create and use a profile:
 
 ```bash
-eve profile create staging --api-url https://api.eve-staging.incept5.dev
+eve profile create staging --api-url https://api.eh1.incept5.dev
 eve profile use staging
 ```
 
