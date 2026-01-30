@@ -68,6 +68,13 @@ eve project show proj_xxx
 eve project sync
 ```
 
+**URL impact:** The org `--slug` and project `--slug` directly form deployment URLs and K8s namespaces:
+- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myorg-myproj-staging.eh1.incept5.dev`)
+- Namespace: `eve-{orgSlug}-{projectSlug}-{env}` (e.g., `eve-myorg-myproj-staging`)
+- `${ORG_SLUG}` is available for interpolation in manifest values (see `references/manifest.md`)
+
+Slugs are immutable after creation. Choose short, meaningful values.
+
 ## Jobs (see `references/jobs.md` for full detail)
 
 ```bash

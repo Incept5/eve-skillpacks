@@ -24,6 +24,12 @@ eve org ensure my-org --slug myorg
 eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
 ```
 
+**URL impact:** These slugs determine your deployment URLs and K8s namespaces:
+- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myorg-my-app-staging.eh1.incept5.dev`)
+- Namespace: `eve-{orgSlug}-{projectSlug}-{env}` (e.g., `eve-myorg-my-app-staging`)
+
+Slugs are immutable — choose short, meaningful values.
+
 Set defaults:
 
 ```bash

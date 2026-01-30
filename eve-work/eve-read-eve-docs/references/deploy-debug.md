@@ -26,6 +26,13 @@ Default pattern:
 {service}.{orgSlug}-{projectSlug}-{env}.{domain}
 ```
 
+The `orgSlug` and `projectSlug` come from `eve org ensure --slug` and `eve project ensure --slug`.
+K8s namespace follows the same pattern: `eve-{orgSlug}-{projectSlug}-{env}`.
+
+Example: org slug `myorg`, project slug `myproj`, env `staging` →
+- URL: `api.myorg-myproj-staging.eh1.incept5.dev`
+- Namespace: `eve-myorg-myproj-staging`
+
 Domain resolution order:
 1) manifest `x-eve.ingress.domain`
 2) `EVE_DEFAULT_DOMAIN`
