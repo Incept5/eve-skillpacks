@@ -60,7 +60,7 @@ Only use cluster tools if you have access and the CLI is insufficient.
 
 ## Access URLs
 
-- URL pattern: `{service}.{project}-{env}.{domain}`
+- URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`
 - Ask the admin for the correct domain (staging vs production).
 
 ## Related Skills

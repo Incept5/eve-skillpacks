@@ -58,7 +58,7 @@ Notes:
 
 ```bash
 eve org list
-eve org ensure "my-org"
+eve org ensure "my-org" --slug myorg
 
 eve project list
 eve project ensure --name "My Project" --slug myproj \

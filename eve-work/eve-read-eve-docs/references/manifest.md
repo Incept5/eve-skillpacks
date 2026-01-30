@@ -174,7 +174,7 @@ environment:
   DATABASE_URL: postgres://user:${secret.DB_PASSWORD}@db:5432/app
 ```
 
-Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${COMPONENT_NAME}`.
+Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
 
 ## Ingress Defaults
 

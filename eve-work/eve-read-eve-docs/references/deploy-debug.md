@@ -23,7 +23,7 @@ If `environments.<env>.pipeline` is set, `eve env deploy` triggers that pipeline
 
 Default pattern:
 ```
-{service}.{project}-{env}.{domain}
+{service}.{orgSlug}-{projectSlug}-{env}.{domain}
 ```
 
 Domain resolution order:

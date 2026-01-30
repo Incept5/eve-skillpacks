@@ -78,7 +78,7 @@ and add `schema: eve/compose/v1`. Keep ports and env keys the same.
 
 ## Interpolation and secrets
 
-- Env interpolation: `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${COMPONENT_NAME}`.
+- Env interpolation: `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
 - Secret interpolation: `${secret.KEY}` pulls from Eve secrets or `.eve/secrets.yaml`.
 - Use `.eve/secrets.yaml` for local overrides; set real secrets via the API for production.
 

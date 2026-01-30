@@ -37,7 +37,7 @@ eve auth sync
 
 ```bash
 eve org list
-eve org ensure my-org
+eve org ensure my-org --slug myorg
 
 eve project list
 eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main

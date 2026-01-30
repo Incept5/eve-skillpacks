@@ -79,7 +79,7 @@ Ask the user for:
 Create or ensure they exist:
 
 ```bash
-eve org ensure my-company
+eve org ensure my-company --slug myco
 eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
 ```
 

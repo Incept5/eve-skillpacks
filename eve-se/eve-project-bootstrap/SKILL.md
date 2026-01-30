@@ -20,7 +20,7 @@ eve profile use staging
 ## Create Org and Project
 
 ```bash
-eve org ensure my-org
+eve org ensure my-org --slug myorg
 eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
 ```
 
@@ -58,4 +58,4 @@ eve job follow <job-id>
 eve job result <job-id>
 ```
 
-Access apps via `{service}.{project}-{env}.{domain}`.
+Access apps via `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`.

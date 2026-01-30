@@ -58,7 +58,7 @@ Resolve dependencies or update phase with `eve job update` if appropriate.
 ### App Not Reachable After Deploy
 
 - Confirm deploy job succeeded (`eve job result`).
-- Validate ingress host pattern: `{service}.{project}-{env}.{domain}`.
+- Validate ingress host pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`.
 - Ensure service port matches `x-eve.ingress.port`.
 
 ## Escalation
