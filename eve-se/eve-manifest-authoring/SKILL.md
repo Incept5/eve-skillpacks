@@ -20,6 +20,19 @@ registry:
     username_secret: GHCR_USERNAME
     token_secret: GHCR_TOKEN
 
+## OCI Image Labels (GHCR Auto-Linking)
+
+GHCR requires packages to be linked to a repository for proper permission inheritance. Add these labels to your Dockerfiles to enable automatic linking:
+
+```dockerfile
+LABEL org.opencontainers.image.source="https://github.com/YOUR_ORG/YOUR_REPO"
+LABEL org.opencontainers.image.description="Service description"
+```
+
+**Why this matters**: Without this label, GHCR creates "orphaned" packages that only org admins can push to. The Eve builder injects this label automatically at build time, but including it in your Dockerfile is recommended as defense-in-depth.
+
+For multi-stage Dockerfiles, add the labels to the **final** stage (the production image).
+
 services:
   api:
     build:

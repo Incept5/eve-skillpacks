@@ -40,6 +40,7 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Old deploy syntax without `--ref` parameter
 - Hardcoded domains in docs or manifests
 - Inline secrets in repo files
+- Dockerfiles missing `org.opencontainers.image.source` label pointing to the repo URL
 
 ## Test After Updates
 

@@ -46,6 +46,17 @@ eve job result <job-id>
 
 Check for registry auth errors, missing secrets, or healthcheck failures.
 
+### GHCR Push Fails with UNAUTHORIZED
+
+If build jobs fail with `UNAUTHORIZED: authentication required` when pushing to GHCR:
+
+1. Verify secrets are set: `eve secrets list --project proj_xxx`
+2. Confirm token scopes include `read:packages` + `write:packages`
+3. Check if the package is linked to the repo in GitHub Packages settings
+4. Add OCI source label to Dockerfile: `LABEL org.opencontainers.image.source="https://github.com/ORG/REPO"`
+
+Unlinked packages in GHCR only allow pushes from the package owner. Linking to a repo inherits repository collaborator permissions.
+
 ### Job Stuck or Blocked
 
 ```bash
