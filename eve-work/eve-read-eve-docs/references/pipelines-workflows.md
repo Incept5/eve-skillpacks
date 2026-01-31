@@ -21,6 +21,30 @@ pipelines:
         action: { type: deploy }
 ```
 
+### Canonical Pipeline Pattern
+
+The standard build-release-deploy pipeline:
+
+```yaml
+steps:
+  - name: build
+    action: { type: build }
+    # Creates BuildSpec + BuildRun, outputs build_id + image_digests
+  - name: release
+    depends_on: [build]
+    action: { type: release }
+    # References build_id, uses digest-based image refs
+  - name: deploy
+    depends_on: [release]
+    action: { type: deploy, env_name: staging }
+```
+
+The `build` action creates BuildSpec and BuildRun records. Outputs include:
+- `build_id`: reference for downstream steps
+- `image_digests`: map of service → digest
+
+Downstream steps (like `release`) automatically receive `build_id`. Releases derive image digests from BuildArtifacts. Build backends include BuildKit (K8s), Buildx (local), and Kaniko (fallback).
+
 ### Step Types
 
 - **action**: built-in actions (`build`, `release`, `deploy`, `run`, `job`, `create-pr`, `env-ensure`)

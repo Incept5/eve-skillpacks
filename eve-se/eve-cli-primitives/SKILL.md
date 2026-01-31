@@ -102,6 +102,38 @@ eve workflow show <project> <name>
 eve workflow run <project> <name> --input '{"k":"v"}'
 ```
 
+## Builds
+
+Builds are first-class primitives that track image construction from input (spec) to execution (run) to output (artifacts).
+
+```bash
+# List builds for a project
+eve build list [--project <id>]
+
+# Show build spec details
+eve build show <build_id>
+
+# Start a build run
+eve build run <build_id>
+
+# List runs for a build
+eve build runs <build_id>
+
+# View build logs
+eve build logs <build_id> [--run <run_id>]
+
+# List produced image artifacts (digests)
+eve build artifacts <build_id>
+
+# Full diagnostic dump (spec + runs + artifacts + logs)
+eve build diagnose <build_id>
+
+# Cancel an active build
+eve build cancel <build_id>
+```
+
+Builds happen automatically during pipeline `build` steps. Use `eve build diagnose` to debug build failures.
+
 ## System Health
 
 ```bash

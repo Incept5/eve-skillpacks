@@ -58,6 +58,31 @@ Only use cluster tools if you have access and the CLI is insufficient.
 - Healthcheck failing, blocking readiness
 - Environment gate held by another deploy job
 
+### Build Failures
+
+If a deploy pipeline fails at the build step:
+
+```bash
+# Find the build ID from the pipeline run
+eve build list --project <project_id>
+
+# Full diagnostic
+eve build diagnose <build_id>
+
+# Check build logs for errors
+eve build logs <build_id>
+
+# Verify registry credentials are set
+eve secrets list --project <project_id>
+# Required: GHCR_USERNAME, GHCR_TOKEN (or GITHUB_TOKEN)
+```
+
+Common build failures:
+- **Registry auth**: Missing GHCR_USERNAME or GHCR_TOKEN secrets
+- **Dockerfile not found**: Check `build.context` path in manifest
+- **Multi-stage build failure**: BuildKit handles these correctly; Kaniko may have issues
+- **Workspace errors**: Build context not available — check `eve build diagnose`
+
 ## Access URLs
 
 - URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`

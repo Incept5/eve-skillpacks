@@ -65,6 +65,19 @@ eve job result <id>
 eve job watch <id>
 ```
 
+### Build Debugging
+
+```bash
+eve build list --project <id>      # Find recent builds
+eve build diagnose <build_id>      # Spec + runs + artifacts + logs
+eve build logs <build_id>          # Raw build output
+```
+
+Common build issues:
+- Registry auth: verify GHCR_USERNAME + GHCR_TOKEN secrets
+- Dockerfile path: check `build.context` in manifest
+- Build backend: BuildKit (K8s), Buildx (local)
+
 ## Notes
 
 - CLI only needs `EVE_API_URL`; everything routes through the API.

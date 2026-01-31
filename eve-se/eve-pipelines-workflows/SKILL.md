@@ -19,6 +19,50 @@ Use these patterns to automate build and deploy actions and invoke workflow jobs
   - `eve pipeline run <name> --ref <sha> --env <env>`
 - Trigger blocks exist in the manifest; GitHub and Slack webhooks can create pipeline runs.
 
+### Built-in Actions
+
+#### `build` action
+
+Build actions create BuildSpec and BuildRun records that are tracked and observable:
+
+- Creates BuildSpec (defines what to build) and BuildRun (execution record) in the database
+- Outputs include `build_id` and `image_digests` map (service name to SHA256 digest)
+- These outputs automatically flow to dependent steps (release uses build_id)
+- Inspect builds independently: `eve build show`, `eve build diagnose`, `eve build runs`, `eve build logs`
+
+#### Canonical pipeline flow
+
+Every deploy pipeline should follow this pattern:
+
+```yaml
+pipelines:
+  deploy:
+    steps:
+      - name: build
+        action:
+          type: build
+          # Creates BuildSpec + BuildRun, outputs build_id + image_digests
+      - name: release
+        depends_on: [build]
+        action:
+          type: release
+          # References build_id, derives digests from BuildArtifacts
+      - name: deploy
+        depends_on: [release]
+        action:
+          type: deploy
+          env_name: staging
+          # Uses digest-based image refs for immutable deploys
+```
+
+#### Promotion workflow
+
+Build once in test, then promote the same build artifacts to staging/production:
+
+- The build step creates a BuildRun with artifacts (image digests)
+- Releases carry the build_id forward, ensuring identical images across environments
+- This pattern guarantees you deploy exactly what you tested
+
 Track pipeline execution like any job:
 
 ```bash

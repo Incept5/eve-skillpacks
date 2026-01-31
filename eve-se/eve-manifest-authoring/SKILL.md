@@ -36,7 +36,9 @@ For multi-stage Dockerfiles, add the labels to the **final** stage (the producti
 services:
   api:
     build:
-      context: ./apps/api
+      context: ./apps/api           # Build context directory
+      dockerfile: Dockerfile        # Optional, defaults to context/Dockerfile
+    image: ghcr.io/myorg/my-api     # Target image (no tag needed - managed by Eve)
     ports: [3000]
     environment:
       NODE_ENV: production
@@ -55,10 +57,16 @@ pipelines:
   deploy:
     steps:
       - name: build
-        action: { type: build }
-      - name: deploy
+        action:
+          type: build               # Builds all services with build: config
+      - name: release
         depends_on: [build]
-        action: { type: deploy }
+        action:
+          type: release
+      - name: deploy
+        depends_on: [release]
+        action:
+          type: deploy
 ```
 
 ## Legacy manifests
@@ -72,6 +80,22 @@ and add `schema: eve/compose/v1`. Keep ports and env keys the same.
 - Use `ports`, `environment`, `healthcheck`, `depends_on` as needed.
 - Use `x-eve.external: true` and `x-eve.connection_url` for externally hosted services.
 - Use `x-eve.role: job` for one-off services (migrations, seeds).
+
+### Build configuration
+
+Services with Docker images should define their build configuration:
+
+```yaml
+services:
+  api:
+    build:
+      context: ./apps/api           # Build context directory
+      dockerfile: Dockerfile        # Optional, defaults to context/Dockerfile
+    image: ghcr.io/org/my-api       # Target image (no tag needed - managed by Eve)
+    ports: [3000]
+```
+
+Note: Every deploy pipeline should include a `build` step before `release`. The build step creates tracked BuildSpec/BuildRun records and produces image digests that releases use for deterministic deployments.
 
 ## Local dev alignment
 

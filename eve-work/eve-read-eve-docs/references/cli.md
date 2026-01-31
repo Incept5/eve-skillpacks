@@ -85,6 +85,23 @@ eve job follow <job-id>
 eve job diagnose <job-id>
 ```
 
+## Builds
+
+Builds are first-class primitives tracking image construction.
+
+| Command | Description |
+|---------|-------------|
+| `eve build list [--project <id>]` | List build specs |
+| `eve build show <build_id>` | Build spec details |
+| `eve build run <build_id>` | Start a build run |
+| `eve build runs <build_id>` | List runs for a build |
+| `eve build logs <build_id> [--run <id>]` | View build logs |
+| `eve build artifacts <build_id>` | List image artifacts (digests) |
+| `eve build diagnose <build_id>` | Full diagnostic dump |
+| `eve build cancel <build_id>` | Cancel active build |
+
+Builds happen automatically in pipeline `build` steps. Use `eve build diagnose` to debug.
+
 ## Pipelines
 
 ```bash
