@@ -23,6 +23,9 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Keep `x-eve.defaults` in sync with harness defaults (harness/profile/options).
 - Keep `x-eve.agents` profiles aligned with orchestration policy.
 - Confirm `${secret.KEY}` usage for secrets.
+- Deploy pipelines should include a `build` step before `release`.
+- Services with Docker images should have `build.context` defined.
+- Registry auth secrets (GHCR_USERNAME, GHCR_TOKEN or GITHUB_TOKEN) should be configured.
 
 ### `skills.txt`
 
@@ -41,6 +44,9 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Hardcoded domains in docs or manifests
 - Inline secrets in repo files
 - Dockerfiles missing `org.opencontainers.image.source` label pointing to the repo URL
+- Pipelines missing `build` step before `release`
+- Services with Docker images but no `build.context` configuration
+- Missing registry authentication secrets (GHCR_USERNAME, GHCR_TOKEN/GITHUB_TOKEN)
 
 ## Test After Updates
 

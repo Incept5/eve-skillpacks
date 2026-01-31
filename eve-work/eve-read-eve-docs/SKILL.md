@@ -33,13 +33,13 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 ## Index
 
 - `references/overview.md` -- Architecture, core concepts, IDs, job phases.
-- `references/cli.md` -- CLI quick reference, profiles, org/project, core commands.
+- `references/cli.md` -- CLI quick reference, profiles, org/project, builds, core commands.
 - `references/manifest.md` -- Manifest v2 spec, services, envs, pipelines, workflows.
-- `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation.
+- `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, build actions.
 - `references/jobs.md` -- Job lifecycle, job CLI, git/workspace controls.
 - `references/secrets-auth.md` -- Secrets scopes, interpolation, auth + bootstrap.
 - `references/skills-system.md` -- OpenSkills, skills.txt, install flow.
-- `references/deploy-debug.md` -- Deploy modes, env deploy, CLI-first debugging.
+- `references/deploy-debug.md` -- Deploy modes, env deploy, CLI-first debugging, build debugging.
 - `references/harnesses.md` -- Harness selection, profiles, auth, sandbox.
 - `references/events.md` -- Event spine and trigger routing.
 
