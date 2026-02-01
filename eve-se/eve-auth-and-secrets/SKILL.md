@@ -27,6 +27,23 @@ Optional (sync local OAuth tokens for agent harnesses):
 eve auth sync
 ```
 
+## Token Minting (Admin)
+
+Mint tokens for bot/service users without SSH login:
+
+```bash
+# Mint token for a bot user (creates user + membership if needed)
+eve auth mint --email app-bot@example.com --org org_xxx
+
+# With custom TTL (1-90 days, default: server configured)
+eve auth mint --email app-bot@example.com --org org_xxx --ttl 90
+
+# Scope to project with admin role
+eve auth mint --email app-bot@example.com --project proj_xxx --role admin
+```
+
+TTL is capped at the server's `EVE_AUTH_TOKEN_TTL_DAYS` env var (max 90 days).
+
 ## Project Secrets
 
 ```bash
