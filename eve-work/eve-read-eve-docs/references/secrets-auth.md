@@ -127,4 +127,9 @@ Preferred secrets:
 - **Z.ai**: `Z_AI_API_KEY`
 
 For private repo access:
-- `GITHUB_TOKEN` or `ssh_key` secrets are used for clone.
+- `GITHUB_TOKEN` / `github_token` secrets are used for HTTPS clone.
+- `ssh_key` secrets are used for SSH clone via `GIT_SSH_COMMAND`.
+
+Troubleshooting:
+- Missing git auth fails fast with remediation hints (`eve secrets set`).
+- Check API/worker env for `EVE_INTERNAL_API_KEY` and `EVE_SECRETS_MASTER_KEY`.

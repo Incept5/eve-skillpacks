@@ -75,6 +75,8 @@ eve project sync
 
 Slugs are immutable after creation. Choose short, meaningful values.
 
+`repo_url` accepts HTTPS, SSH (`git@host:org/repo.git`), or `file://` (local/dev only).
+
 ## Jobs (see `references/jobs.md` for full detail)
 
 ```bash
@@ -152,3 +154,10 @@ eve event emit --type manual.test --source manual --payload '{"k":"v"}'
 ## Debugging (CLI-first)
 
 See `references/deploy-debug.md` for the debugging ladder and system health commands.
+
+## System (Internal)
+
+```bash
+eve system orchestrator status
+eve system orchestrator set-concurrency <n>
+```

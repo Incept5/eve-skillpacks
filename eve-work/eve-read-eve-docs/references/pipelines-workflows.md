@@ -47,7 +47,7 @@ Downstream steps (like `release`) automatically receive `build_id`. Releases der
 
 ### Step Types
 
-- **action**: built-in actions (`build`, `release`, `deploy`, `run`, `job`, `create-pr`, `env-ensure`)
+- **action**: built-in actions (`build`, `release`, `deploy`, `run`, `job`, `create-pr`, `notify`, `env-ensure`, `env-delete`)
 - **script**: shell command executed by worker (`run` + `timeout`)
 - **agent**: AI agent job (prompt-driven)
 - **run**: shorthand for `script.run`
@@ -56,7 +56,8 @@ Downstream steps (like `release`) automatically receive `build_id`. Releases der
 
 - A run creates one job per step with dependencies wired from `depends_on`.
 - Run IDs: `prun_xxx`.
-- `eve pipeline run --only <step>` uses the job-graph expander.
+- Pipeline runs use the job-graph expander by default.
+- `eve pipeline run --only <step>` runs a subset of steps.
 
 ### CLI
 

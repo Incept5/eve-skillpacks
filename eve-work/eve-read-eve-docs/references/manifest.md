@@ -97,6 +97,9 @@ pipelines:
 
 Step types: `action`, `script`, `agent`, or shorthand `run`.
 
+Platform env vars injected into services:
+- `EVE_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`, `EVE_ENV_NAMESPACE`
+
 ## Workflows
 
 ```yaml

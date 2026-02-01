@@ -5,12 +5,22 @@
 Events are stored in Postgres and routed by the orchestrator.
 Core fields: `type`, `source`, `status`, `payload_json`, `env_name`, `ref_sha`, `ref_branch`, `actor_type`, `actor_id`, `dedupe_key`.
 
-Sources: `github`, `slack`, `cron`, `manual`, `app`, `system`.
+Sources: `github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`.
 
 ## System Failure Events
 
 - `system.job.failed`
 - `system.pipeline.failed`
+
+## Runner Events
+
+- `runner.started`
+- `runner.progress`
+- `runner.completed`
+- `runner.failed`
+
+Payload includes `attemptId`, `jobId`, plus `message/percentage` (progress),
+`result` (completed), and `error/exitCode` (failed).
 
 ## API + CLI
 
