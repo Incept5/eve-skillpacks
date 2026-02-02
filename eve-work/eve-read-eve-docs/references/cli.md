@@ -32,6 +32,7 @@ eve profile set --org org_xxx --project proj_xxx
 ```bash
 eve auth status
 eve auth login --email you@example.com
+eve auth login --email you@example.com --ttl 30  # custom token TTL (1-90 days)
 
 # Check local AI tool credentials (Claude Code, Codex)
 eve auth creds

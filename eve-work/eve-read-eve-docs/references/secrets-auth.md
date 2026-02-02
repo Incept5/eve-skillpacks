@@ -77,6 +77,9 @@ Modes:
 
 ```bash
 eve auth login --email you@example.com
+
+# Custom token TTL (1-90 days, default: server configured)
+eve auth login --email you@example.com --ttl 30
 ```
 
 The CLI can auto-fetch SSH keys from GitHub if none are registered.

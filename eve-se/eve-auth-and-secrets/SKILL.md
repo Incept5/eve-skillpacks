@@ -18,6 +18,7 @@ Use this workflow to log in to Eve and manage secrets for your app.
 
 ```bash
 eve auth login
+eve auth login --ttl 30                # custom token TTL (1-90 days)
 eve auth status
 ```
 
