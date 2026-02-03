@@ -54,11 +54,11 @@ Use this workflow to keep an app repo current with Eve conventions.
 # Local validation (Docker Compose)
 docker compose up --build
 
-# Staging deploy (requires --ref with git SHA or branch name)
-eve env deploy staging --ref main
+# Staging deploy (requires --ref with 40-char SHA or a ref resolved against --repo-dir)
+eve env deploy staging --ref main --repo-dir .
 
 # Use --direct to bypass pipeline if needed
-eve env deploy staging --ref main --direct
+eve env deploy staging --ref main --repo-dir . --direct
 ```
 
 Track the deploy job with `eve job follow`.

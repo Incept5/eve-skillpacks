@@ -9,7 +9,7 @@ triggers:
   - eve manifest
   - eve pipelines
   - eve workflows
-  - eve jobs
+  - eve job
   - eve secrets
   - eve auth
 ---

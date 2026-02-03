@@ -110,7 +110,8 @@ Builds happen automatically in pipeline `build` steps. Use `eve build diagnose` 
 ```bash
 eve pipeline list
 eve pipeline show <project> <name>
-eve pipeline run <name> --ref <sha> --env staging --inputs '{"k":"v"}'
+eve pipeline run <name> --ref 0123456789abcdef0123456789abcdef01234567 --env staging --inputs '{"k":"v"}'
+eve pipeline run <name> --ref main --repo-dir ./my-app --env staging
 eve pipeline approve <run-id>
 eve pipeline cancel <run-id>
 ```
@@ -126,13 +127,14 @@ eve workflow run <project> <name> --input '{"k":"v"}'
 ## Deployments
 
 ```bash
-eve env deploy staging --ref main
+eve env deploy staging --ref main --repo-dir ./my-app
 
-eve env status staging
+eve env show <project> staging
 ```
 
 If an environment has a pipeline configured, `eve env deploy` triggers that pipeline.
-Use `--direct` to bypass the pipeline.
+Use `--direct` to bypass the pipeline. `--ref` must be a 40-character SHA, or a ref
+resolved against `--repo-dir`/cwd.
 
 ## Secrets
 

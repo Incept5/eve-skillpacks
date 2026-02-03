@@ -58,17 +58,16 @@ eve env create staging --project proj_xxx --type persistent
 # Inspect environments
 eve env list --project proj_xxx
 eve env show staging --project proj_xxx
-eve env status staging --project proj_xxx
 
-# Deploy an environment (requires --ref with git SHA or branch name)
-eve env deploy staging --ref main
+# Deploy an environment (requires --ref with 40-char SHA or a ref resolved against --repo-dir)
+eve env deploy staging --ref main --repo-dir .
 
 # When environment has a pipeline configured, the above triggers the pipeline.
 # Use --direct to bypass pipeline and deploy directly:
-eve env deploy staging --ref main --direct
+eve env deploy staging --ref main --repo-dir . --direct
 
 # Pass inputs to pipeline:
-eve env deploy staging --ref main --inputs '{"key":"value"}'
+eve env deploy staging --ref main --repo-dir . --inputs '{"key":"value"}'
 ```
 
 ## Jobs (Create + Observe)
@@ -95,7 +94,7 @@ eve secrets delete API_KEY --project proj_xxx
 ```bash
 eve pipeline list
 eve pipeline show <project> <name>
-eve pipeline run <name> --ref <sha> --env <env>
+eve pipeline run <name> --ref <sha> --env <env> --repo-dir ./my-app
 
 eve workflow list
 eve workflow show <project> <name>

@@ -23,15 +23,15 @@ eve profile use staging
 # Create env if needed
 eve env create staging --project proj_xxx --type persistent
 
-# Deploy (requires --ref with git SHA or branch name)
-eve env deploy staging --ref main
+# Deploy (requires --ref with 40-char SHA or a ref resolved against --repo-dir)
+eve env deploy staging --ref main --repo-dir .
 
 # When environment has a pipeline configured, the above triggers the pipeline.
 # Use --direct to bypass pipeline and deploy directly:
-eve env deploy staging --ref main --direct
+eve env deploy staging --ref main --repo-dir . --direct
 
 # Pass inputs to pipeline:
-eve env deploy staging --ref main --inputs '{"key":"value"}'
+eve env deploy staging --ref main --repo-dir . --inputs '{"key":"value"}'
 ```
 
 ## Observe the Deploy

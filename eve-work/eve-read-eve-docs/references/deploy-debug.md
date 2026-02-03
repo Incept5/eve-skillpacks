@@ -12,12 +12,13 @@ Default to **staging** for user guidance. Use local/docker only when explicitly 
 ## Deploying Environments
 
 ```bash
-eve env deploy test --ref main
+eve env deploy test --ref main --repo-dir ./my-app
 
-eve env deploy staging --ref abc123
+eve env deploy staging --ref 0123456789abcdef0123456789abcdef01234567
 ```
 
 If `environments.<env>.pipeline` is set, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
+`--ref` must be a 40-character SHA, or a ref resolved against `--repo-dir`/cwd.
 
 ## Ingress URLs
 

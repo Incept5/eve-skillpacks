@@ -107,8 +107,8 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 - Link each environment to a pipeline via `environments.<env>.pipeline`.
 - When `pipeline` is set, `eve env deploy <env>` triggers that pipeline instead of direct deploy.
 - Use `environments.<env>.pipeline_inputs` to provide default inputs for pipeline runs.
-- Override inputs at runtime with `eve env deploy <env> --ref <sha> --inputs '{"key":"value"}'`.
-- Use `--direct` flag to bypass pipeline and do direct deploy: `eve env deploy <env> --ref <sha> --direct`.
+- Override inputs at runtime with `eve env deploy <env> --ref <sha> --inputs '{"key":"value"}' --repo-dir ./my-app`.
+- Use `--direct` flag to bypass pipeline and do direct deploy: `eve env deploy <env> --ref <sha> --direct --repo-dir ./my-app`.
 - Pipeline steps can be `action`, `script`, or `agent`.
 - Use `action.type: create-pr` for PR automation when configured.
 - Workflows live under `workflows` and are invoked via CLI; `db_access` is honored.

@@ -64,7 +64,7 @@ Downstream steps (like `release`) automatically receive `build_id`. Releases der
 ```bash
 eve pipeline list [project]
 eve pipeline show <project> <name>
-eve pipeline run <name> --ref <sha> --env <env> --inputs '{"k":"v"}'
+eve pipeline run <name> --ref <sha> --env <env> --inputs '{"k":"v"}' --repo-dir ./my-app
 eve pipeline runs [project] --status <status>
 eve pipeline show-run <pipeline> <run-id>
 eve pipeline approve <run-id>
@@ -75,7 +75,8 @@ eve pipeline logs <pipeline> <run-id> --step <name>
 ### Env Deploy as Pipeline Alias
 
 If `environments.<env>.pipeline` is set, `eve env deploy <env> --ref <sha>` triggers the pipeline.
-Use `--direct` to bypass.
+Use `--direct` to bypass. `--ref` must be a 40-character SHA, or a ref resolved
+against `--repo-dir`/cwd.
 
 ### Promotion Pattern
 

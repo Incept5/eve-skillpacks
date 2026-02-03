@@ -16,7 +16,7 @@ Use these patterns to automate build and deploy actions and invoke workflow jobs
 - Run manually:
   - `eve pipeline list`
   - `eve pipeline show <project> <name>`
-  - `eve pipeline run <name> --ref <sha> --env <env>`
+  - `eve pipeline run <name> --ref <sha> --env <env> --repo-dir ./my-app`
 - Trigger blocks exist in the manifest; GitHub and Slack webhooks can create pipeline runs.
 
 ### Built-in Actions
@@ -79,27 +79,27 @@ When an environment has a `pipeline` configured in the manifest, `eve env deploy
 
 ```bash
 # Triggers the configured pipeline for test environment
-eve env deploy test --ref abc123
+eve env deploy test --ref 0123456789abcdef0123456789abcdef01234567
 
 # Pass inputs to the pipeline
-eve env deploy staging --ref abc123 --inputs '{"release_id":"rel_xxx"}'
+eve env deploy staging --ref 0123456789abcdef0123456789abcdef01234567 --inputs '{"release_id":"rel_xxx"}'
 
 # Bypass pipeline and do direct deploy
-eve env deploy staging --ref abc123 --direct
+eve env deploy staging --ref 0123456789abcdef0123456789abcdef01234567 --direct
 ```
 
 ### Promotion flow example
 
 ```bash
 # 1. Build and deploy to test environment
-eve env deploy test --ref abc123
+eve env deploy test --ref 0123456789abcdef0123456789abcdef01234567
 
 # 2. Get release info from the test build
 eve release resolve v1.2.3
 # Output: rel_xxx
 
 # 3. Promote to staging using the release_id
-eve env deploy staging --ref abc123 --inputs '{"release_id":"rel_xxx"}'
+eve env deploy staging --ref 0123456789abcdef0123456789abcdef01234567 --inputs '{"release_id":"rel_xxx"}'
 ```
 
 ### Key behaviors
@@ -108,7 +108,7 @@ eve env deploy staging --ref abc123 --inputs '{"release_id":"rel_xxx"}'
 - Use `--direct` flag to bypass the pipeline and perform a direct deploy
 - Use `--inputs '{"key":"value"}'` to pass inputs to the pipeline run
 - Default inputs can be configured via `environments.<env>.pipeline_inputs` in the manifest
-- The `--ref` flag specifies which git SHA to deploy
+- The `--ref` flag specifies which git SHA to deploy (40-character SHA or ref resolved via `--repo-dir`)
 - Environment variables and secrets are interpolated as usual
 
 This pattern enables promotion workflows where you build once in a lower environment and promote the same artifact through higher environments.

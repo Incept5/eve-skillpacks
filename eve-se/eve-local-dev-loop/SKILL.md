@@ -46,12 +46,12 @@ eve auth status
 # Set required secrets
 eve secrets set API_KEY "value" --project proj_xxx
 
-# Deploy to staging (requires --ref with git SHA or branch name)
-eve env deploy staging --ref main
+# Deploy to staging (requires --ref with 40-char SHA or a ref resolved against --repo-dir)
+eve env deploy staging --ref main --repo-dir .
 
 # If the environment has a pipeline configured, this triggers the pipeline.
 # Use --direct to bypass pipeline and deploy directly:
-eve env deploy staging --ref main --direct
+eve env deploy staging --ref main --repo-dir . --direct
 ```
 
 Track the deploy job:
