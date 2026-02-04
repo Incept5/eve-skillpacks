@@ -18,4 +18,4 @@ openskills sync
 ## Packs
 
 - `eve-work` - Productive work patterns (includes `eve-orchestration`)
-- `eve-se` - Platform-specific skills (in progress)
+- `eve-se` - Platform-specific skills for deploys, manifests, pipelines, and agent runtime + chat ops

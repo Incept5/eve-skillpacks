@@ -30,6 +30,19 @@ Build actions create BuildSpec and BuildRun records that are tracked and observa
 - These outputs automatically flow to dependent steps (release uses build_id)
 - Inspect builds independently: `eve build show`, `eve build diagnose`, `eve build runs`, `eve build logs`
 
+### Agent steps
+
+Use `agent` steps when a pipeline stage should run an AI agent job:
+
+```yaml
+pipelines:
+  remediation:
+    steps:
+      - name: analyze
+        agent:
+          prompt: "Analyze the failure and propose a fix"
+```
+
 #### Canonical pipeline flow
 
 Every deploy pipeline should follow this pattern:

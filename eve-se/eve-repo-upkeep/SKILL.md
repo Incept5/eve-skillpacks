@@ -22,6 +22,7 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Keep `x-eve` ingress and pipeline definitions accurate.
 - Keep `x-eve.defaults` in sync with harness defaults (harness/profile/options).
 - Keep `x-eve.agents` profiles aligned with orchestration policy.
+- Ensure `x-eve.agents.config_path` and `x-eve.chat.config_path` point to valid files.
 - Confirm `${secret.KEY}` usage for secrets.
 - Deploy pipelines should include a `build` step before `release`.
 - Services with Docker images should have `build.context` defined.
@@ -36,6 +37,12 @@ Use this workflow to keep an app repo current with Eve conventions.
 
 - Update skill references to include `eve-se-index`.
 - Remove stale commands or URLs.
+
+### Agent Config Files (`agents/`)
+
+- `agents/agents.yaml` defines agents and skills.
+- `agents/teams.yaml` defines team composition and dispatch.
+- `agents/chat.yaml` defines chat routing rules and permissions.
 
 ## Check for Deprecated Patterns
 

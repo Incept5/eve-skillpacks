@@ -123,8 +123,22 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 
 - Top-level defaults via `x-eve.defaults` (env, harness, harness_profile, harness_options, hints, git, workspace).
 - Top-level agent policy via `x-eve.agents` (profiles, councils, availability rules).
+- Agent config paths via `x-eve.agents.config_path` and `x-eve.agents.teams_path`.
+- Chat routing config via `x-eve.chat.config_path`.
 - Service extensions under `x-eve` (ingress, role, api specs, worker pools).
 - API specs: `x-eve.api_spec` or `x-eve.api_specs` (spec URL relative to service by default).
+
+Example:
+
+```yaml
+x-eve:
+  agents:
+    version: 1
+    config_path: agents/agents.yaml
+    teams_path: agents/teams.yaml
+  chat:
+    config_path: agents/chat.yaml
+```
 
 ## Recursive skill distillation
 

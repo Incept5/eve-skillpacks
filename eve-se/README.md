@@ -1,6 +1,6 @@
 # Eve SE Skill Pack
 
-Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-compatible apps.
+Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-compatible apps, including agent runtime + chat operations.
 
 ## Skills Included
 
@@ -14,6 +14,7 @@ Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-co
 - **eve-local-dev-loop** - Docker Compose local dev loop + staging handoff
 - **eve-deploy-debugging** - Deploy and debug Eve-compatible apps
 - **eve-pipelines-workflows** - Define and run pipelines and workflows
+- **eve-cli-primitives** - Includes agent sync + chat simulate commands
 - **eve-troubleshooting** - CLI-first troubleshooting runbooks
 - **eve-repo-upkeep** - Keep repos aligned with platform best practices
 

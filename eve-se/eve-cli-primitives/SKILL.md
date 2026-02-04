@@ -81,12 +81,31 @@ eve job diagnose <job-id>
 eve job result <job-id>
 ```
 
+## Agents + Chat
+
+```bash
+# Sync agent/team/chat configuration from repo
+eve agents sync --project proj_xxx --ref main --repo-dir .
+# Inspect resolved agent config (from latest sync)
+eve agents config --project proj_xxx --json
+# Simulate chat routing without Slack
+eve chat simulate slack --project proj_xxx --team-id T123 --channel C456 --user U789 --text "hello"
+```
+
 ## Secrets
 
 ```bash
 eve secrets list --project proj_xxx
 eve secrets set API_KEY "value" --project proj_xxx
 eve secrets delete API_KEY --project proj_xxx
+```
+
+## Integrations (Slack, GitHub)
+
+```bash
+eve integrations list --project proj_xxx
+eve integrations slack connect --project proj_xxx
+eve integrations slack test --project proj_xxx
 ```
 
 ## Pipelines and Workflows
