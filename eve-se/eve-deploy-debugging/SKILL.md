@@ -44,6 +44,13 @@ eve job diagnose <job-id>
 eve job result <job-id>
 ```
 
+## Environment Diagnostics
+
+```bash
+eve env diagnose <project> <env>
+eve env logs <project> <env>
+```
+
 ## CLI-First Debugging
 
 1. `eve job follow` and `eve job diagnose` for the deploy job

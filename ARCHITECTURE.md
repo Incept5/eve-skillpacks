@@ -165,8 +165,8 @@ Each skill needs:
 
 ```bash
 eve-worker skills install
-openskills list
-openskills read <skill-name>
+ls .agent/skills
+skill read <skill-name>
 ```
 
 ## Skill Format

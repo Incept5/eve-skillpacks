@@ -27,7 +27,7 @@ Use this workflow to turn repeated patterns into reusable skills.
 
 - Use the skill in the next relevant job.
 - Update pack README and `ARCHITECTURE.md` listings (or the private pack README for dev-only skills).
-- Sync or reinstall skills if needed (`openskills install` and `openskills sync`).
+- Sync or reinstall skills if needed (`./bin/eh skills install`).
 
 ## Recursive skill distillation
 

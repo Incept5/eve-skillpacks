@@ -11,8 +11,8 @@ https://github.com/incept5/eve-skillpacks
 
 This installs all skills in the repo for on-clone installs. For local installs, run:
 ```
-openskills install https://github.com/incept5/eve-skillpacks --universal --yes
-openskills sync
+skills add https://github.com/incept5/eve-skillpacks -a claude-code -y --all
+# or add to skills.txt and run ./bin/eh skills install in an Eve repo
 ```
 
 ## Packs

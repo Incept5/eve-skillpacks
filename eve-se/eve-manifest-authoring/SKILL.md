@@ -19,20 +19,6 @@ registry:
   auth:
     username_secret: GHCR_USERNAME
     token_secret: GHCR_TOKEN
-
-## OCI Image Labels (GHCR Auto-Linking)
-
-GHCR requires packages to be linked to a repository for proper permission inheritance. Add these labels to your Dockerfiles to enable automatic linking:
-
-```dockerfile
-LABEL org.opencontainers.image.source="https://github.com/YOUR_ORG/YOUR_REPO"
-LABEL org.opencontainers.image.description="Service description"
-```
-
-**Why this matters**: Without this label, GHCR creates "orphaned" packages that only org admins can push to. The Eve builder injects this label automatically at build time, but including it in your Dockerfile is recommended as defense-in-depth.
-
-For multi-stage Dockerfiles, add the labels to the **final** stage (the production image).
-
 services:
   api:
     build:
@@ -69,6 +55,19 @@ pipelines:
           type: deploy
 ```
 
+## OCI Image Labels (GHCR Auto-Linking)
+
+GHCR requires packages to be linked to a repository for proper permission inheritance. Add these labels to your Dockerfiles to enable automatic linking:
+
+```dockerfile
+LABEL org.opencontainers.image.source="https://github.com/YOUR_ORG/YOUR_REPO"
+LABEL org.opencontainers.image.description="Service description"
+```
+
+**Why this matters**: Without this label, GHCR creates "orphaned" packages that only org admins can push to. The Eve builder injects this label automatically at build time, but including it in your Dockerfile is recommended as defense-in-depth.
+
+For multi-stage Dockerfiles, add the labels to the **final** stage (the production image).
+
 ## Legacy manifests
 
 If the repo still uses `components:` from older manifests, migrate to `services:`
@@ -100,7 +99,7 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 ## Local dev alignment
 
 - Keep service names and ports aligned with Docker Compose.
-- Prefer `${secret.KEY}` and use `.eve/secrets.yaml` for local values.
+- Prefer `${secret.KEY}` and use `.eve/dev-secrets.yaml` for local values.
 
 ## Environments, pipelines, workflows
 
@@ -116,13 +115,14 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 ## Interpolation and secrets
 
 - Env interpolation: `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
-- Secret interpolation: `${secret.KEY}` pulls from Eve secrets or `.eve/secrets.yaml`.
-- Use `.eve/secrets.yaml` for local overrides; set real secrets via the API for production.
+- Secret interpolation: `${secret.KEY}` pulls from Eve secrets or `.eve/dev-secrets.yaml`.
+- Use `.eve/dev-secrets.yaml` for local overrides; set real secrets via the API for production.
 
 ## Eve extensions
 
 - Top-level defaults via `x-eve.defaults` (env, harness, harness_profile, harness_options, hints, git, workspace).
 - Top-level agent policy via `x-eve.agents` (profiles, councils, availability rules).
+- Agent packs via `x-eve.packs` with optional `x-eve.install_agents` defaults.
 - Agent config paths via `x-eve.agents.config_path` and `x-eve.agents.teams_path`.
 - Chat routing config via `x-eve.chat.config_path`.
 - Service extensions under `x-eve` (ingress, role, api specs, worker pools).
@@ -138,6 +138,9 @@ x-eve:
     teams_path: agents/teams.yaml
   chat:
     config_path: agents/chat.yaml
+  install_agents: [claude-code, codex]
+  packs:
+    - source: ./skillpacks/my-pack
 ```
 
 ## Recursive skill distillation

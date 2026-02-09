@@ -22,7 +22,7 @@ If you have access to `./bin/eh status`, use it to get the correct URL for the c
 ```bash
 eve profile create staging --api-url https://api.eh1.incept5.dev
 eve profile show
-eve config set --default-email you@example.com
+eve profile set --default-email you@example.com
 
 eve profile set --org org_xxx --project proj_xxx
 ```
@@ -33,6 +33,7 @@ eve profile set --org org_xxx --project proj_xxx
 eve auth status
 eve auth login --email you@example.com
 eve auth login --email you@example.com --ttl 30  # custom token TTL (1-90 days)
+eve auth permissions
 
 # Check local AI tool credentials (Claude Code, Codex)
 eve auth creds
@@ -47,7 +48,7 @@ eve auth sync --dry-run             # Preview without syncing
 
 eve auth bootstrap --email you@example.com --token $EVE_BOOTSTRAP_TOKEN
 
-eve admin invite --email user@example.com --github-username user
+eve admin invite --email user@example.com --github user
 ```
 
 Notes:
@@ -67,6 +68,15 @@ eve project ensure --name "My Project" --slug myproj \
 
 eve project show proj_xxx
 eve project sync
+
+# Membership management
+eve org members --org org_xxx
+eve org members add user@example.com --role admin --org org_xxx
+eve org members remove user_abc --org org_xxx
+
+eve project members --project proj_xxx
+eve project members add user@example.com --role admin --project proj_xxx
+eve project members remove user_abc --project proj_xxx
 ```
 
 **URL impact:** The org `--slug` and project `--slug` directly form deployment URLs and K8s namespaces:
@@ -96,6 +106,7 @@ Builds are first-class primitives tracking image construction.
 |---------|-------------|
 | `eve build list [--project <id>]` | List build specs |
 | `eve build show <build_id>` | Build spec details |
+| `eve build create --project <id> --ref <sha> --manifest-hash <hash> [--services <list>] [--repo-dir <path>]` | Create a build spec |
 | `eve build run <build_id>` | Start a build run |
 | `eve build runs <build_id>` | List runs for a build |
 | `eve build logs <build_id> [--run <id>]` | View build logs |
@@ -122,6 +133,8 @@ eve pipeline cancel <run-id>
 eve workflow list
 eve workflow show <project> <name>
 eve workflow run <project> <name> --input '{"k":"v"}'
+eve workflow invoke <project> <name> --input '{"k":"v"}'
+eve workflow logs <job-id>
 ```
 
 ## Deployments
@@ -130,6 +143,9 @@ eve workflow run <project> <name> --input '{"k":"v"}'
 eve env deploy staging --ref main --repo-dir ./my-app
 
 eve env show <project> staging
+eve env diagnose <project> staging
+eve env logs <project> staging
+eve env delete <project> staging
 ```
 
 If an environment has a pipeline configured, `eve env deploy` triggers that pipeline.
@@ -145,6 +161,30 @@ eve secrets set KEY value --project proj_xxx
 eve secrets import --org org_xxx --file ./secrets.env
 
 eve secrets validate --project proj_xxx
+```
+
+## Chat + Integrations (Slack)
+
+```bash
+eve integrations list --org org_xxx
+eve integrations slack connect --org org_xxx --team-id T123 --token xoxb-test
+eve integrations test <integration_id> --org org_xxx
+
+# Default agent slug (org-wide fallback)
+eve org update org_xxx --default-agent mission-control
+
+# Simulate inbound chat (project-scoped)
+eve chat simulate --project proj_xxx --team-id T123 --channel-id C123 --user-id U123 --text "hello"
+```
+
+Slack commands (run inside Slack):
+
+```text
+@eve <agent-slug> <command>
+@eve agents list
+@eve agents listen <agent-slug>
+@eve agents unlisten <agent-slug>
+@eve agents listening
 ```
 
 ## Events (Triggers)
@@ -163,4 +203,10 @@ See `references/deploy-debug.md` for the debugging ladder and system health comm
 ```bash
 eve system orchestrator status
 eve system orchestrator set-concurrency <n>
+eve system status
+eve system jobs
+eve system envs
+eve system logs api --tail 50
+eve system pods
+eve system events
 ```

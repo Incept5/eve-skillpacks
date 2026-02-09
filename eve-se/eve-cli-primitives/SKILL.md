@@ -28,6 +28,7 @@ eve profile show
 eve auth login
 eve auth status
 eve auth logout
+eve auth permissions
 
 # Sync local OAuth tokens for agent harnesses (optional)
 eve auth sync
@@ -41,6 +42,15 @@ eve org ensure my-org --slug myorg
 
 eve project list
 eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my-app.git --branch main
+
+# Membership management
+eve org members --org org_xxx
+eve org members add user@example.com --role admin --org org_xxx
+eve org members remove user_abc --org org_xxx
+
+eve project members --project proj_xxx
+eve project members add user@example.com --role admin --project proj_xxx
+eve project members remove user_abc --project proj_xxx
 ```
 
 **URL impact:** The org `--slug` and project `--slug` directly form your deployment URLs and K8s namespaces:
@@ -68,6 +78,11 @@ eve env deploy staging --ref main --repo-dir . --direct
 
 # Pass inputs to pipeline:
 eve env deploy staging --ref main --repo-dir . --inputs '{"key":"value"}'
+
+# Diagnostics
+eve env diagnose proj_xxx staging
+eve env logs proj_xxx staging
+eve env delete proj_xxx staging
 ```
 
 ## Jobs (Create + Observe)
@@ -81,6 +96,15 @@ eve job diagnose <job-id>
 eve job result <job-id>
 ```
 
+## Coordination (Supervise + Threads)
+
+```bash
+eve supervise <job-id> --timeout 60
+eve thread messages <thread-id> --since 10m
+eve thread post <thread-id> --body '{"kind":"directive","body":"focus on auth"}'
+eve thread follow <thread-id>
+```
+
 ## Agents + Chat
 
 ```bash
@@ -89,7 +113,28 @@ eve agents sync --project proj_xxx --ref main --repo-dir .
 # Inspect resolved agent config (from latest sync)
 eve agents config --project proj_xxx --json
 # Simulate chat routing without Slack
-eve chat simulate slack --project proj_xxx --team-id T123 --channel C456 --user U789 --text "hello"
+eve chat simulate --project proj_xxx --team-id T123 --channel-id C456 --user-id U789 --text "hello"
+
+# Set org default agent slug (fallback when no slug matches)
+eve org update org_xxx --default-agent mission-control
+```
+
+## Packs (AgentPacks)
+
+```bash
+eve packs status
+eve packs resolve --dry-run
+eve migrate skills-to-packs
+```
+
+Slack gateway commands (run inside Slack):
+
+```text
+@eve <agent-slug> <command>
+@eve agents list
+@eve agents listen <agent-slug>
+@eve agents unlisten <agent-slug>
+@eve agents listening
 ```
 
 ## Secrets
@@ -98,14 +143,37 @@ eve chat simulate slack --project proj_xxx --team-id T123 --channel C456 --user 
 eve secrets list --project proj_xxx
 eve secrets set API_KEY "value" --project proj_xxx
 eve secrets delete API_KEY --project proj_xxx
+eve secrets show API_KEY --project proj_xxx
+eve secrets ensure --project proj_xxx --keys API_KEY
+eve secrets export --project proj_xxx --keys API_KEY
+```
+
+## System Admin (if authorized)
+
+```bash
+eve system status
+eve system jobs
+eve system envs
+eve system logs api --tail 50
+eve system pods
+eve system events
+```
+
+## Workflows
+
+```bash
+eve workflow list
+eve workflow run qa-review --input '{"task":"audit"}'
+eve workflow invoke qa-review --input '{"task":"audit"}'
+eve workflow logs job_abc123
 ```
 
 ## Integrations (Slack, GitHub)
 
 ```bash
-eve integrations list --project proj_xxx
-eve integrations slack connect --project proj_xxx
-eve integrations slack test --project proj_xxx
+eve integrations list --org org_xxx
+eve integrations slack connect --org org_xxx --team-id T123 --token xoxb-test
+eve integrations test <integration_id> --org org_xxx
 ```
 
 ## Pipelines and Workflows
@@ -118,6 +186,8 @@ eve pipeline run <name> --ref <sha> --env <env> --repo-dir ./my-app
 eve workflow list
 eve workflow show <project> <name>
 eve workflow run <project> <name> --input '{"k":"v"}'
+eve workflow invoke <project> <name> --input '{"k":"v"}'
+eve workflow logs <job-id>
 ```
 
 ## Builds
@@ -127,6 +197,9 @@ Builds are first-class primitives that track image construction from input (spec
 ```bash
 # List builds for a project
 eve build list [--project <id>]
+
+# Create a build spec
+eve build create --project <id> --ref <sha> --manifest-hash <hash>
 
 # Show build spec details
 eve build show <build_id>
@@ -170,4 +243,5 @@ eve agents config --json
 ## Notes
 
 - Use `--project` if no default project is set in the profile.
+- Integrations are org-scoped; use `--org` for integrations commands.
 - Prefer `eve job ...` (singular) for job commands.

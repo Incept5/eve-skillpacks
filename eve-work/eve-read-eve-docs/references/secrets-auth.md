@@ -40,7 +40,7 @@ environment:
 
 ### Local Dev Secrets
 
-`.eve/secrets.yaml` (gitignored) can provide local overrides:
+`.eve/dev-secrets.yaml` (gitignored) can provide local overrides:
 
 ```yaml
 secrets:
@@ -87,7 +87,7 @@ The CLI can auto-fetch SSH keys from GitHub if none are registered.
 ### Invite
 
 ```bash
-eve admin invite --email user@example.com --github-username user
+eve admin invite --email user@example.com --github user
 ```
 
 ### Local Credentials

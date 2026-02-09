@@ -98,7 +98,7 @@ pipelines:
 Step types: `action`, `script`, `agent`, or shorthand `run`.
 
 Platform env vars injected into services:
-- `EVE_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`, `EVE_ENV_NAMESPACE`
+- `EVE_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
 
 ## Workflows
 
@@ -158,6 +158,26 @@ x-eve:
         - harness: codex
           model: gpt-5.2-codex
           reasoning_effort: x-high
+
+## AgentPacks (`x-eve.packs` + `x-eve.install_agents`)
+
+AgentPacks import agent/team/chat config and skills from pack repos. Packs are
+resolved by `eve agents sync` and locked in `.eve/packs.lock.yaml`.
+
+```yaml
+x-eve:
+  install_agents: [claude-code, codex, gemini-cli]  # defaults to [claude-code]
+  packs:
+    - source: ./skillpacks/my-pack
+    - source: incept5/eve-skillpacks
+      ref: 0123456789abcdef0123456789abcdef01234567
+    - source: ./skillpacks/claude-only
+      install_agents: [claude-code]
+```
+
+Notes:
+- Remote pack sources require a 40-char git SHA `ref`.
+- Packs can be full AgentPacks (`eve/pack.yaml`) or skills-only packs.
 ```
 
 ## Secrets Requirements + Interpolation

@@ -34,7 +34,7 @@ eve secrets list --project proj_xxx
 eve secrets set MISSING_KEY "value" --project proj_xxx
 ```
 
-Verify `.eve/secrets.yaml` exists for local interpolation.
+Verify `.eve/dev-secrets.yaml` exists for local interpolation.
 
 ### Deploy Job Failed
 

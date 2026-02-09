@@ -5,7 +5,7 @@
 Before any work in this repo, load the Eve docs skill and review CLI guidance:
 
 ```bash
-openskills read eve-read-eve-docs
+skill read eve-read-eve-docs
 cat eve-work/eve-read-eve-docs/references/cli.md
 ```
 

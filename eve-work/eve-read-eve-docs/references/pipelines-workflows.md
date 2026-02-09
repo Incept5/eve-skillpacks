@@ -47,7 +47,7 @@ Downstream steps (like `release`) automatically receive `build_id`. Releases der
 
 ### Step Types
 
-- **action**: built-in actions (`build`, `release`, `deploy`, `run`, `job`, `create-pr`, `notify`, `env-ensure`, `env-delete`)
+- **action**: built-in actions (`build`, `release`, `deploy`, `run`, `job`, `create-pr`)
 - **script**: shell command executed by worker (`run` + `timeout`)
 - **agent**: AI agent job (prompt-driven)
 - **run**: shorthand for `script.run`

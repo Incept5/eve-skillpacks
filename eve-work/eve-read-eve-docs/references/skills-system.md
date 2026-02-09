@@ -1,13 +1,13 @@
 # Skills System (Current)
 
-Eve Horizon uses **OpenSkills**. Skills live in repositories and are installed at clone time.
+Eve Horizon installs skills via the `skills` CLI. Skills live in repositories and are installed at clone time.
 
 ## Key Files
 
 - `skills.txt`: manifest of skill sources
 - `.agent/skills/`: universal install target (gitignored)
 - `.claude/skills/`: Claude-specific target (symlink when possible)
-- `AGENTS.md`: generated/updated by `openskills sync`
+- `AGENTS.md`: optional repo-managed index (not auto-generated)
 
 ## Skill Format
 
@@ -45,16 +45,15 @@ https://github.com/incept5/eve-skillpacks
 ```
 
 Installer actions:
-1) `openskills install <source> --universal` -> `.agent/skills/`
-2) symlink `.claude/skills` -> `.agent/skills` when possible
-3) `openskills sync` to update `AGENTS.md`
+1) Install each source via the `skills` CLI -> `.agent/skills/`
+2) Symlink `.claude/skills` -> `.agent/skills` when possible
 
 Workers run `.eve/hooks/on-clone.sh` to install skills on fresh clones.
 
 ## Using Skills
 
 ```bash
-openskills read <skill-name>
+skill read <skill-name>
 ```
 
 This prints the SKILL plus a base directory for resolving references.

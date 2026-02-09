@@ -134,6 +134,8 @@ This pattern enables promotion workflows where you build once in a lower environ
   - `eve workflow list`
   - `eve workflow show <project> <name>`
   - `eve workflow run <project> <name> --input '{"k":"v"}'`
+  - `eve workflow invoke <project> <name> --input '{"k":"v"}'`
+  - `eve workflow logs <job-id>`
 - Invocation creates a job; track it with normal job commands.
 
 ## Recursive skill distillation

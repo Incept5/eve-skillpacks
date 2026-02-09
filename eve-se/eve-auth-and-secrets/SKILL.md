@@ -71,11 +71,15 @@ services:
 
 ## Local Secrets File
 
-For local development, create `.eve/secrets.yaml` (gitignored):
+For local development, create `.eve/dev-secrets.yaml` (gitignored):
 
 ```yaml
-API_KEY: local-dev-key
-DB_PASSWORD: local-password
+secrets:
+  default:
+    API_KEY: local-dev-key
+    DB_PASSWORD: local-password
+  staging:
+    DB_PASSWORD: staging-password
 ```
 
 This file is used for local interpolation; production secrets come from the Eve API.

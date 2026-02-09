@@ -7,6 +7,17 @@ Core fields: `type`, `source`, `status`, `payload_json`, `env_name`, `ref_sha`, 
 
 Sources: `github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`.
 
+## Slack Webhooks (Gateway)
+
+Slack Events are handled by the **Gateway** service at:
+
+```
+POST /integrations/slack/events
+```
+
+The gateway verifies Slack signatures, resolves `team_id -> org_id`, and forwards
+events into chat routing/dispatch.
+
 ## System Failure Events
 
 - `system.job.failed`

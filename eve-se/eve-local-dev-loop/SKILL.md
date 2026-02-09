@@ -29,12 +29,12 @@ docker compose down -v
 
 - Match service names and exposed ports between Compose and the Eve manifest.
 - If a service is public in production, set `x-eve.ingress.public: true` in the manifest.
-- Use `${secret.KEY}` in the manifest and keep local values in `.eve/secrets.yaml`.
+- Use `${secret.KEY}` in the manifest and keep local values in `.eve/dev-secrets.yaml`.
 
 ## Local Environment Variables
 
-- Prefer `.env` for Compose and `.eve/secrets.yaml` for manifest interpolation.
-- Never commit secrets; keep `.eve/secrets.yaml` in `.gitignore`.
+- Prefer `.env` for Compose and `.eve/dev-secrets.yaml` for manifest interpolation.
+- Never commit secrets; keep `.eve/dev-secrets.yaml` in `.gitignore`.
 
 ## Promote to Staging
 
