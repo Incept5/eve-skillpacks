@@ -28,6 +28,28 @@ Optional (sync local OAuth tokens for agent harnesses):
 eve auth sync
 ```
 
+## Identity Providers
+
+Eve supports pluggable identity providers. The auth guard tries Bearer JWT first, then provider-specific request auth.
+
+| Provider | Auth Method | Use Case |
+|----------|------------|----------|
+| `github_ssh` | SSH challenge-response | Default CLI login |
+| `nostr` | NIP-98 request auth + challenge-response | Nostr-native users |
+
+## Org Invites
+
+Invite external users by identity hint:
+
+```bash
+# Admin creates invite targeting a Nostr pubkey
+curl -X POST "$EVE_API_URL/auth/invites" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"org_id": "org_xxx", "role": "member", "provider_hint": "nostr", "identity_hint": "<pubkey>"}'
+```
+
+When the pubkey authenticates, Eve auto-provisions their account.
+
 ## Token Minting (Admin)
 
 Mint tokens for bot/service users without SSH login:

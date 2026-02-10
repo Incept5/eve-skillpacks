@@ -52,6 +52,7 @@ eve admin invite --email user@example.com --github user
 ```
 
 Notes:
+- Eve supports multiple identity providers (SSH, Nostr). SSH is the default CLI login method. Nostr auth uses NIP-98 request headers or kind-22242 challenge-response.
 - CLI can auto-fetch SSH keys from GitHub when none are registered.
 - `auth creds` shows what Claude/Codex credentials are available locally.
 - `auth sync` pushes local OAuth tokens to Eve (defaults to user-level).
@@ -163,7 +164,7 @@ eve secrets import --org org_xxx --file ./secrets.env
 eve secrets validate --project proj_xxx
 ```
 
-## Chat + Integrations (Slack)
+## Chat + Integrations (Slack, Nostr)
 
 ```bash
 eve integrations list --org org_xxx
@@ -186,6 +187,8 @@ Slack commands (run inside Slack):
 @eve agents unlisten <agent-slug>
 @eve agents listening
 ```
+
+Nostr relay subscriptions provide a non-webhook transport. See `references/gateways.md`.
 
 ## Events (Triggers)
 

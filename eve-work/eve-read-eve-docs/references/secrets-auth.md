@@ -121,6 +121,41 @@ eve auth sync --codex             # Only sync Codex tokens
 Scope priority: `--project` > `--org` > user (default).
 Default is user-level, so credentials are available to all your jobs.
 
+## Identity Providers
+
+Eve supports pluggable identity providers through a provider framework. The auth guard evaluates credentials in order: **Bearer JWT first**, then provider-specific request auth.
+
+| Provider | Auth Method | Use Case |
+|----------|------------|----------|
+| `github_ssh` | SSH challenge-response | Default CLI login (`eve auth login`) |
+| `nostr` | NIP-98 request auth + kind-22242 challenge-response | Nostr-native users |
+
+New identities are **invite-gated**: an admin must create an invite targeting the identity before the provider can provision an account.
+
+### CLI / API
+
+```bash
+# SSH login (default)
+eve auth login --email you@example.com
+
+# Nostr challenge (API-level)
+# POST /auth/challenge {"provider": "nostr", "pubkey": "<hex>"}
+```
+
+## Org Invites
+
+Admins can invite external users by identity hint. When the targeted identity authenticates, Eve auto-provisions their account and org membership.
+
+```bash
+# Create invite (admin)
+curl -X POST "$EVE_API_URL/auth/invites" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"org_id": "org_xxx", "role": "member", "provider_hint": "nostr", "identity_hint": "<pubkey>"}'
+
+# List invites
+curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $TOKEN"
+```
+
 ## Harness Credentials (Current)
 
 Preferred secrets:

@@ -32,6 +32,9 @@ eve auth permissions
 
 # Sync local OAuth tokens for agent harnesses (optional)
 eve auth sync
+
+# Nostr challenge (API-level, no CLI command yet)
+# POST /auth/challenge {"provider": "nostr", "pubkey": "<hex>"}
 ```
 
 ## Orgs and Projects
@@ -137,6 +140,13 @@ Slack gateway commands (run inside Slack):
 @eve agents listening
 ```
 
+Nostr commands (via DM to platform pubkey):
+
+```text
+/agent-slug command text
+agent-slug: command text
+```
+
 ## Secrets
 
 ```bash
@@ -168,12 +178,15 @@ eve workflow invoke qa-review --input '{"task":"audit"}'
 eve workflow logs job_abc123
 ```
 
-## Integrations (Slack, GitHub)
+## Integrations (Slack, Nostr, GitHub)
 
 ```bash
 eve integrations list --org org_xxx
 eve integrations slack connect --org org_xxx --team-id T123 --token xoxb-test
 eve integrations test <integration_id> --org org_xxx
+
+# Nostr integration (via API)
+# POST /integrations {"provider": "nostr", "account_id": "<platform-pubkey>", ...}
 ```
 
 ## Pipelines and Workflows
