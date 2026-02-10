@@ -57,6 +57,12 @@ Notes:
 - `auth creds` shows what Claude/Codex credentials are available locally.
 - `auth sync` pushes local OAuth tokens to Eve (defaults to user-level).
 
+## Init
+
+```bash
+eve init [--org org_xxx] [--project proj_xxx]    # Initialize an Eve project in cwd
+```
+
 ## Org / Project
 
 ```bash
@@ -99,7 +105,7 @@ eve job follow <job-id>
 eve job diagnose <job-id>
 ```
 
-## Builds
+## Builds (see `references/builds-releases.md` for full detail)
 
 Builds are first-class primitives tracking image construction.
 
@@ -117,6 +123,14 @@ Builds are first-class primitives tracking image construction.
 
 Builds happen automatically in pipeline `build` steps. Use `eve build diagnose` to debug.
 
+## Releases
+
+```bash
+eve release resolve <tag> [--project <id>]    # Resolve release by tag
+```
+
+Releases are created automatically by pipeline `release` steps. See `references/builds-releases.md`.
+
 ## Pipelines
 
 ```bash
@@ -124,8 +138,11 @@ eve pipeline list
 eve pipeline show <project> <name>
 eve pipeline run <name> --ref 0123456789abcdef0123456789abcdef01234567 --env staging --inputs '{"k":"v"}'
 eve pipeline run <name> --ref main --repo-dir ./my-app --env staging
+eve pipeline runs [project] --status <status>
+eve pipeline show-run <pipeline> <run-id>
 eve pipeline approve <run-id>
 eve pipeline cancel <run-id>
+eve pipeline logs <pipeline> <run-id> --step <name>
 ```
 
 ## Workflows
@@ -142,8 +159,11 @@ eve workflow logs <job-id>
 
 ```bash
 eve env deploy staging --ref main --repo-dir ./my-app
+eve env deploy staging --ref <sha> --direct    # bypass pipeline
 
+eve env list <project>
 eve env show <project> staging
+eve env health <project> staging
 eve env diagnose <project> staging
 eve env logs <project> staging
 eve env delete <project> staging
@@ -162,6 +182,71 @@ eve secrets set KEY value --project proj_xxx
 eve secrets import --org org_xxx --file ./secrets.env
 
 eve secrets validate --project proj_xxx
+eve secrets ensure --project proj_xxx --keys GITHUB_WEBHOOK_SECRET
+eve secrets export --project proj_xxx --keys GITHUB_WEBHOOK_SECRET
+```
+
+## Agents, Teams + Chat (see `references/agents-teams.md` for full detail)
+
+```bash
+# Sync agent/team/chat config from repo to API
+eve agents sync --project proj_xxx --ref <sha>
+eve agents sync --project proj_xxx --local --allow-dirty
+
+# View effective config
+eve agents config [--repo-dir <path>] [--json]
+
+# Agent runtime status
+eve agents runtime-status --org org_xxx [--json]
+```
+
+## Teams
+
+```bash
+eve teams list [--json]
+```
+
+## Threads
+
+```bash
+eve thread messages <thread-id> [--since 5m] [--limit 20] [--json]
+eve thread post <thread-id> --body '{"kind":"update","body":"text"}'
+eve thread follow <thread-id>                  # tail messages (polls 3s)
+```
+
+## Packs
+
+```bash
+eve packs status [--repo-dir <path>]           # Show lockfile status + drift
+eve packs resolve [--dry-run] [--repo-dir <path>]  # Preview pack resolution
+```
+
+## Models + Harnesses
+
+```bash
+eve models list [--managed] [--json]           # List available LLM models
+eve harness list [--capabilities]              # List harness availability + auth
+```
+
+## Database (Environment DBs)
+
+```bash
+eve db schema --env staging [--project <id>]   # Show DB schema
+eve db rls --env staging                       # Show RLS policies
+eve db sql --env staging --sql "SELECT 1"      # Run query (read-only by default)
+eve db sql --env staging --sql "UPDATE..." --write  # Mutations need --write flag
+eve db sql --env staging --file ./query.sql    # Run SQL from file
+eve db migrate --env staging [--path db/migrations]  # Apply pending migrations
+eve db migrations --env staging                # List applied migrations
+eve db new create_users [--path db/migrations] # Create migration file
+```
+
+Migration files: `YYYYMMDDHHmmss_description.sql` in `db/migrations/` by default.
+
+## Manifest
+
+```bash
+eve manifest validate [--path <path>] [--validate-secrets] [--strict]
 ```
 
 ## Chat + Integrations (Slack, Nostr)
@@ -194,7 +279,16 @@ Nostr relay subscriptions provide a non-webhook transport. See `references/gatew
 
 ```bash
 eve event list --project proj_xxx --type github.push
+eve event show <event-id>
 eve event emit --type manual.test --source manual --payload '{"k":"v"}'
+```
+
+See `references/events.md` for the complete event type catalog and trigger syntax.
+
+## Supervision
+
+```bash
+eve supervise [<job-id>] [--timeout 60]        # Monitor job tree + team coordination
 ```
 
 ## Debugging (CLI-first)
@@ -204,6 +298,7 @@ See `references/deploy-debug.md` for the debugging ladder and system health comm
 ## System (Internal)
 
 ```bash
+eve system health [--json]
 eve system orchestrator status
 eve system orchestrator set-concurrency <n>
 eve system status
@@ -213,3 +308,28 @@ eve system logs api --tail 50
 eve system pods
 eve system events
 ```
+
+## All Commands Summary
+
+| Category | Key Commands |
+|----------|-------------|
+| **Auth** | `login`, `status`, `creds`, `sync`, `bootstrap`, `permissions` |
+| **Org/Project** | `org ensure/list`, `project ensure/list/show/sync`, `members` |
+| **Jobs** | `create`, `list`, `show`, `follow`, `diagnose`, `claim`, `submit`, `approve/reject` |
+| **Builds** | `create`, `list`, `show`, `run`, `logs`, `diagnose`, `artifacts`, `cancel` |
+| **Releases** | `resolve` |
+| **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |
+| **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
+| **Environments** | `deploy`, `list`, `show`, `health`, `diagnose`, `logs`, `delete` |
+| **Secrets** | `list`, `set`, `import`, `validate`, `ensure`, `export` |
+| **Agents** | `sync`, `config`, `runtime-status` |
+| **Threads** | `messages`, `post`, `follow` |
+| **Packs** | `status`, `resolve` |
+| **Models** | `list` |
+| **Database** | `schema`, `rls`, `sql`, `migrate`, `migrations`, `new` |
+| **Events** | `list`, `show`, `emit` |
+| **Chat** | `simulate` |
+| **Integrations** | `list`, `slack connect`, `test` |
+| **System** | `health`, `status`, `jobs`, `envs`, `logs`, `pods`, `events` |
+| **Manifest** | `validate` |
+| **Supervise** | `supervise` |

@@ -1,6 +1,6 @@
 ---
 name: eve-read-eve-docs
-description: Load first. Index of distilled Eve Horizon system docs for CLI usage, manifests, pipelines, jobs, secrets, and debugging.
+description: Load first. Index of distilled Eve Horizon system docs for CLI usage, manifests, pipelines, jobs, secrets, agents, builds, events, and debugging.
 triggers:
   - eve docs
   - eve horizon docs
@@ -12,6 +12,13 @@ triggers:
   - eve job
   - eve secrets
   - eve auth
+  - eve events
+  - eve triggers
+  - eve agents
+  - eve teams
+  - eve builds
+  - eve releases
+  - eve deploy
 ---
 
 # Eve Read Docs (Load First)
@@ -22,26 +29,30 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 
 - Any question about how to use Eve Horizon via CLI or API.
 - Any question about `.eve/manifest.yaml`, pipelines, workflows, jobs, or secrets.
+- Any question about events, triggers, agents, teams, builds, or deployments.
 - Any time you need the authoritative "current vs planned" status.
 
 ## How to Use
 
-1. Start with `references/overview.md` for core concepts and IDs.
+1. Start with `references/overview.md` for core concepts, IDs, and the reference index.
 2. Open the relevant reference(s) below based on the task.
 3. Prefer **Current (Implemented)** guidance; **Planned** sections are not live.
 
 ## Index
 
-- `references/overview.md` -- Architecture, core concepts, IDs, job phases.
-- `references/cli.md` -- CLI quick reference, profiles, org/project, builds, core commands.
-- `references/manifest.md` -- Manifest v2 spec, services, envs, pipelines, workflows.
-- `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, build actions.
-- `references/jobs.md` -- Job lifecycle, job CLI, git/workspace controls.
-- `references/secrets-auth.md` -- Secrets scopes, interpolation, auth + bootstrap.
-- `references/skills-system.md` -- OpenSkills, skills.txt, install flow.
+- `references/overview.md` -- Architecture, core concepts, IDs, job phases, reference index.
+- `references/cli.md` -- CLI quick reference: all commands by category with flags and options.
+- `references/manifest.md` -- Manifest v2 spec: services, environments, pipelines, workflows, x-eve extensions.
+- `references/events.md` -- **Event type catalog** (all sources + payloads) and **trigger syntax** (github, slack, system, cron, manual).
+- `references/jobs.md` -- Job lifecycle, phases, CLI, git/workspace controls, scheduling hints.
+- `references/builds-releases.md` -- Build system (specs, runs, artifacts), releases, deploy model, promotion patterns.
+- `references/agents-teams.md` -- Agent/team/chat YAML schemas, sync flow, slug rules, dispatch modes, coordination threads.
+- `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, build-release-deploy pattern.
+- `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync.
+- `references/skills-system.md` -- Skills format, skills.txt, install flow, discovery priority.
 - `references/deploy-debug.md` -- Deploy modes, env deploy, CLI-first debugging, build debugging.
-- `references/harnesses.md` -- Harness selection, profiles, auth, sandbox.
-- `references/events.md` -- Event spine and trigger routing.
+- `references/harnesses.md` -- Harness selection, profiles, auth priority, sandbox flags.
+- `references/gateways.md` -- Gateway plugin architecture, Slack + Nostr providers, thread keys.
 
 ## Hard Rules
 

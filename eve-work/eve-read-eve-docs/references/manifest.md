@@ -19,6 +19,17 @@ x-eve:                           # optional Eve extensions
 
 Unknown fields are allowed for forward compatibility.
 
+## Registry
+
+```yaml
+registry:
+  host: ghcr.io
+  namespace: myorg
+  auth:
+    username_secret: GHCR_USERNAME
+    token_secret: GHCR_TOKEN
+```
+
 ## Services (Compose-Style)
 
 ```yaml
@@ -46,17 +57,86 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 
 ### Eve Service Extensions (`x-eve`)
 
-- `role`: `component` (default), `worker`, or `job`
-- `ingress`: `{ public: true|false, port: number }`
-- `api_spec` / `api_specs`: register API specs (OpenAPI)
-- `external`: true for external deps (not deployed)
-- `connection_url`: connection string for external services
-- `worker_type`: worker pool type for this service
+| Field | Type | Description |
+|-------|------|-------------|
+| `role` | string | `component` (default), `worker`, or `job` |
+| `ingress` | object | `{ public: true\|false, port: number }` |
+| `api_spec` | object | Single API spec registration |
+| `api_specs` | array | Multiple API spec registrations |
+| `external` | boolean | External dependency (not deployed) |
+| `connection_url` | string | Connection string for external services |
+| `worker_type` | string | Worker pool type for this service |
+| `files` | array | Mount source files into container |
+| `storage` | object | Persistent volume configuration |
 
 Notes:
 - `x-eve.role: job` makes a service runnable as a one-off job (migrations, seeds).
 - `spec_url` can be relative (resolved against service URL) or absolute.
 - `spec_path` is supported only for local `file://` repos.
+
+### API Spec Schema
+
+```yaml
+api_spec:
+  type: openapi              # openapi | postgrest | graphql
+  spec_url: /openapi.json    # relative to service URL, or absolute
+  spec_path: ./openapi.yaml  # local file path (file:// repos only)
+  name: my-api               # optional display name
+  auth: eve                  # eve (default) | none
+  on_deploy: true            # refresh on deploy (default: true)
+```
+
+Multiple specs:
+
+```yaml
+api_specs:
+  - type: openapi
+    spec_url: /openapi.json
+  - type: graphql
+    spec_url: /graphql
+```
+
+### Files Mount
+
+Mount source files from the repo into the container:
+
+```yaml
+x-eve:
+  files:
+    - source: ./config/app.conf    # relative path in repo
+      target: /etc/app/app.conf    # absolute path in container
+```
+
+### Persistent Storage
+
+```yaml
+x-eve:
+  storage:
+    mount_path: /data
+    size: 10Gi
+    access_mode: ReadWriteOnce     # ReadWriteOnce | ReadWriteMany | ReadOnlyMany
+    storage_class: standard        # optional
+    name: my-data                  # optional PVC name
+```
+
+### Healthcheck
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+  interval: 5s
+  timeout: 3s
+  retries: 3
+  start_period: 10s
+```
+
+### Dependency Conditions
+
+```yaml
+depends_on:
+  db:
+    condition: service_healthy     # service_started | service_healthy | started | healthy
+```
 
 ## Environments
 
@@ -82,6 +162,19 @@ environments:
 - Use `--direct` to bypass pipeline and deploy directly.
 - `overrides` is Compose-style and merges into services.
 
+### Environment Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | `persistent` (default) or `temporary` |
+| `kind` | string | `standard` (default) or `preview` (PR envs) |
+| `pipeline` | string | Pipeline name to trigger on deploy |
+| `pipeline_inputs` | object | Inputs passed to pipeline |
+| `approval` | string | `required` to gate deploys |
+| `overrides` | object | Compose-style service overrides |
+| `workers` | array | Worker pool configuration |
+| `labels` | object | Metadata (PR info for preview envs) |
+
 ## Pipelines (Steps)
 
 ```yaml
@@ -96,6 +189,8 @@ pipelines:
 ```
 
 Step types: `action`, `script`, `agent`, or shorthand `run`.
+
+See `references/pipelines-workflows.md` for step types, triggers, and the canonical build-release-deploy pattern.
 
 Platform env vars injected into services:
 - `EVE_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
@@ -158,6 +253,7 @@ x-eve:
         - harness: codex
           model: gpt-5.2-codex
           reasoning_effort: x-high
+```
 
 ## AgentPacks (`x-eve.packs` + `x-eve.install_agents`)
 
@@ -178,6 +274,46 @@ x-eve:
 Notes:
 - Remote pack sources require a 40-char git SHA `ref`.
 - Packs can be full AgentPacks (`eve/pack.yaml`) or skills-only packs.
+- Local packs use relative paths (resolved from repo root).
+
+### Pack Lock File
+
+`.eve/packs.lock.yaml` tracks resolved state:
+
+```yaml
+resolved_at: "2026-02-09T..."
+project_slug: myproject
+packs:
+  - id: pack-id
+    source: incept5/eve-skillpacks
+    ref: 0123456789abcdef0123456789abcdef01234567
+    pack_version: 1
+effective:
+  agents_count: 5
+  teams_count: 2
+  routes_count: 3
+  profiles_count: 4
+```
+
+### Pack Overlay Customization
+
+Local YAML overlays pack defaults using deep merge + `_remove`:
+
+```yaml
+# In local agents.yaml
+version: 1
+agents:
+  pack-agent:
+    harness_profile: my-override       # override pack default
+  unwanted-agent:
+    _remove: true                       # remove from pack
+```
+
+### Pack CLI
+
+```bash
+eve packs status [--repo-dir <path>]           # Show lockfile + drift
+eve packs resolve [--dry-run] [--repo-dir <path>]  # Preview resolution
 ```
 
 ## Secrets Requirements + Interpolation
@@ -203,3 +339,5 @@ Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_I
 
 If a service exposes ports and the cluster domain is configured, Eve creates ingress by default.
 Set `x-eve.ingress.public: false` to disable.
+
+URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`

@@ -3,62 +3,211 @@
 ## Event Model
 
 Events are stored in Postgres and routed by the orchestrator.
-Core fields: `type`, `source`, `status`, `payload_json`, `env_name`, `ref_sha`, `ref_branch`, `actor_type`, `actor_id`, `dedupe_key`.
 
-Sources: `github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`.
+Core fields:
 
-## Slack Webhooks (Gateway)
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | TypeID (`evt_xxx`) |
+| `project_id` | string | Owning project |
+| `type` | string | Namespaced event type (e.g., `github.push`) |
+| `source` | enum | Event origin (see sources below) |
+| `status` | enum | `pending` → `processing` → `completed` / `failed` |
+| `payload_json` | object | Event-specific data (varies by type) |
+| `env_name` | string? | Target environment |
+| `ref_sha` | string? | Git commit SHA |
+| `ref_branch` | string? | Git branch name |
+| `actor_type` | enum? | `user`, `system`, or `app` |
+| `actor_id` | string? | Actor identifier |
+| `dedupe_key` | string? | Idempotency key (prevents duplicate processing) |
 
-Slack Events are handled by the **Gateway** service at:
+## Event Sources
 
-```
-POST /integrations/slack/events
-```
+`github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`, `chat`
 
-The gateway verifies Slack signatures, resolves `team_id -> org_id`, and forwards
-events into chat routing/dispatch.
+## Event Type Catalog
 
-## System Failure Events
+### GitHub Events
 
-- `system.job.failed`
-- `system.pipeline.failed`
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `github.push` | Push to branch | `{ ref, commits, repository, sender, head_commit }` |
+| `github.pull_request` | PR lifecycle | `{ action, number, pull_request: { head, base, title, ... } }` |
 
-## Runner Events
+Delivered via webhook: `POST /integrations/github/events/{project_id}`. Signature verified with `X-Hub-Signature-256`.
 
-- `runner.started`
-- `runner.progress`
-- `runner.completed`
-- `runner.failed`
+### Slack Events
 
-Payload includes `attemptId`, `jobId`, plus `message/percentage` (progress),
-`result` (completed), and `error/exitCode` (failed).
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `slack.message` | Message in channel | `{ text, channel, user, ts, thread_ts }` |
+| `slack.app_mention` | @eve mention | `{ text, channel, user, ts }` |
+
+Delivered via gateway: `POST /gateway/providers/slack/webhook` (or legacy `POST /integrations/slack/events`). Signature verified with Slack signing secret.
+
+### System Events (Auto-Emitted)
+
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `system.job.failed` | Job execution failure | `{ job_id, attempt_id, error_message, error_code, exit_code }` |
+| `system.pipeline.failed` | Pipeline run failure | `{ run_id, pipeline_name, error_message, error_code, exit_code }` |
+
+These are emitted automatically by the orchestrator when failures occur. Use them for self-healing automation.
+
+### Runner Events (Worker-Emitted)
+
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `runner.started` | Agent begins execution | `{ attemptId, jobId }` |
+| `runner.progress` | Agent reports progress | `{ attemptId, jobId, message, percentage }` |
+| `runner.completed` | Agent finishes successfully | `{ attemptId, jobId, result }` |
+| `runner.failed` | Agent execution fails | `{ attemptId, jobId, error, exitCode }` |
+
+### Cron Events
+
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `cron.tick` | Schedule fires | `{ schedule, trigger_name }` |
+
+### Manual / App Events (Custom)
+
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `manual.*` | User-created via CLI/API | Any JSON |
+| `app.*` | Application-emitted | Any JSON |
+
+Custom events use any `type` string. No schema enforcement — payload can be arbitrary JSON.
 
 ## API + CLI
 
 ```bash
-eve event list [project] --type github.push --source github
+# List events (filterable)
+eve event list [project] --type github.push --source github --status completed
+
+# Show event details
 eve event show <event-id>
+
+# Emit a custom event
 eve event emit --type manual.test --source manual --payload '{"k":"v"}'
+eve event emit --type app.deploy-check --source app --env staging --branch main
+```
+
+API endpoints:
+
+```
+POST /projects/{project_id}/events         # Create event
+GET  /projects/{project_id}/events         # List events (filters: type, source, status)
+GET  /projects/{project_id}/events/{id}    # Get event details
 ```
 
 ## Trigger Routing
 
-The orchestrator polls pending events, matches manifest triggers, and creates pipeline runs or workflow jobs.
+The orchestrator polls pending events, matches them against manifest triggers, and creates pipeline runs or workflow jobs.
 
-Example trigger:
+### How Triggers Work
+
+1. Event arrives in the events table (status: `pending`)
+2. Orchestrator polls every ~5 seconds
+3. Loads project manifest and checks all pipeline/workflow triggers
+4. If a trigger matches, creates a pipeline run or workflow job
+5. Marks event as `completed` (or `failed`)
+
+### Trigger Types
+
+Triggers are defined in the manifest under `pipelines.<name>.trigger` or `workflows.<name>.trigger`.
+
+#### GitHub Trigger
+
+```yaml
+trigger:
+  github:
+    event: push              # "push" or "pull_request"
+    branch: main             # Branch pattern (supports wildcards)
+```
 
 ```yaml
 trigger:
   github:
     event: pull_request
-    action: [opened, synchronize]
-    base_branch: main
+    action: [opened, synchronize, reopened]   # PR actions to match
+    base_branch: main                          # Target branch filter
 ```
 
 Supported PR actions: `opened`, `synchronize`, `reopened`, `closed`.
-Branch patterns support wildcards (e.g., `release/*`).
+Branch patterns: exact (`main`), prefix wildcards (`release/*`), suffix wildcards (`*-prod`).
+
+#### Slack Trigger
+
+```yaml
+trigger:
+  slack:
+    event: message           # Slack event type
+    channel: C123ABC         # Channel ID
+```
+
+#### System Trigger (Self-Healing)
+
+```yaml
+trigger:
+  system:
+    event: job.failed        # "job.failed" or "pipeline.failed"
+    pipeline: deploy         # Optional: scope to specific pipeline
+```
+
+Use system triggers to build automated remediation flows. When a job or pipeline fails, the system event triggers a recovery pipeline or workflow.
+
+#### Cron Trigger
+
+```yaml
+trigger:
+  cron:
+    schedule: "0 */6 * * *"  # Standard cron expression
+```
+
+#### Manual Trigger (No Auto-Trigger)
+
+```yaml
+trigger:
+  manual: true               # Only runs when explicitly invoked
+```
+
+### Complete Trigger Example
+
+```yaml
+pipelines:
+  ci:
+    trigger:
+      github:
+        event: pull_request
+        action: [opened, synchronize]
+        base_branch: main
+    steps:
+      - name: test
+        script: { run: "pnpm test" }
+
+  deploy:
+    trigger:
+      github:
+        event: push
+        branch: main
+    steps:
+      - name: build
+        action: { type: build }
+      - name: deploy
+        depends_on: [build]
+        action: { type: deploy, env_name: staging }
+
+  self-heal:
+    trigger:
+      system:
+        event: job.failed
+        pipeline: deploy
+    steps:
+      - name: diagnose
+        agent: { prompt: "Diagnose the failed deploy and suggest a fix" }
+```
 
 ## Planned (Not Implemented)
 
-- Cron scheduling and event emission from manifest.
 - Stronger dedupe/idempotency semantics.
+- Event replay/reprocessing.
