@@ -1,5 +1,5 @@
 ---
-name: eve-agent-bootstrap
+name: eve-bootstrap
 description: Full onboarding flow — detects auth state, handles access requests for new users, and sets up project for all users.
 triggers:
   - eve bootstrap

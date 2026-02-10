@@ -21,7 +21,7 @@ Eve SE is for app developers using Eve to deploy and run their apps. It does not
 
 | Need | Load this skill |
 | --- | --- |
-| **Full onboarding (new or existing user)** | **`eve-agent-bootstrap`** |
+| **Full onboarding (new or existing user)** | **`eve-bootstrap`** |
 | Understand Eve CLI primitives | `eve-cli-primitives` |
 | Set up a new project from the starter | `eve-new-project-setup` |
 | Connect an existing repo to Eve (already authed) | `eve-project-bootstrap` |
