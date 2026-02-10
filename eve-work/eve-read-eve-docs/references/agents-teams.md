@@ -28,6 +28,9 @@ agents:
       git:
         commit: auto                 # never | manual | auto | required
         push: on_success             # never | on_success | required
+    gateway:
+      policy: routable             # visible + directly addressable via chat
+      clients: [slack]             # optional: restrict to specific providers
     schedule:
       heartbeat_cron: "*/15 * * * *" # optional recurring trigger
 
@@ -37,6 +40,7 @@ agents:
     description: "Reviews PRs"
     skill: eve-code-review
     harness_profile: primary-reviewer
+    # no gateway block → inherits pack default (none if pack sets it, or none for standalone)
 ```
 
 ### Agent Slug Rules
@@ -63,7 +67,58 @@ agents:
 | `policies.permission_policy` | No | `auto_edit` / `never` / `yolo` |
 | `policies.git.commit` | No | `never` / `manual` / `auto` / `required` |
 | `policies.git.push` | No | `never` / `on_success` / `required` |
+| `gateway.policy` | No | `none` / `discoverable` / `routable` (see Gateway Discovery below) |
+| `gateway.clients` | No | Restrict to specific providers (e.g., `[slack]`). Omit = all |
 | `schedule.heartbeat_cron` | No | Cron expression for periodic triggers |
+
+## Gateway Discovery Policy
+
+Controls which agents are visible and routable from external chat gateways (Slack, Nostr). Internal dispatch (teams, pipelines, chat.yaml routes) is **always unaffected**.
+
+### Policy Values
+
+| Policy | `@eve agents list` | `@eve <slug> msg` | Team / Pipeline dispatch |
+|--------|--------------------|--------------------|--------------------------|
+| `none` | Hidden | Rejected | Always works |
+| `discoverable` | Visible | Rejected (with hint) | Always works |
+| `routable` | Visible | Works | Always works |
+
+### Resolution Order
+
+```
+Pack gateway.default_policy          (base — defaults to none)
+  → Agent gateway.policy override    (pack author intent)
+    → Project overlay                (project owner final say)
+```
+
+### Pack-Level Default
+
+Set in `eve/pack.yaml`:
+
+```yaml
+gateway:
+  default_policy: none     # all agents hidden unless they opt in
+```
+
+Standalone agents (no pack) with no `gateway` block default to `none`.
+
+### Examples
+
+```yaml
+# In pack agents.yaml — chatbot opts in
+agents:
+  intake:
+    gateway: { policy: routable }      # users can talk to this
+  reviewer:
+    # no gateway block → inherits pack default (none)
+```
+
+```yaml
+# Project overlay — expose a pack agent that was hidden
+agents:
+  reviewer:
+    gateway: { policy: routable }      # project decides to expose
+```
 
 ## teams.yaml
 

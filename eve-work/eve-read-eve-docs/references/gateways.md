@@ -44,6 +44,22 @@ Every gateway provider implements:
 - Connects to configured relays and subscribes to events targeting the platform pubkey
 - Sends responses as signed Nostr events published back to relays
 
+## Gateway Discovery Policy
+
+Agents must opt in to be visible and routable from chat gateways. See `agents-teams.md` for full details.
+
+| Policy | Directory visible | Direct chat | Internal dispatch |
+|--------|-------------------|-------------|-------------------|
+| `none` | No | Rejected | Always works |
+| `discoverable` | Yes | Rejected (hint to use route) | Always works |
+| `routable` | Yes | Works | Always works |
+
+The directory endpoint (`GET /internal/orgs/{org_id}/agents`) filters out `none` agents and supports `?client=slack` to further filter by provider.
+
+Slug-based routing (`POST /internal/orgs/{org_id}/chat/route`) enforces:
+1. Agent must be `routable` (not `none` or `discoverable`)
+2. If `gateway_clients` is set, request provider must be in the list
+
 ## Agent Slug Extraction
 
 Each provider defines how to extract the target agent slug from an inbound message:
