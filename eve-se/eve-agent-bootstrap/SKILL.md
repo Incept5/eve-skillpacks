@@ -1,21 +1,41 @@
 ---
 name: eve-agent-bootstrap
-description: Bootstrap an Eve agent from zero — create profile, request access, wait for approval, set up project, and start building.
+description: Full onboarding flow — detects auth state, handles access requests for new users, and sets up project for all users.
+triggers:
+  - eve bootstrap
+  - eve onboard
+  - eve get started
+  - eve setup
 ---
 
 # Eve Agent Bootstrap
 
-Self-service onboarding flow for agents on a fresh host. Goes from zero to a working Eve project.
+One skill that handles everything from zero to a working Eve project. It detects whether you're already authenticated and adapts:
 
-## Step 1: Verify CLI
+- **Already authenticated** → skips to project setup
+- **Not authenticated** → creates profile, requests access, waits for admin approval, auto-logs in, then sets up project
+
+## Step 1: Check CLI
 
 ```bash
 eve --version
 ```
 
-If missing: `npm install -g @eve-horizon/cli`
+If this fails, install the CLI first:
+
+```bash
+npm install -g @anthropic/eve-cli
+```
 
 ## Step 2: Create Profile
+
+Check if a profile already exists:
+
+```bash
+eve profile list
+```
+
+If no `staging` profile exists, create one:
 
 ```bash
 eve profile create staging --api-url https://api.eh1.incept5.dev
@@ -28,91 +48,141 @@ eve profile use staging
 eve auth status
 ```
 
-- If **authenticated**: skip to Step 5.
-- If **not authenticated**: continue to Step 4.
+This calls the API — not a local file check. Two outcomes:
 
-## Step 4: Request Access
+### Already authenticated → go to Step 5
 
-Interview the user:
-1. "Do you have an SSH key?" (default: `~/.ssh/id_ed25519.pub`)
-2. "What do you want to call your org?" (e.g., "Acme Corp")
-3. "What's your email?" (optional, for notifications)
+If `eve auth status` shows you're logged in, skip ahead to **Step 5: Project Setup**.
 
-Then submit and wait:
+### Not authenticated → continue to Step 4
+
+## Step 4: Request Access (New Users Only)
+
+Find an SSH public key to use:
+
+```bash
+ls ~/.ssh/*.pub
+```
+
+Default: `~/.ssh/id_ed25519.pub`. If no key exists, generate one:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+```
+
+Ask the user for:
+- **Org name** — what they want to call their organisation
+- **Email** — optional, for their user account
+
+Submit the access request and wait for approval:
 
 ```bash
 eve auth request-access \
   --ssh-key ~/.ssh/id_ed25519.pub \
-  --org "Acme Corp" \
-  --email agent@example.com \
+  --org "My Company" \
+  --email user@example.com \
   --wait
 ```
 
-This blocks until an admin approves or rejects the request. On approval, the agent is automatically logged in.
+The `--wait` flag:
+1. Submits the request (unauthenticated)
+2. Prints the request ID (`areq_xxx`)
+3. Polls every 5 seconds until an admin approves or rejects
+4. On approval: auto-completes SSH challenge login
+5. Stores token in `~/.eve/credentials.json`
 
-**Admin side** (separate terminal or admin agent):
+**Tell the user:** "An admin needs to run `eve admin access-requests approve <id>` to approve your request."
 
-```bash
-eve admin access-requests          # list pending
-eve admin access-requests approve <areq_id>
-```
+Once approved, you're logged in with your own org (as admin).
 
-## Step 5: Set Profile Defaults
+## Step 5: Project Setup
 
-After login, capture the org and project IDs:
-
-```bash
-eve org list --json
-eve profile set --org <org_id>
-```
-
-## Step 6: Create Project (if needed)
-
-Interview: project name, slug, repo URL.
+Set profile defaults if org/project IDs are known:
 
 ```bash
-eve project ensure --name "My App" --slug my-app \
-  --repo-url https://github.com/me/my-app --branch main
-eve profile set --project <proj_id>
+eve profile set --org <org_id> --project <proj_id>
 ```
 
-## Step 7: Create Manifest
+If no project exists yet, ask the user for:
+- **Project name** and **slug** (slug is immutable, keep it short)
+- **Repo URL** (e.g., `git@github.com:org/repo.git`)
+
+```bash
+eve project ensure --name "My App" --slug myapp \
+  --repo-url git@github.com:org/repo.git --branch main
+```
+
+**URL impact:** Slugs determine deployment URLs:
+`{service}.{orgSlug}-{projectSlug}-{env}.{domain}`
+
+## Step 6: Manifest
 
 If `.eve/manifest.yaml` doesn't exist, create a minimal one:
 
 ```yaml
-schema: eve/compose/v2
+schema: eve/compose/v1
+project: myapp
+
+registry:
+  host: ghcr.io
+  namespace: myorg
+  auth:
+    username_secret: GHCR_USERNAME
+    token_secret: GHCR_TOKEN
 
 services:
-  api:
+  web:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ghcr.io/myorg/myapp
+    ports: [3000]
     x-eve:
-      port: 3000
+      ingress:
+        public: true
+        port: 3000
+
+environments:
+  staging:
+    pipeline: deploy
+
+pipelines:
+  deploy:
+    steps:
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
+      - name: deploy
+        depends_on: [release]
+        action: { type: deploy }
 ```
 
-## Step 8: Learn the Platform
+Use the `eve-manifest-authoring` skill for detailed manifest guidance.
 
-Read the Eve platform reference to understand capabilities:
+## Step 7: Learn the Platform
+
+Read the Eve platform reference to understand all capabilities:
 
 ```
 https://web.incept5-evshow-staging.eh1.incept5.dev/llms
 ```
 
-This covers all CLI commands, manifest syntax, and platform features.
+This covers CLI commands, manifest syntax, agent harnesses, job lifecycle, and more.
 
-## Step 9: Summary
-
-Print current state:
+## Step 8: Verify
 
 ```bash
 eve auth status
-eve org list
+eve system health
 eve project list
 ```
 
-Next steps:
-- `eve env deploy staging --ref main --repo-dir .` — deploy
-- `eve job create --title "First task" --description "..."` — create work
-- `eve agents sync --ref main --repo-dir .` — sync agent configs
+## Summary
+
+Print what was set up:
+- Profile: name, API URL
+- Auth: email, org name, org slug
+- Project: name, slug, repo URL
+- Next steps: sync manifest (`eve project sync`), deploy (`eve env deploy staging --ref main --repo-dir .`)
