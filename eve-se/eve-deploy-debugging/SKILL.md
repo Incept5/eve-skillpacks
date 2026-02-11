@@ -90,6 +90,16 @@ Common build failures:
 - **Multi-stage build failure**: BuildKit handles these correctly; Kaniko may have issues
 - **Workspace errors**: Build context not available — check `eve build diagnose`
 
+## Platform Environment Variables
+
+Eve injects these into every deployed service container:
+
+- `EVE_API_URL` — internal cluster URL for server-to-server calls
+- `EVE_PUBLIC_API_URL` — public ingress URL for browser-facing apps
+- `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
+
+Use `EVE_API_URL` for backend calls. Use `EVE_PUBLIC_API_URL` for browser clients.
+
 ## Access URLs
 
 - URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`

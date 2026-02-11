@@ -112,6 +112,21 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 - Use `action.type: create-pr` for PR automation when configured.
 - Workflows live under `workflows` and are invoked via CLI; `db_access` is honored.
 
+## Platform-Injected Environment Variables
+
+Eve automatically injects these into all deployed service containers:
+
+| Variable | Description |
+|----------|-------------|
+| `EVE_API_URL` | Internal cluster URL for server-to-server calls |
+| `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps |
+| `EVE_PROJECT_ID` | The project ID |
+| `EVE_ORG_ID` | The organization ID |
+| `EVE_ENV_NAME` | The environment name |
+
+Use `EVE_API_URL` for backend calls from your container. Use `EVE_PUBLIC_API_URL` for
+browser/client-side code. Services can override these in their `environment` section.
+
 ## Interpolation and secrets
 
 - Env interpolation: `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.

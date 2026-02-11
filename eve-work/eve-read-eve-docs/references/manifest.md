@@ -6,7 +6,7 @@ Schema is Compose-like with Eve extensions under `x-eve`.
 ## Top-Level Fields
 
 ```yaml
-schema: eve/compose/v1          # optional
+schema: eve/compose/v2          # optional
 project: my-project             # optional slug
 registry:                        # optional container registry
 services:                        # required
@@ -28,6 +28,13 @@ registry:
   auth:
     username_secret: GHCR_USERNAME
     token_secret: GHCR_TOKEN
+```
+
+String modes:
+
+```yaml
+registry: "eve"   # Use Eve-native registry (internal)
+registry: "none"  # Disable registry handling
 ```
 
 ## Services (Compose-Style)
@@ -59,7 +66,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `role` | string | `component` (default), `worker`, or `job` |
+| `role` | string | `component` (default), `worker`, `job`, or `managed_db` |
 | `ingress` | object | `{ public: true\|false, port: number }` |
 | `api_spec` | object | Single API spec registration |
 | `api_specs` | array | Multiple API spec registrations |
@@ -68,11 +75,26 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | `worker_type` | string | Worker pool type for this service |
 | `files` | array | Mount source files into container |
 | `storage` | object | Persistent volume configuration |
+| `managed` | object | Managed DB config (requires `role: managed_db`) |
 
 Notes:
 - `x-eve.role: job` makes a service runnable as a one-off job (migrations, seeds).
+- `x-eve.role: managed_db` marks a service as a platform-provisioned database.
 - `spec_url` can be relative (resolved against service URL) or absolute.
 - `spec_path` is supported only for local `file://` repos.
+
+### Managed DB Services
+
+```yaml
+services:
+  db:
+    x-eve:
+      role: managed_db
+      managed:
+        class: db.p1
+        engine: postgres
+        engine_version: "16"
+```
 
 ### API Spec Schema
 
@@ -193,7 +215,9 @@ Step types: `action`, `script`, `agent`, or shorthand `run`.
 See `references/pipelines-workflows.md` for step types, triggers, and the canonical build-release-deploy pattern.
 
 Platform env vars injected into services:
-- `EVE_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
+- `EVE_API_URL` — internal cluster URL for server-to-server calls
+- `EVE_PUBLIC_API_URL` — public ingress URL for browser-facing apps
+- `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
 
 ## Workflows
 

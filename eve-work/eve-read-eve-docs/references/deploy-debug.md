@@ -41,10 +41,14 @@ Domain resolution order:
 
 ## Platform Env Vars (Injected)
 
-- `EVE_API_URL`
+- `EVE_API_URL` — internal cluster URL for server-to-server calls (e.g., `http://eve-api:4701`)
+- `EVE_PUBLIC_API_URL` — public ingress URL for browser-facing apps (e.g., `https://api.eh1.incept5.dev`)
 - `EVE_PROJECT_ID`
 - `EVE_ORG_ID`
 - `EVE_ENV_NAME`
+
+Use `EVE_API_URL` for backend calls from your container. Use `EVE_PUBLIC_API_URL` for
+browser/client-side code or anything running outside the cluster.
 
 ## CLI-First Debugging Ladder
 
