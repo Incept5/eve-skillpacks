@@ -19,3 +19,4 @@ skills add https://github.com/incept5/eve-skillpacks -a claude-code -y --all
 
 - `eve-work` - Productive work patterns (includes `eve-orchestration`)
 - `eve-se` - Platform-specific skills for deploys, manifests, pipelines, and agent runtime + chat ops
+- `eve-design` - Architecture & design thinking (agent-native design principles)

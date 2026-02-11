@@ -33,6 +33,7 @@ Eve SE is for app developers using Eve to deploy and run their apps. It does not
 | Pipelines + workflows | `eve-pipelines-workflows` |
 | Troubleshoot failures | `eve-troubleshooting` |
 | Keep repo aligned with platform | `eve-repo-upkeep` |
+| Design an agent-native app | `eve-agent-native-design` (eve-design pack) |
 
 ## Default Workflow (Local -> Staging)
 

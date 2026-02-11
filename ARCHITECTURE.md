@@ -20,6 +20,18 @@ Dev-only packs are hosted in the eve-horizon repo under `private-eve-dev-skills/
 ```
 eve-skillpacks/
 ├── ARCHITECTURE.md        # This file
+├── CLAUDE.md              # Project instructions for agents
+├── .sync-state.json       # Tracks last synced eve-horizon commit
+├── .sync-map.json         # Maps eve-horizon sources to skillpack targets
+├── .claude/skills/
+│   └── sync-horizon/      # /sync-horizon slash command
+│       └── SKILL.md
+├── eve-design/            # Architecture & design thinking
+│   ├── README.md
+│   └── eve-agent-native-design/
+│       ├── SKILL.md
+│       └── references/
+│           └── eve-horizon-primitives.md
 ├── eve-se/                # Platform-specific skills
 │   ├── README.md
 │   ├── eve-se-index/
@@ -57,6 +69,14 @@ eve-skillpacks/
 ```
 
 ## Skill Packs
+
+### eve-design (Architecture & Design Thinking)
+Skills for thinking about how to build on Eve Horizon — not just how to use it.
+
+**Skills included**:
+- **eve-agent-native-design**: Design agent-native apps using parity, granularity, composability, and emergent capability
+
+**Who should use**: Anyone designing applications, APIs, or agent systems on Eve Horizon.
 
 ### eve-se (Software Engineering)
 Skills for working with the Eve Horizon platform and conforming to its patterns.
