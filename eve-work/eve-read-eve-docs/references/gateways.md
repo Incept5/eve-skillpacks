@@ -73,15 +73,15 @@ If no slug is matched, the org's default agent is used as fallback.
 
 ## Thread Key Format
 
-Thread continuity across providers uses a canonical key:
+Thread continuity uses a canonical key scoped to the integration account:
 
 ```
-provider:account_id:channel[:thread_id]
+account_id:channel[:thread_id]
 ```
 
 Examples:
-- Slack: `slack:T123ABC:C456DEF:1234567890.123456`
-- Nostr: `nostr:<platform-pubkey>:<sender-pubkey>`
+- Slack: `T123ABC:C456DEF:1234567890.123456`
+- Nostr: `<platform-pubkey>:<sender-pubkey>`
 
 The thread key uniquely identifies a conversation and maps to Eve's internal thread system for context persistence.
 

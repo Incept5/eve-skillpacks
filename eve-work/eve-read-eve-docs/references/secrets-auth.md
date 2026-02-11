@@ -90,6 +90,23 @@ The CLI can auto-fetch SSH keys from GitHub if none are registered.
 eve admin invite --email user@example.com --github user
 ```
 
+### Access Requests
+
+Self-service onboarding (when no invite exists):
+
+```bash
+eve auth request-access --org "My Company" --email you@example.com
+eve auth request-access --status <request_id>
+```
+
+Admin review:
+
+```bash
+eve admin access-requests list
+eve admin access-requests approve <request_id>
+eve admin access-requests reject <request_id> --reason "..."
+```
+
 ### Local Credentials
 
 Check what AI tool credentials are available on your machine:

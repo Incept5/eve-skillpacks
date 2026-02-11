@@ -49,6 +49,11 @@ eve auth sync --dry-run             # Preview without syncing
 eve auth bootstrap --email you@example.com --token $EVE_BOOTSTRAP_TOKEN
 
 eve admin invite --email user@example.com --github user
+eve auth request-access --org "My Company" --email you@example.com
+eve auth request-access --status <request_id>
+eve admin access-requests list
+eve admin access-requests approve <request_id>
+eve admin access-requests reject <request_id> --reason "..."
 
 # Service accounts (machine identity)
 eve auth create-service-account --name "pm-backend" --org org_xxx \
@@ -279,6 +284,10 @@ eve db sql --env staging --file ./query.sql    # Run SQL from file
 eve db migrate --env staging [--path db/migrations]  # Apply pending migrations
 eve db migrations --env staging                # List applied migrations
 eve db new create_users [--path db/migrations] # Create migration file
+eve db status --env staging                    # Managed DB status
+eve db rotate-credentials --env staging        # Rotate managed DB credentials
+eve db scale --env staging --class db.p2       # Scale managed DB class
+eve db destroy --env staging --force           # Destroy managed DB
 ```
 
 Migration files: `YYYYMMDDHHmmss_description.sql` in `db/migrations/` by default.
@@ -353,7 +362,7 @@ eve system events
 
 | Category | Key Commands |
 |----------|-------------|
-| **Auth** | `login`, `status`, `creds`, `sync`, `bootstrap`, `permissions`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
+| **Auth** | `login`, `status`, `creds`, `sync`, `bootstrap`, `permissions`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `validate`, `plan`, `sync` |
 | **Org/Project** | `org ensure/list`, `project ensure/list/show/sync`, `members` |
 | **Jobs** | `create`, `list`, `show`, `follow`, `diagnose`, `claim`, `submit`, `approve/reject` |
@@ -367,7 +376,7 @@ eve system events
 | **Threads** | `messages`, `post`, `follow` |
 | **Packs** | `status`, `resolve` |
 | **Models** | `list` |
-| **Database** | `schema`, `rls`, `sql`, `migrate`, `migrations`, `new` |
+| **Database** | `schema`, `rls`, `sql`, `migrate`, `migrations`, `new`, `status`, `scale`, `rotate-credentials`, `destroy` |
 | **Events** | `list`, `show`, `emit` |
 | **Chat** | `simulate` |
 | **Integrations** | `list`, `slack connect`, `test` |

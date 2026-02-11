@@ -8,6 +8,7 @@ Eve Horizon installs skills via the `skills` CLI. Skills live in repositories an
 - `.agent/skills/`: universal install target (gitignored)
 - `.claude/skills/`: Claude-specific target (symlink when possible)
 - `AGENTS.md`: optional repo-managed index (not auto-generated)
+- `.eve/packs.lock.yaml`: resolved AgentPacks (preferred)
 
 ## Skill Format
 
@@ -36,6 +37,16 @@ Example:
 ```txt
 ./private-eve-dev-skills/eve-dev/beads-task-management
 https://github.com/incept5/eve-skillpacks
+```
+
+## AgentPacks (Preferred)
+
+AgentPacks are declared in `.eve/manifest.yaml` under `x-eve.packs` and resolved
+into `.eve/packs.lock.yaml` by `eve agents sync`.
+
+```bash
+eve packs status
+eve packs resolve --dry-run
 ```
 
 ## Install Flow

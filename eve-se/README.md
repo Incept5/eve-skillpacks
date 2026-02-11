@@ -5,6 +5,7 @@ Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-co
 ## Skills Included
 
 - **eve-se-index** - Load this first; routes to the right skill
+- **eve-bootstrap** - Full onboarding flow (auth, access request, project setup)
 - **eve-cli-primitives** - Core CLI commands and capabilities
 - **eve-new-project-setup** - Set up a new project from the starter template
 - **eve-project-bootstrap** - Bootstrap a repo, org, and project for Eve
@@ -14,7 +15,6 @@ Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-co
 - **eve-local-dev-loop** - Docker Compose local dev loop + staging handoff
 - **eve-deploy-debugging** - Deploy and debug Eve-compatible apps
 - **eve-pipelines-workflows** - Define and run pipelines and workflows
-- **eve-cli-primitives** - Includes agent sync + chat simulate commands
 - **eve-troubleshooting** - CLI-first troubleshooting runbooks
 - **eve-repo-upkeep** - Keep repos aligned with platform best practices
 

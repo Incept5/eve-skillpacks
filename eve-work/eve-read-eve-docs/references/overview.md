@@ -38,6 +38,8 @@ Agent Runtime (warm pods) --+
 | Job ID (child) | `{parent}.{n}` | `myproj-a3f2dd12.1` |
 | Build ID | `bld_...` | `bld_xyz789` |
 | Release ID | `rel_...` | `rel_uvw012` |
+| Managed DB Instance ID | `mdbi_...` | `mdbi_01abc` |
+| Managed DB Tenant ID | `mdbt_...` | `mdbt_01def` |
 | Event ID | `evt_...` | `evt_ghi345` |
 | Pipeline Run ID | `prun_...` | `prun_jkl678` |
 | Service Principal ID | `sp_...` | `sp_abc123` |

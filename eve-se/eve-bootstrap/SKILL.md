@@ -8,7 +8,7 @@ triggers:
   - eve setup
 ---
 
-# Eve Agent Bootstrap
+# Eve Bootstrap
 
 One skill that handles everything from zero to a working Eve project. It detects whether you're already authenticated and adapts:
 
