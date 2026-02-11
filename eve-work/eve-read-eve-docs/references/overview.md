@@ -40,6 +40,10 @@ Agent Runtime (warm pods) --+
 | Release ID | `rel_...` | `rel_uvw012` |
 | Event ID | `evt_...` | `evt_ghi345` |
 | Pipeline Run ID | `prun_...` | `prun_jkl678` |
+| Service Principal ID | `sp_...` | `sp_abc123` |
+| SP Token ID | `spt_...` | `spt_def456` |
+| Access Role ID | `role_...` | `role_ghi789` |
+| Access Binding ID | `bind_...` | `bind_jkl012` |
 | Attempt | UUID + `attempt_number` | (1, 2, 3...) |
 
 ## Job Lifecycle
@@ -102,6 +106,9 @@ See `references/skills-system.md`.
 - **Git controls live on jobs** (ref, branch, commit/push policies).
 - **Agent slugs are org-unique** (enforced at sync time).
 - **Secrets scopes stack**: project > user > org > system.
+- **Service principals** provide machine identity for app backends (scoped JWT tokens).
+- **Custom roles** are additive overlays on member/admin/owner (no deny rules).
+- **Policy-as-code** via `.eve/access.yaml` enables reviewable, CI-friendly access config.
 
 ## Reference Index
 

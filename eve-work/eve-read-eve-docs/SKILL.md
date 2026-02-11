@@ -48,7 +48,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/builds-releases.md` -- Build system (specs, runs, artifacts), releases, deploy model, promotion patterns.
 - `references/agents-teams.md` -- Agent/team/chat YAML schemas, sync flow, slug rules, dispatch modes, coordination threads.
 - `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, build-release-deploy pattern.
-- `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync.
+- `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync, service principals, access visibility, custom roles, policy-as-code.
 - `references/skills-system.md` -- Skills format, skills.txt, install flow, discovery priority.
 - `references/deploy-debug.md` -- Deploy modes, env deploy, CLI-first debugging, build debugging.
 - `references/harnesses.md` -- Harness selection, profiles, auth priority, sandbox flags.

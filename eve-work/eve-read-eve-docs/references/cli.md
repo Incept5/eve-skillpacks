@@ -49,6 +49,12 @@ eve auth sync --dry-run             # Preview without syncing
 eve auth bootstrap --email you@example.com --token $EVE_BOOTSTRAP_TOKEN
 
 eve admin invite --email user@example.com --github user
+
+# Service accounts (machine identity)
+eve auth create-service-account --name "pm-backend" --org org_xxx \
+  --scopes "jobs:create,jobs:read,projects:read"
+eve auth list-service-accounts --org org_xxx
+eve auth revoke-service-account --name pm-backend --org org_xxx
 ```
 
 Notes:
@@ -56,6 +62,40 @@ Notes:
 - CLI can auto-fetch SSH keys from GitHub when none are registered.
 - `auth creds` shows what Claude/Codex credentials are available locally.
 - `auth sync` pushes local OAuth tokens to Eve (defaults to user-level).
+- Service accounts create machine identities with scoped tokens for app backends.
+
+## Access (Visibility, Roles, Policy-as-Code)
+
+```bash
+# Permission queries
+eve access can --org org_xxx --user user_abc --permission chat:write
+eve access can --org org_xxx --service-principal sp_xxx --permission jobs:read
+eve access explain --org org_xxx --user user_abc --project proj_xxx --permission jobs:admin
+
+# Custom roles
+eve access roles create pm_manager --org org_xxx --scope org \
+  --permissions jobs:read,jobs:write,threads:read,chat:write
+eve access roles list --org org_xxx
+eve access roles show pm_manager --org org_xxx
+eve access roles update pm_manager --org org_xxx --add-permissions events:read
+eve access roles delete pm_manager --org org_xxx
+
+# Role bindings
+eve access bind --org org_xxx --project proj_xxx --user user_abc --role pm_manager
+eve access bindings list --org org_xxx [--project proj_xxx]
+eve access unbind --org org_xxx --project proj_xxx --user user_abc --role pm_manager
+
+# Policy-as-code
+eve access validate --file .eve/access.yaml
+eve access plan --file .eve/access.yaml --org org_xxx [--json]
+eve access sync --file .eve/access.yaml --org org_xxx [--yes] [--prune]
+```
+
+Notes:
+- `can`/`explain` require org admin. Work for both users and service principals.
+- Custom roles are additive overlays — they add permissions on top of base membership roles.
+- `validate/plan/sync` manage declarative `.eve/access.yaml` policy files.
+- `--prune` removes roles/bindings present in API but not declared in the YAML file.
 
 ## Init
 
@@ -313,7 +353,8 @@ eve system events
 
 | Category | Key Commands |
 |----------|-------------|
-| **Auth** | `login`, `status`, `creds`, `sync`, `bootstrap`, `permissions` |
+| **Auth** | `login`, `status`, `creds`, `sync`, `bootstrap`, `permissions`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
+| **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `validate`, `plan`, `sync` |
 | **Org/Project** | `org ensure/list`, `project ensure/list/show/sync`, `members` |
 | **Jobs** | `create`, `list`, `show`, `follow`, `diagnose`, `claim`, `submit`, `approve/reject` |
 | **Builds** | `create`, `list`, `show`, `run`, `logs`, `diagnose`, `artifacts`, `cancel` |

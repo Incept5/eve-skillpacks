@@ -156,6 +156,163 @@ curl -X POST "$EVE_API_URL/auth/invites" -H "Authorization: Bearer $TOKEN" \
 curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $TOKEN"
 ```
 
+## Service Principals (Machine Identity)
+
+App backends authenticate as services (not users) via scoped tokens.
+
+### CLI
+
+```bash
+# Create a service account + mint a token
+eve auth create-service-account --name "pm-app-backend" --org org_xxx \
+  --scopes "jobs:create,jobs:read,projects:read"
+
+# List service accounts
+eve auth list-service-accounts --org org_xxx
+
+# Revoke a service account
+eve auth revoke-service-account --name pm-app-backend --org org_xxx
+```
+
+### API
+
+```
+POST   /orgs/:id/service-principals              -- create
+GET    /orgs/:id/service-principals              -- list
+DELETE /orgs/:id/service-principals/:sp_id       -- delete
+POST   /orgs/:id/service-principals/:sp_id/tokens -- mint scoped token
+GET    /orgs/:id/service-principals/:sp_id/tokens  -- list tokens
+DELETE /orgs/:id/service-principals/:sp_id/tokens/:tok_id -- revoke token
+```
+
+Token format: RS256 JWT with `sub: sp:{principal_id}`, `type: service_principal`, `scopes: [...]`. Scopes must come from the known permission catalog. `system:*` scopes require system admin.
+
+Service principal tokens use the same permission guard path as job tokens — explicit scopes only, no implicit role expansion.
+
+## Access Visibility
+
+Query "can user X do Y in project Z?" or "why was this denied?"
+
+### CLI
+
+```bash
+eve access can --org org_xxx --user user_abc --project proj_xxx --permission chat:write
+# Output: ALLOWED (source: admin role on project proj_xxx)
+
+eve access explain --org org_xxx --user user_abc --project proj_xxx --permission jobs:admin
+# Output:
+# Permission: jobs:admin
+# Result: DENIED
+# Grants found:
+#   - org membership: member → [jobs:read, jobs:write] (missing jobs:admin)
+# Missing: jobs:admin requires admin role or higher
+
+# Also works for service principals
+eve access can --org org_xxx --service-principal sp_xxx --permission jobs:read
+```
+
+### API
+
+```
+GET /orgs/:id/access/can?principal_type=user&principal_id=...&permission=...&project_id=...
+GET /orgs/:id/access/explain?principal_type=user&principal_id=...&permission=...&project_id=...
+```
+
+Both require `orgs:admin`. Works for `user` and `service_principal` principal types.
+
+## Custom Roles + Bindings
+
+Additive role overlays on top of built-in member/admin/owner roles.
+
+### CLI
+
+```bash
+# Create a custom role
+eve access roles create pm_manager --org org_xxx --scope org \
+  --permissions jobs:read,jobs:write,threads:read,threads:write,chat:write
+
+eve access roles list --org org_xxx
+eve access roles show pm_manager --org org_xxx
+eve access roles update pm_manager --org org_xxx --add-permissions events:read
+eve access roles delete pm_manager --org org_xxx
+
+# Bind a role to a user or service principal
+eve access bind --org org_xxx --project proj_xxx --user user_abc --role pm_manager
+eve access bindings list --org org_xxx
+eve access unbind --org org_xxx --project proj_xxx --user user_abc --role pm_manager
+```
+
+### API
+
+```
+POST/GET    /orgs/:id/access/roles              -- create/list roles
+GET/PATCH/DELETE /orgs/:id/access/roles/:role_id -- get/update/delete role
+POST/GET    /orgs/:id/access/bindings           -- create/list bindings
+DELETE      /orgs/:id/access/bindings/:bind_id  -- delete binding
+```
+
+### Guardrails
+
+- Custom roles are **additive only** — they cannot remove base membership grants.
+- No explicit deny rules — only additive grants.
+- Callers cannot bind roles with permissions they don't themselves hold.
+- `system:*` permissions require system admin to grant.
+- Permission resolution: `effective = expand(base_role) UNION all(bound_custom_role_permissions)`.
+
+## Policy-as-Code (.eve/access.yaml)
+
+Declare roles and bindings in YAML, sync to the API.
+
+```yaml
+version: 1
+access:
+  roles:
+    pm_manager:
+      scope: org
+      permissions:
+        - jobs:read
+        - jobs:write
+        - threads:read
+        - threads:write
+        - chat:write
+    support_triage:
+      scope: project
+      permissions:
+        - jobs:read
+        - jobs:write
+        - threads:read
+        - events:read
+
+  bindings:
+    - scope: org
+      subject:
+        type: user
+        id: user_pm123
+      roles: [pm_manager]
+    - scope: project
+      project_id: proj_xxx
+      subject:
+        type: service_principal
+        id: sp_pmapp
+      roles: [support_triage]
+```
+
+### CLI
+
+```bash
+eve access validate --file .eve/access.yaml        # Schema + semantic validation
+eve access plan --file .eve/access.yaml --org org_xxx  # Show diff (add/update/remove)
+eve access sync --file .eve/access.yaml --org org_xxx  # Apply changes
+eve access sync --file .eve/access.yaml --org org_xxx --prune  # Remove undeclared
+eve access plan --file .eve/access.yaml --org org_xxx --json   # CI-friendly output
+```
+
+- `validate`: checks YAML schema, permission names, binding references
+- `plan`: shows diff between declared (YAML) and actual (API) state
+- `sync`: applies the plan (with confirmation unless `--yes`)
+- `--prune`: removes roles/bindings in API but not in YAML
+- Idempotent: running sync twice produces no changes
+
 ## Harness Credentials (Current)
 
 Preferred secrets:
