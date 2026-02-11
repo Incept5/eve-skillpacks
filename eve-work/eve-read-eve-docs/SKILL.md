@@ -50,7 +50,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, build-release-deploy pattern.
 - `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync, service principals, access visibility, custom roles, policy-as-code.
 - `references/skills-system.md` -- Skills format, skills.txt, install flow, discovery priority.
-- `references/deploy-debug.md` -- Deploy modes, env deploy, CLI-first debugging, build debugging.
+- `references/deploy-debug.md` -- K8s architecture, worker images, deploy polling, ingress/TLS, secrets provisioning, workspace janitor, CLI debugging workflows, real-time debugging, env-specific debugging.
 - `references/harnesses.md` -- Harness selection, profiles, auth priority, sandbox flags.
 - `references/gateways.md` -- Gateway plugin architecture, Slack + Nostr providers, thread keys.
 

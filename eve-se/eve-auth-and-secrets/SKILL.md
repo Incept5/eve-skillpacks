@@ -13,6 +13,7 @@ Use this workflow to log in to Eve and manage secrets for your app.
 - Authentication failures
 - Adding or rotating secrets
 - Secret interpolation errors during deploys
+- Setting up identity providers or org invites
 
 ## Authentication
 
@@ -22,10 +23,38 @@ eve auth login --ttl 30                # custom token TTL (1-90 days)
 eve auth status
 ```
 
-Optional (sync local OAuth tokens for agent harnesses):
+### Challenge-Response Flow
+
+Eve uses challenge-response authentication. The default provider is `github_ssh`:
+
+1. Client sends SSH public key fingerprint
+2. Server returns a challenge (random bytes)
+3. Client signs the challenge with the private key
+4. Server verifies the signature and issues a JWT
+
+### Token Types
+
+| Type | Issued Via | Use Case |
+|------|-----------|----------|
+| User Token | `eve auth login` | Interactive CLI sessions |
+| Job Token | Worker auto-issued | Agent execution within jobs |
+| Minted Token | `eve auth mint` | Bot/service accounts |
+
+JWT payloads include `sub` (user ID), `org_id`, `scope`, and `exp`. Verify tokens via the JWKS endpoint: `GET /auth/jwks`.
+
+### Permissions
+
+Check what the current token can do:
 
 ```bash
-eve auth sync
+eve auth permissions
+```
+
+Register additional identities for multi-provider access:
+
+```bash
+curl -X POST "$EVE_API_URL/auth/identities" -H "Authorization: Bearer $TOKEN" \
+  -d '{"provider": "nostr", "external_id": "<pubkey>"}'
 ```
 
 ## Identity Providers
@@ -36,6 +65,12 @@ Eve supports pluggable identity providers. The auth guard tries Bearer JWT first
 |----------|------------|----------|
 | `github_ssh` | SSH challenge-response | Default CLI login |
 | `nostr` | NIP-98 request auth + challenge-response | Nostr-native users |
+
+### Nostr Authentication
+
+Two paths:
+- **Challenge-response**: Like SSH but signs with Nostr key. Use `eve auth login --provider nostr`.
+- **NIP-98 request auth**: Every API request signed with a Kind 27235 event. Stateless, no stored token.
 
 ## Org Invites
 
@@ -48,7 +83,7 @@ curl -X POST "$EVE_API_URL/auth/invites" -H "Authorization: Bearer $TOKEN" \
   -d '{"org_id": "org_xxx", "role": "member", "provider_hint": "nostr", "identity_hint": "<pubkey>"}'
 ```
 
-When the pubkey authenticates, Eve auto-provisions their account.
+When the pubkey authenticates, Eve auto-provisions their account and org membership.
 
 ## Token Minting (Admin)
 
@@ -65,7 +100,20 @@ eve auth mint --email app-bot@example.com --org org_xxx --ttl 90
 eve auth mint --email app-bot@example.com --project proj_xxx --role admin
 ```
 
-TTL is capped at the server's `EVE_AUTH_TOKEN_TTL_DAYS` env var (max 90 days).
+Print the current access token (useful for scripts):
+
+```bash
+eve auth token
+```
+
+## Key Rotation
+
+Rotate the JWT signing key:
+
+1. Set `EVE_AUTH_JWT_SECRET_NEW` alongside the existing secret
+2. Server starts signing with the new key but accepts both during the grace period
+3. After grace period (`EVE_AUTH_KEY_ROTATION_GRACE_HOURS`), remove the old secret
+4. Emergency rotation: set only the new key (immediately invalidates all existing tokens)
 
 ## Project Secrets
 
@@ -78,9 +126,12 @@ eve secrets list --project proj_xxx
 
 # Delete a secret
 eve secrets delete API_KEY --project proj_xxx
+
+# Import from file
+eve secrets import .env --project proj_xxx
 ```
 
-## Secret Interpolation
+### Secret Interpolation
 
 Reference secrets in `.eve/manifest.yaml` using `${secret.KEY}`:
 
@@ -91,7 +142,16 @@ services:
       API_KEY: ${secret.API_KEY}
 ```
 
-## Local Secrets File
+### Manifest Validation
+
+Validate that all required secrets are set before deploying:
+
+```bash
+eve manifest validate --validate-secrets    # check secret references
+eve manifest validate --strict              # fail on missing secrets
+```
+
+### Local Secrets File
 
 For local development, create `.eve/dev-secrets.yaml` (gitignored):
 
@@ -104,10 +164,32 @@ secrets:
     DB_PASSWORD: staging-password
 ```
 
-This file is used for local interpolation; production secrets come from the Eve API.
+### Worker Injection
 
-## Common Issues
+At job execution time, resolved secrets are injected as environment variables into the worker container. File-type secrets are written to disk and referenced via `EVE_SECRETS_FILE`. The file is removed after the agent process reads it.
 
-- **Not authenticated**: run `eve auth login`.
-- **Secret missing**: confirm with `eve secrets list` and set the key.
-- **Interpolation error**: verify `${secret.KEY}` spelling and that the secret exists.
+### Git Auth
+
+The worker uses secrets for repository access:
+- **HTTPS**: `github_token` secret → `Authorization: Bearer` header
+- **SSH**: `ssh_key` secret → written to `~/.ssh/` and used via `GIT_SSH_COMMAND`
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Not authenticated | Run `eve auth login` |
+| Token expired | Re-run `eve auth login` (tokens auto-refresh if within 5 min of expiry) |
+| Secret missing | Confirm with `eve secrets list` and set the key |
+| Interpolation error | Verify `${secret.KEY}` spelling; run `eve manifest validate --validate-secrets` |
+| Git clone failed | Check `github_token` or `ssh_key` secret is set |
+| Service can't reach API | Verify `EVE_API_URL` is injected (check `eve env show`) |
+
+### Incident Response (Secret Leak)
+
+If a secret may be compromised:
+1. **Contain**: Rotate the secret immediately via `eve secrets set`
+2. **Invalidate**: Redeploy affected environments
+3. **Audit**: Check `eve job list` for recent jobs that used the secret
+4. **Recover**: Generate new credentials at the source (GitHub, AWS, etc.)
+5. **Document**: Record the incident and update rotation procedures

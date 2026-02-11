@@ -34,54 +34,86 @@ eve env deploy staging --ref main --repo-dir . --direct
 eve env deploy staging --ref main --repo-dir . --inputs '{"key":"value"}'
 ```
 
+### Deploy Polling Flow
+
+When `eve env deploy` is called:
+
+1. **Direct deploy** (no pipeline): Returns `deployment_status` directly. Poll health endpoint until `ready === true`.
+2. **Pipeline deploy**: Returns `pipeline_run_id`. Poll `GET /pipelines/{name}/runs/{id}` until all steps complete, then check health.
+
+Deploy is complete when: `ready === true` AND `active_pipeline_run === null`.
+
 ## Observe the Deploy
 
 ```bash
 eve job list --phase active
-eve job follow <job-id>
-eve job watch <job-id>
-eve job diagnose <job-id>
-eve job result <job-id>
+eve job follow <job-id>              # Real-time SSE streaming
+eve job watch <job-id>               # Poll-based status updates
+eve job diagnose <job-id>            # Full diagnostic
+eve job result <job-id>              # Final result
+eve job runner-logs <job-id>         # Raw worker logs
 ```
 
-## Environment Diagnostics
+### Real-Time Debugging (3-Terminal Approach)
 
 ```bash
+# Terminal 1: Pipeline/job progress
+eve job follow <job-id>
+
+# Terminal 2: Environment health
 eve env diagnose <project> <env>
-eve env logs <project> <env>
+
+# Terminal 3: System-level logs
+eve system logs
 ```
 
-## CLI-First Debugging
+## Debugging Workflows
 
-1. `eve job follow` and `eve job diagnose` for the deploy job
-2. `eve system health` for API + DB health
+### Job Won't Start
 
-Only use cluster tools if you have access and the CLI is insufficient.
+1. Check dependencies: `eve job dep list <job-id>`
+2. Check if blocked: `eve job show <job-id>` → look at `blocked_by`
+3. Verify environment readiness: `eve env show <project> <env>`
+4. Check orchestrator: `eve system orchestrator status`
 
-## Common Failure Points
+### Job Failed
 
-- Registry auth missing (`GHCR_USERNAME`, `GHCR_TOKEN`)
-- Secrets interpolation missing (`${secret.KEY}` not set)
-- Healthcheck failing, blocking readiness
-- Environment gate held by another deploy job
+1. Get the error: `eve job diagnose <job-id>`
+2. Check logs: `eve job follow <job-id>` or `eve job runner-logs <job-id>`
+3. If build failure: `eve build diagnose <build-id>`
+4. If secret failure: `eve secrets list --project <project_id>`
 
-### Build Failures
+### Job Stuck Active
+
+1. Check if waiting for input: `eve job show <job-id>` → `effective_phase`
+2. Check thread messages: `eve thread messages <thread-id>`
+3. Check runner pod: `eve system pods`
+
+### System Issues
+
+1. API health: `eve system health`
+2. Orchestrator: `eve system orchestrator status`
+3. Recent events: `eve system events`
+
+## Common Error Messages
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `401 Unauthorized` | Token expired | `eve auth login` |
+| `git clone failed` | Missing credentials | Set `github_token` or `ssh_key` secret |
+| `service not provisioned` | Environment not created | `eve env create <env>` |
+| `image pull backoff` | Registry auth failed | Verify `GHCR_USERNAME` + `GHCR_TOKEN` secrets |
+| `healthcheck timeout` | App not starting | Check app logs, verify ports in manifest |
+
+## Build Failures
 
 If a deploy pipeline fails at the build step:
 
 ```bash
-# Find the build ID from the pipeline run
 eve build list --project <project_id>
-
-# Full diagnostic
 eve build diagnose <build_id>
-
-# Check build logs for errors
 eve build logs <build_id>
-
-# Verify registry credentials are set
-eve secrets list --project <project_id>
-# Required: GHCR_USERNAME, GHCR_TOKEN (or GITHUB_TOKEN)
+eve secrets list --project <project_id>     # Required: GHCR_USERNAME, GHCR_TOKEN
 ```
 
 Common build failures:
@@ -89,6 +121,21 @@ Common build failures:
 - **Dockerfile not found**: Check `build.context` path in manifest
 - **Multi-stage build failure**: BuildKit handles these correctly; Kaniko may have issues
 - **Workspace errors**: Build context not available — check `eve build diagnose`
+
+## Worker Image Registry
+
+Eve publishes worker images to GHCR with these variants:
+
+| Variant | Contents |
+|---------|----------|
+| `base` | Node.js, git, standard CLI tools |
+| `python` | Base + Python runtime |
+| `rust` | Base + Rust toolchain |
+| `java` | Base + JDK |
+| `kotlin` | Base + Kotlin compiler |
+| `full` | All runtimes combined |
+
+**Version pinning**: Use semver tags (e.g., `v1.2.3`) in production. Use SHA tags or `:latest` in development.
 
 ## Platform Environment Variables
 
@@ -103,7 +150,26 @@ Use `EVE_API_URL` for backend calls. Use `EVE_PUBLIC_API_URL` for browser client
 ## Access URLs
 
 - URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`
+- Local dev default domain: `lvh.me`
 - Ask the admin for the correct domain (staging vs production).
+
+## Environment-Specific Debugging
+
+| Environment | How to Debug |
+|-------------|--------------|
+| **Local (k3d)** | Direct service access via ingress, `eve system logs` |
+| **Docker Compose** | `docker compose logs <service>`, dev-only (no production use) |
+| **Kubernetes** | Ingress-based access, `kubectl -n eve logs` as last resort |
+
+## Workspace Janitor
+
+Production disk management for agent workspaces:
+
+- `EVE_WORKSPACE_MAX_GB` — total workspace budget
+- `EVE_WORKSPACE_MIN_FREE_GB` — trigger cleanup threshold
+- `EVE_SESSION_TTL_HOURS` — auto-evict stale sessions
+- LRU eviction when approaching budget; TTL cleanup for idle sessions
+- K8s: per-attempt PVCs deleted on completion
 
 ## Related Skills
 

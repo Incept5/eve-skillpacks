@@ -36,6 +36,8 @@ eve-skillpacks/
 │   ├── README.md
 │   ├── eve-se-index/
 │   │   └── SKILL.md
+│   ├── eve-bootstrap/
+│   │   └── SKILL.md
 │   ├── eve-cli-primitives/
 │   │   └── SKILL.md
 │   ├── eve-project-bootstrap/
@@ -58,6 +60,9 @@ eve-skillpacks/
 │       └── SKILL.md
 └── eve-work/              # General work patterns
     ├── README.md
+    ├── eve-read-eve-docs/
+    │   ├── SKILL.md
+    │   └── references/    # 13 distilled reference docs
     ├── eve-orchestration/
     │   └── SKILL.md
     ├── eve-job-lifecycle/
@@ -83,6 +88,7 @@ Skills for working with the Eve Horizon platform and conforming to its patterns.
 
 **Skills included**:
 - **eve-se-index**: Load this first; route to the right skill
+- **eve-bootstrap**: Full onboarding flow from zero to working project
 - **eve-cli-primitives**: Core CLI commands and capabilities
 - **eve-new-project-setup**: Set up a new project from the starter
 - **eve-project-bootstrap**: Bootstrap a repo, org, and project for Eve
@@ -101,6 +107,7 @@ Skills for working with the Eve Horizon platform and conforming to its patterns.
 Skills for doing productive work using Eve Horizon patterns.
 
 **Skills included**:
+- **eve-read-eve-docs**: Platform documentation gateway — 13 curated reference docs distilled from eve-horizon
 - **eve-orchestration**: Orchestrate jobs via depth propagation, parallel decomposition, relations, and control signals
 - **eve-job-lifecycle**: Create, manage, and review jobs and dependencies
 - **eve-job-debugging**: Monitor and debug jobs via CLI

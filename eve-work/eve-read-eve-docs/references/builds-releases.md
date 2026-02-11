@@ -5,7 +5,7 @@
 Builds are first-class primitives that track container image construction. The model is three-tier:
 
 ```
-BuildSpec (immutable input) → BuildRun (execution) → BuildArtifact (output)
+BuildSpec (immutable input) -> BuildRun (execution) -> BuildArtifact (output)
 ```
 
 ### BuildSpec
@@ -32,7 +32,7 @@ Execution instance of a build. Multiple runs can exist per spec (retries).
 |-------|------|-------------|
 | `id` | string | Run identifier |
 | `build_id` | string | Parent BuildSpec |
-| `status` | enum | `pending` → `building` → `completed` / `failed` / `cancelled` |
+| `status` | enum | `pending` -> `building` -> `completed` / `failed` / `cancelled` |
 | `backend` | string | `buildkit` (K8s), `buildx` (local), `kaniko` (fallback) |
 | `runner_ref` | string? | Pod/runner name |
 | `logs_ref` | string? | Log storage reference |
@@ -76,6 +76,99 @@ Builds happen automatically in pipeline `build` steps. Use `eve build diagnose` 
 | `timeout_error` | Execution timeout | Increase timeout or optimize build |
 | `resource_error` | Resource exhaustion (disk, memory) | Check pod resources |
 | `registry_error` | Registry push failure | Verify registry auth and namespace |
+
+### Pre-Build Visibility
+
+Clone, checkout, and workspace preparation phases produce observable log entries. These are visible through `eve build logs` and `eve job diagnose`, providing full traceability from the moment a build begins -- not just from the Dockerfile execution phase.
+
+### BuildKit Failure Output
+
+Build failures include the last 30 lines of buildkit output and identify the failed Dockerfile stage:
+
+```
+Error: buildctl failed with exit code 1 at [build 3/5] RUN pnpm install
+--- Last 12 lines ---
+#8 [build 3/5] RUN pnpm install --frozen-lockfile
+#8 ERROR: process "pnpm install --frozen-lockfile" did not complete successfully
+...
+```
+
+## Container Registry
+
+### Manifest Registry Configuration
+
+Configure the registry in `.eve/manifest.yaml`:
+
+```yaml
+registry:
+  host: ghcr.io
+  namespace: myorg
+  auth:
+    username_secret: GHCR_USERNAME    # Secret key for registry username
+    token_secret: GHCR_TOKEN          # Secret key for registry token/password
+```
+
+- `host`: container registry hostname (e.g., `ghcr.io`, `docker.io`)
+- `namespace`: registry namespace/organization
+- `auth.username_secret`: name of the secret containing the registry username (defaults to `GHCR_USERNAME`)
+- `auth.token_secret`: name of the secret containing the registry token (defaults to `GITHUB_TOKEN`)
+
+### Required Secrets
+
+For GHCR (GitHub Container Registry), set these secrets:
+
+```bash
+eve secrets set GHCR_USERNAME your-github-username
+eve secrets set GHCR_TOKEN ghp_xxxxxxxxxxxxxxxxxxxx
+```
+
+Token requirements:
+- GitHub PAT (classic) with `write:packages` scope for pushing
+- `read:packages` scope for pulling
+
+### Deployer ImagePullSecret
+
+When deploying to Kubernetes, the deployer automatically creates an `imagePullSecret` if the manifest has a `registry.host`:
+
+1. Resolves `username_secret` and `token_secret` from the secrets system.
+2. Creates a Docker config JSON with registry auth.
+3. Creates/updates a Kubernetes Secret of type `kubernetes.io/dockerconfigjson`.
+4. Attaches the secret to the deployment's `imagePullSecrets`.
+
+If `registry.host` is not set, no imagePullSecret is created (assumes public images or pre-configured cluster auth).
+
+### Service Image Tags
+
+Services specify their full image path without a tag:
+
+```yaml
+services:
+  api:
+    image: ghcr.io/myorg/my-project-api
+    build:
+      context: ./apps/api
+```
+
+The tag is determined by the workflow:
+- Local dev: `:local`
+- Pipeline builds: Git SHA or version (`:sha-abc123`, `:v1.0.0`)
+
+## Local Dev Workflow (k3d)
+
+For fast iteration without pushing to a remote registry:
+
+```bash
+# Build with :local tag
+docker build -t ghcr.io/myorg/my-project-api:local ./apps/api
+
+# Import directly into k3d cluster (no push/pull roundtrip)
+k3d image import ghcr.io/myorg/my-project-api:local -c eve-local
+
+# Deploy
+eve env deploy test --ref main --repo-dir .
+```
+
+This avoids the push/pull roundtrip to GHCR, making local iteration much faster. Use this pattern when developing and testing deployment configuration before committing to a full pipeline run.
 
 ## Release Model
 
@@ -125,12 +218,12 @@ eve env deploy staging --ref <sha> --direct --image-tag sha-abc123
 | `git_sha` | 40-char SHA (required unless `release_tag`) |
 | `manifest_hash` | Manifest hash (required with `git_sha`) |
 | `release_tag` | Resolve from existing release (alternative to sha+hash) |
-| `image_digests` | Service → digest map (skips build) |
+| `image_digests` | Service -> digest map (skips build) |
 | `image_tag` | Tag for pre-built images (e.g., `local`, `sha-abc123`) |
 | `direct` | Bypass pipeline, deploy directly |
 | `inputs` | Additional pipeline inputs |
 
-## Canonical Pipeline: Build → Release → Deploy
+## Canonical Pipeline: Build -> Release -> Deploy
 
 The standard deployment pipeline:
 
@@ -149,7 +242,7 @@ pipelines:
       - name: release
         depends_on: [build]
         action: { type: release }
-        # Creates Release from build artifacts (digest-based image refs)
+        # Creates Release from BuildArtifacts (digest-based image refs)
 
       - name: deploy
         depends_on: [release]
@@ -159,7 +252,7 @@ pipelines:
 
 ### Promotion Pattern
 
-1. Deploy to test → creates release with tag
+1. Deploy to test -- creates release with tag.
 2. Resolve release: `eve release resolve v1.0.0`
 3. Deploy to staging: `eve env deploy staging --inputs '{"release_tag": "v1.0.0"}'`
 
@@ -170,6 +263,12 @@ pipelines:
 | BuildKit | K8s (production) | Runs as K8s job, recommended |
 | Buildx | Local development | Uses local Docker |
 | Kaniko | K8s (fallback) | No Docker daemon required |
+
+## Validation and Errors
+
+- `manifest_hash` must match the synced manifest for the project ref.
+- Releases require a valid `build_id` that exists for the project.
+- Mismatches surface explicit errors; re-run build or re-sync the manifest.
 
 ## API Endpoints
 

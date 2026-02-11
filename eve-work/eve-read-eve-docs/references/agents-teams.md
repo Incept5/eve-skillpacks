@@ -1,23 +1,21 @@
-# Agents, Teams + Chat Routing (Current)
+# Agents, Teams + Chat Routing
 
 ## Overview
 
-Agents, teams, and chat routes are configured via YAML files in the project repo and synced to Eve via `eve agents sync`. This is a **repo-first** model — the repo is the source of truth.
+Agents, teams, and chat routes are repo-first YAML configurations synced to Eve via `eve agents sync`. The repo is the source of truth. Agents are personas with skills and policies; teams are dispatch groups that coordinate agents; routes map inbound chat messages to targets.
 
 ## agents.yaml
 
-Defines individual agents with their capabilities, access, and policies.
+Define agents with capabilities, access, policies, and gateway visibility.
 
 ```yaml
 version: 1
 agents:
   mission-control:
-    name: "Mission Control"
-    slug: mission-control           # org-unique, lowercase alphanumeric + dashes
+    slug: mission-control           # org-unique, ^[a-z0-9][a-z0-9-]*$
     description: "Primary orchestration agent"
-    role: orchestrator
-    skill: eve-orchestration        # required — skill name
-    workflow: nightly-audit          # optional — trigger workflow
+    skill: eve-orchestration        # required
+    workflow: nightly-audit          # optional
     harness_profile: primary-orchestrator
     access:
       envs: [staging, production]
@@ -29,169 +27,94 @@ agents:
         commit: auto                 # never | manual | auto | required
         push: on_success             # never | on_success | required
     gateway:
-      policy: routable             # visible + directly addressable via chat
-      clients: [slack]             # optional: restrict to specific providers
+      policy: routable               # none | discoverable | routable
+      clients: [slack]               # omit = all providers
     schedule:
-      heartbeat_cron: "*/15 * * * *" # optional recurring trigger
-
-  code-reviewer:
-    name: "Code Reviewer"
-    slug: code-reviewer
-    description: "Reviews PRs"
-    skill: eve-code-review
-    harness_profile: primary-reviewer
-    # no gateway block → inherits pack default (none if pack sets it, or none for standalone)
+      heartbeat_cron: "*/15 * * * *"
 ```
 
 ### Agent Slug Rules
 
-- Format: `^[a-z0-9][a-z0-9-]*$` (lowercase alphanumeric + dashes)
-- Scope: **org-unique** (enforced at sync time)
-- Used for Slack routing: `@eve <slug> <command>`
-- Set a default: `eve org update org_xxx --default-agent mission-control`
+- Lowercase alphanumeric + dashes, org-unique, enforced at sync.
+- Used for Slack routing: `@eve <slug> <command>`.
+- Set a default: `eve org update org_xxx --default-agent <slug>`.
 
-### Agent Fields Reference
+### Gateway Discovery Policy
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | No | Display name |
-| `slug` | No | Org-unique identifier (auto-generated from key if omitted) |
-| `description` | No | Human-readable description |
-| `role` | No | Agent role label |
-| `skill` | **Yes** | Skill name (must be installed) |
-| `workflow` | No | Workflow to invoke |
-| `harness_profile` | No | Profile from `x-eve.agents.profiles` |
-| `access.envs` | No | Allowed environments |
-| `access.services` | No | Allowed services |
-| `access.api_specs` | No | Allowed API spec types |
-| `policies.permission_policy` | No | `auto_edit` / `never` / `yolo` |
-| `policies.git.commit` | No | `never` / `manual` / `auto` / `required` |
-| `policies.git.push` | No | `never` / `on_success` / `required` |
-| `gateway.policy` | No | `none` / `discoverable` / `routable` (see Gateway Discovery below) |
-| `gateway.clients` | No | Restrict to specific providers (e.g., `[slack]`). Omit = all |
-| `schedule.heartbeat_cron` | No | Cron expression for periodic triggers |
+Control which agents are visible and directly addressable from external chat gateways. Internal dispatch (teams, pipelines, routes) is always unaffected.
 
-## Gateway Discovery Policy
+| Policy | `@eve agents list` | `@eve <slug> msg` | Internal dispatch |
+|--------|--------------------|--------------------|-------------------|
+| `none` | Hidden | Rejected | Works |
+| `discoverable` | Visible | Rejected (hint) | Works |
+| `routable` | Visible | Works | Works |
 
-Controls which agents are visible and routable from external chat gateways (Slack, Nostr). Internal dispatch (teams, pipelines, chat.yaml routes) is **always unaffected**.
-
-### Policy Values
-
-| Policy | `@eve agents list` | `@eve <slug> msg` | Team / Pipeline dispatch |
-|--------|--------------------|--------------------|--------------------------|
-| `none` | Hidden | Rejected | Always works |
-| `discoverable` | Visible | Rejected (with hint) | Always works |
-| `routable` | Visible | Works | Always works |
-
-### Resolution Order
-
-```
-Pack gateway.default_policy          (base — defaults to none)
-  → Agent gateway.policy override    (pack author intent)
-    → Project overlay                (project owner final say)
-```
-
-### Pack-Level Default
-
-Set in `eve/pack.yaml`:
-
-```yaml
-gateway:
-  default_policy: none     # all agents hidden unless they opt in
-```
-
-Standalone agents (no pack) with no `gateway` block default to `none`.
-
-### Examples
-
-```yaml
-# In pack agents.yaml — chatbot opts in
-agents:
-  intake:
-    gateway: { policy: routable }      # users can talk to this
-  reviewer:
-    # no gateway block → inherits pack default (none)
-```
-
-```yaml
-# Project overlay — expose a pack agent that was hidden
-agents:
-  reviewer:
-    gateway: { policy: routable }      # project decides to expose
-```
+Resolution order: pack `gateway.default_policy` (base, defaults to `none`) -> agent `gateway.policy` -> project overlay.
 
 ## teams.yaml
 
-Defines teams of agents with coordination modes.
+Define teams with a lead agent, members, and a dispatch mode.
 
 ```yaml
 version: 1
 teams:
   review-council:
-    lead: mission-control            # agent key (required)
+    lead: mission-control
     members: [code-reviewer, security-auditor]
     dispatch:
-      mode: fanout                   # fanout | council | relay
+      mode: fanout
       max_parallel: 3
-      lead_timeout: 300              # ms
-      member_timeout: 300            # ms
-      merge_strategy: majority       # optional
+      lead_timeout: 300
+      member_timeout: 300
+      merge_strategy: majority
 
   ops:
     lead: ops-lead
     members: [deploy-agent, monitor-agent]
     dispatch:
-      mode: relay                    # sequential delegation
+      mode: relay
 ```
 
 ### Team Dispatch Modes
 
 | Mode | Behavior |
 |------|----------|
-| `fanout` | Root job + child jobs per member (parallel execution) |
-| `council` | All agents respond with analysis, results merged |
-| `relay` | Sequential delegation from lead to members |
-
-### Team Fields Reference
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `lead` | **Yes** | Agent key for team lead |
-| `members` | No | Array of agent keys |
-| `dispatch.mode` | No | `fanout` / `council` / `relay` |
-| `dispatch.max_parallel` | No | Max parallel executions (integer) |
-| `dispatch.lead_timeout` | No | Lead timeout in ms |
-| `dispatch.member_timeout` | No | Member timeout in ms |
-| `dispatch.merge_strategy` | No | How to merge results (e.g., `majority`) |
+| `fanout` | Root job + parallel child jobs per member |
+| `council` | All agents respond, results merged by strategy |
+| `relay` | Sequential delegation from lead through members |
 
 ## chat.yaml
 
-Defines chat routing rules for inbound messages.
+Define routing rules with explicit target prefixes.
 
 ```yaml
 version: 1
-default_route: mission-control       # fallback agent
+default_route: route_default
 routes:
   - id: deploy-route
-    match: "deploy|release|ship"     # regex pattern
-    target: deploy-agent             # agent slug, or "agent:key" / "team:key"
+    match: "deploy|release|ship"
+    target: agent:deploy-agent
     permissions:
       project_roles: [admin, member]
-      envs: [staging]
 
   - id: review-route
     match: "review|PR|pull request"
-    target: "team:review-council"    # target a team
+    target: team:review-council
+
+  - id: route_default
+    match: ".*"
+    target: team:ops
+    permissions:
+      project_roles: [member, admin, owner]
 ```
 
 ### Route Matching
 
-- `match` is a regex pattern tested against message text
-- First match wins
-- If no route matches, `default_route` is used
-- Target can be: bare agent slug, `agent:key`, or `team:key`
+- `match` is a regex tested against message text.
+- First match wins; fallback to `default_route` if none match.
+- Target prefixes: `agent:<key>`, `team:<key>`, `workflow:<name>`, `pipeline:<name>`.
 
-## Syncing to Eve
+## Syncing Configuration
 
 ```bash
 # Sync from committed ref (production)
@@ -200,85 +123,94 @@ eve agents sync --project proj_xxx --ref abc123def456...
 # Sync local state (development)
 eve agents sync --project proj_xxx --local --allow-dirty
 
-# Preview without syncing
+# Preview effective config without syncing
 eve agents config --repo-dir ./my-app
 ```
 
-The sync command:
-1. Resolves AgentPacks from `x-eve.packs`
-2. Merges pack agents/teams/chat with local overrides
-3. Validates slug uniqueness (org-wide)
-4. Pushes configuration to the API
+Sync resolves AgentPacks from `x-eve.packs`, deep-merges pack agents/teams/chat with local overrides, validates org-wide slug uniqueness, and pushes to the API.
 
-### Pack Overlay System
+### Pack Overlay
 
-When using AgentPacks, local YAML files overlay pack defaults:
-
-- **Deep merge**: Local fields merge into pack fields
-- **`_remove`**: Remove specific items from pack config
+Local YAML overlays pack defaults via deep merge. Use `_remove: true` to drop a pack agent.
 
 ```yaml
-# Local agents.yaml overlay
-version: 1
 agents:
   pack-agent:
-    harness_profile: my-custom-profile  # override pack default
+    harness_profile: my-custom-profile   # override pack default
   unwanted-agent:
-    _remove: true                        # remove from pack
+    _remove: true                         # remove from pack
 ```
 
-## Agent Runtime
+## Warm Pods / Agent Runtime
 
-Agents can run on **warm pods** — pre-provisioned containers per org that reduce cold-start time for chat workflows.
+Warm pods are pre-provisioned org-scoped containers that eliminate cold starts for chat-triggered jobs. Routing is org-sticky.
 
 ```bash
-# Check agent runtime status
 eve agents runtime-status --org org_xxx
 ```
 
-Output shows: pod name, status (ready/degraded/unhealthy), capacity, last heartbeat.
+Output: pod name, status (ready/degraded/unhealthy), capacity, last heartbeat.
+
+Data model: `agent_runtime_pods` (heartbeat + capacity), `agent_placements` (pod selection), `agent_state` (status + heartbeat).
 
 ## Coordination Threads
 
-When teams dispatch work, coordination happens via threads:
+When teams dispatch work, a coordination thread links the parent job to all child agents.
 
 - Thread key: `coord:job:{parent_job_id}`
 - Child agents receive `EVE_PARENT_JOB_ID` environment variable
-- End-of-attempt summaries auto-post to coordination thread
-- Coordination inbox: `.eve/coordination-inbox.md` (regenerated at job start)
+- Derive the thread key: `coord:job:${EVE_PARENT_JOB_ID}`
+- End-of-attempt summaries auto-post to the coordination thread
+- Coordination inbox: `.eve/coordination-inbox.md` (regenerated from recent messages at job start)
+
+### Coordination Message Kinds
+
+| Kind | Purpose |
+|------|---------|
+| `status` | Automatic end-of-attempt summary |
+| `directive` | Lead-to-member instruction |
+| `question` | Member-to-lead question |
+| `update` | Progress update from a member |
+
+### Thread CLI
 
 ```bash
-# View coordination messages
-eve thread messages <thread-id> --since 5m
-
-# Post to thread
+eve thread messages <thread-id> --since 5m      # list recent messages
 eve thread post <thread-id> --body '{"kind":"update","body":"Phase 1 complete"}'
-
-# Follow thread in real-time
-eve thread follow <thread-id>
+eve thread follow <thread-id>                    # stream in real-time
 ```
 
 ## Supervision
 
+Monitor a job tree and coordinate team execution.
+
 ```bash
-eve supervise [<job-id>] [--timeout 60]
+eve supervise                       # supervise current job
+eve supervise <job-id> --timeout 60 # supervise specific job with timeout
 ```
 
-Monitors job tree and coordinates team execution.
+Long-polls child job events for the lead agent.
 
 ## Slack Integration
 
 ### Routing Commands (in Slack)
 
 ```
-@eve <agent-slug> <command>        → Direct to specific agent
-@eve agents list                   → List available agents
-@eve agents listen <agent-slug>    → Subscribe agent to channel
-@eve agents unlisten <agent-slug>  → Unsubscribe agent
-@eve agents listening              → List active listeners
+@eve <agent-slug> <command>         # direct to specific agent
+@eve agents list                    # list available agent slugs
+@eve agents listen <agent-slug>     # subscribe agent to channel or thread
+@eve agents unlisten <agent-slug>   # unsubscribe agent
+@eve agents listening               # list active listeners
 ```
 
-### Setting Up Slack
+### Thread-Level vs Channel-Level Listeners
+
+- Issue `listen` in a channel: creates a **channel-level** listener (all messages in the channel).
+- Issue `listen` inside a thread: creates a **thread-level** listener (only messages in that thread).
+- Multiple agents can listen to the same channel or thread.
+- Listening uses `message.channels` events; explicit `@eve` commands use `app_mention`.
+
+### Slack CLI Setup
 
 ```bash
 eve integrations slack connect --org org_xxx --team-id T123 --token xoxb-test
@@ -288,27 +220,37 @@ eve integrations test <integration_id> --org org_xxx
 
 ### Default Agent
 
-Set an org-wide default agent for unmatched messages:
-
 ```bash
 eve org update org_xxx --default-agent mission-control
 ```
 
+When a message does not start with a known slug, Eve routes to the org default agent with the full message as the command.
+
+## Chat Simulation
+
+Test the full routing pipeline without a live provider.
+
+```bash
+eve chat simulate --project <id> --team-id T123 --channel-id C123 --user-id U123 --text "hello" --json
+```
+
+Returns `thread_id` and `job_ids` showing how the message would be dispatched.
+
 ## API Endpoints
 
 ```
-POST /projects/{project_id}/agents/sync    # Sync agents/teams/chat
-POST /projects/{project_id}/agents/config  # Get effective config
-GET  /agents                                # List agents
-GET  /teams                                 # List teams
+POST /projects/{id}/agents/sync       # sync agents/teams/chat config
+POST /projects/{id}/agents/config     # get effective merged config
+GET  /agents                           # list agents
+GET  /teams                            # list teams
 
-GET  /threads/{id}/messages                 # List thread messages
-POST /threads/{id}/messages                 # Post to thread
-GET  /threads/{id}/follow                   # Stream thread messages
+GET  /threads/{id}/messages            # list thread messages
+POST /threads/{id}/messages            # post to thread
+GET  /threads/{id}/follow              # stream thread messages (SSE)
 
-POST /chat/route                            # Route inbound message
-POST /chat/simulate                         # Simulate chat message
-POST /chat/listen                           # Subscribe agent to channel
-POST /chat/unlisten                         # Unsubscribe agent
-GET  /chat/listeners                        # List active listeners
+POST /chat/route                       # route inbound message
+POST /chat/simulate                    # simulate chat message
+POST /chat/listen                      # subscribe agent to channel/thread
+POST /chat/unlisten                    # unsubscribe agent
+GET  /chat/listeners                   # list active listeners
 ```

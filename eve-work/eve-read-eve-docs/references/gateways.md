@@ -1,75 +1,192 @@
-# Gateway Plugins (Current)
+# Chat Gateway
 
 ## Overview
 
-The gateway plugin architecture provides a unified interface for external messaging platforms to interact with Eve agents. Each provider implements a standard contract and registers itself with the provider registry.
+The Gateway service normalizes external chat events into Eve events using a pluggable provider architecture. Providers implement the `GatewayProvider` interface and register via factories at startup. Two transport models exist: webhook (HTTP push) and subscription (persistent connection).
 
 ## Transport Models
 
 | Model | Mechanism | Example |
 |-------|-----------|---------|
 | **Webhook** | Platform sends HTTP POST to Eve endpoint | Slack |
-| **Subscription** | Eve connects to external relay and listens for events | Nostr |
+| **Subscription** | Eve connects to external relay and listens | Nostr |
 
-Webhook providers receive inbound messages via HTTP. Subscription providers maintain a persistent connection to an external service and process messages as they arrive.
+## Provider Interface
 
-## Provider Interface Contract
+Every provider implements the `GatewayProvider` contract:
 
-Every gateway provider implements:
+| Member | Purpose |
+|--------|---------|
+| `name` | Unique provider identifier (e.g., `slack`, `nostr`) |
+| `transport` | `'webhook'` or `'subscription'` |
+| `capabilities` | Feature flags: threads, reactions, file uploads |
+| `initialize(config)` | Lifecycle hook: setup connections, load state |
+| `shutdown()` | Lifecycle hook: close connections, flush state |
+
+### Webhook-Specific Methods
 
 | Method | Purpose |
 |--------|---------|
-| `name` | Unique provider identifier (e.g., `slack`, `nostr`) |
-| `transport` | `webhook` or `subscription` |
-| `capabilities` | Feature flags (threads, reactions, file uploads, etc.) |
-| `validate(request)` | Verify inbound request authenticity (signatures, tokens) |
-| `parse(request)` | Extract normalized message from provider-specific payload |
-| `send(channel, message)` | Deliver a response back to the platform |
+| `validateWebhook(req)` | Verify request authenticity (signatures, challenge handling) |
+| `parseWebhook(req)` | Parse payload into: `message`, `handshake`, or `ignored` |
 
-## Providers
+### Shared Methods
 
-### Slack (Webhook)
+| Method | Purpose |
+|--------|---------|
+| `sendMessage(target, content)` | Deliver outbound message to provider-specific target |
+| `resolveIdentity(externalUserId, accountId)` | Map external user to Eve identity |
 
-- **Webhook endpoint**: `POST /gateway/providers/slack/webhook`
-- **Legacy endpoint**: `POST /integrations/slack/events` (preserved for existing installations)
-- Validates requests using Slack signing secret
-- Parses Events API payloads (message, app_mention, etc.)
-- Sends responses via Slack Web API (`chat.postMessage`)
+## Provider Lifecycle
 
-### Nostr (Subscription)
+1. Factories register at startup in `app.module.ts`.
+2. Instances are created per integration (one per org integration).
+3. `initialize(config)` is called to set up the provider (load secrets, open connections).
+4. Provider processes events for the lifetime of the integration.
+5. `shutdown()` is called on teardown (close sockets, flush state).
 
-- **Transport**: Relay subscription (no inbound webhook)
-- **Message types**: Kind 4 (encrypted DMs), Kind 1 (public mentions)
-- **Encryption**: NIP-04 for DM content
-- Connects to configured relays and subscribes to events targeting the platform pubkey
-- Sends responses as signed Nostr events published back to relays
+Subscription providers start persistent connections on `initialize()` and tear them down on `shutdown()`. Webhook providers are stateless between requests.
+
+## WebhookController Dispatch
+
+```
+POST /gateway/providers/:provider/webhook
+```
+
+1. Controller extracts `:provider` from path parameter.
+2. Looks up initialized provider instance in the registry.
+3. Calls `validateWebhook(req)` -- reject on failure, respond to handshake challenges.
+4. Calls `parseWebhook(req)` -- returns `message`, `handshake`, or `ignored`.
+5. For `message` results, routes the normalized event through the agent resolution pipeline.
+
+## Slack Provider (Webhook)
+
+### Endpoints
+
+- **Generic**: `POST /gateway/providers/slack/webhook`
+- **Legacy**: `POST /integrations/slack/events` (preserved for existing installations)
+
+### Signature Validation
+
+Slack requests are validated using the signing secret (`EVE_SLACK_SIGNING_SECRET`). The provider computes `HMAC-SHA256(signing_secret, v0:timestamp:body)` and compares against the `X-Slack-Signature` header. Invalid signatures are rejected before parsing.
+
+### Event Parsing Flow
+
+1. Event arrives at webhook endpoint.
+2. Signature validated with signing secret.
+3. Integration resolved: `team_id -> org_id`.
+4. Event type determines dispatch path:
+
+### Message vs app_mention Events
+
+| Event Type | Trigger | Dispatch Path |
+|------------|---------|---------------|
+| `app_mention` | User writes `@eve ...` | Parsed as `@eve <agent-slug> <command>`, routed to specific agent |
+| `message` | Any message in subscribed channel (no mention) | Dispatched to channel/thread listeners only |
+
+For `app_mention`:
+- First word after `@eve` is tested as agent slug.
+- If it matches a known slug, route directly to that agent's project.
+- If no match, route to org `default_agent_slug` with full text as command.
+- Agent slug resolves to `{project_id, agent_id}` (unique per org).
+- Job created for the agent; thread + event recorded.
+
+For `message` (no mention):
+- Only dispatched if channel/thread has active listeners.
+- Each listener agent receives a separate job in its own project.
+
+### Listener Mechanics
+
+```
+@eve agents listen <agent-slug>     # channel-level or thread-level
+@eve agents unlisten <agent-slug>   # remove listener
+@eve agents listening               # show active listeners
+@eve agents list                    # directory of slugs
+```
+
+#### Thread-Scoped vs Channel-Scoped
+
+- Command issued in a **channel**: creates a channel-level listener. All `message` events in that channel are dispatched.
+- Command issued inside a **thread**: creates a thread-level listener. Only messages within that specific thread are dispatched.
+- Multiple agents can listen to the same channel or thread.
+- Listener subscriptions stored in `thread_subscriptions` with `subscriber_type: agent`.
+
+### Outbound
+
+Responses delivered via Slack Web API (`chat.postMessage`), threaded to the originating message.
+
+## Nostr Provider (Subscription)
+
+### Connection Model
+
+Connect to configured relay(s) via WebSocket. Subscribe to events targeting the platform pubkey.
+
+### Inbound Event Types
+
+| Kind | Type | Description |
+|------|------|-------------|
+| Kind 4 | NIP-04 Encrypted DM | Private message to platform pubkey |
+| Kind 1 | Public Mention | Public note tagging platform pubkey |
+
+### Inbound Flow
+
+1. Relay broadcasts event matching subscription filters.
+2. Provider verifies **Schnorr signature** on the event.
+3. Kind 4 events are decrypted using **NIP-04** (shared secret derived from sender pubkey + platform private key).
+4. Message normalized to standard inbound format.
+5. Agent slug extracted from content.
+6. Routed through the same chat dispatch pipeline as Slack.
+
+### Agent Slug Extraction (Nostr)
+
+| Pattern | Example |
+|---------|---------|
+| `/agent-slug <text>` | `/mission-control review PR` |
+| `agent-slug: <text>` | `mission-control: review PR` |
+| First word of public mention | `mission-control review PR` |
+
+If no slug matches, the org default agent is used.
+
+### Outbound Mechanics
+
+| Context | Event Kind | Details |
+|---------|-----------|---------|
+| DM reply | Kind 4 | NIP-04 encrypted, published to relays |
+| Public reply | Kind 1 | NIP-10 reply threading tags (`e` and `p` tags) |
+
+### Cross-Relay Deduplication
+
+Event IDs are tracked in a bounded set (10k entries). Duplicate events from multiple relays are dropped.
+
+## Multi-Tenant Mapping
+
+- `team_id -> org_id` stored at integration connect time.
+- Agent slugs in `agents.yaml` are unique per org, selecting the target project/agent.
+
+## Identity Resolution
+
+`resolveIdentity(externalUserId, accountId)` maps an external user (Slack user ID, Nostr pubkey) to an Eve identity. External identities are stored in `external_identities` and linked to Eve users/orgs for permission checks and audit trails.
 
 ## Gateway Discovery Policy
 
-Agents must opt in to be visible and routable from chat gateways. See `agents-teams.md` for full details.
+Agents must opt in to be visible and routable from gateways. See `agents-teams.md` for full details.
 
-| Policy | Directory visible | Direct chat | Internal dispatch |
-|--------|-------------------|-------------|-------------------|
-| `none` | No | Rejected | Always works |
-| `discoverable` | Yes | Rejected (hint to use route) | Always works |
-| `routable` | Yes | Works | Always works |
+| Policy | Directory | Direct chat | Internal dispatch |
+|--------|-----------|-------------|-------------------|
+| `none` | Hidden | Rejected | Works |
+| `discoverable` | Visible | Rejected (hint) | Works |
+| `routable` | Visible | Works | Works |
 
-The directory endpoint (`GET /internal/orgs/{org_id}/agents`) filters out `none` agents and supports `?client=slack` to further filter by provider.
+Directory endpoint: `GET /internal/orgs/{org_id}/agents` -- filters out `none` agents, supports `?client=slack`.
 
-Slug-based routing (`POST /internal/orgs/{org_id}/chat/route`) enforces:
-1. Agent must be `routable` (not `none` or `discoverable`)
-2. If `gateway_clients` is set, request provider must be in the list
+Slug routing: `POST /internal/orgs/{org_id}/chat/route` -- enforces `routable` policy and `gateway_clients` whitelist.
 
-## Agent Slug Extraction
+## Agent Slug Extraction (Summary)
 
-Each provider defines how to extract the target agent slug from an inbound message:
-
-| Provider | Pattern | Example |
-|----------|---------|---------|
-| Slack | `@eve <agent-slug> <text>` or channel-bound agent | `@eve mission-control review PR` |
-| Nostr | `/agent-slug <text>` or `agent-slug: <text>` | `/mission-control review PR` |
-
-If no slug is matched, the org's default agent is used as fallback.
+| Provider | Pattern | Fallback |
+|----------|---------|----------|
+| Slack | `@eve <slug> <command>` | Org default agent |
+| Nostr | `/slug <text>` or `slug: <text>` or first word | Org default agent |
 
 ## Thread Key Format
 
@@ -79,24 +196,30 @@ Thread continuity uses a canonical key scoped to the integration account:
 account_id:channel[:thread_id]
 ```
 
-Examples:
 - Slack: `T123ABC:C456DEF:1234567890.123456`
 - Nostr: `<platform-pubkey>:<sender-pubkey>`
 
-The thread key uniquely identifies a conversation and maps to Eve's internal thread system for context persistence.
+## Chat Simulation
 
-## Provider Registry and Factory
+Test the full routing pipeline without a live provider connection.
 
-Providers register themselves at startup via the provider registry. The factory resolves the correct provider by name when:
-
-1. An inbound webhook arrives at the generic controller
-2. A subscription event is received
-3. An outbound message needs delivery
-
-### Generic Webhook Controller
-
-```
-POST /gateway/providers/:provider/webhook
+```bash
+eve chat simulate --project <id> --team-id T123 --channel-id C123 --user-id U123 --text "hello" --json
 ```
 
-The controller looks up the provider by the `:provider` path parameter, delegates to `validate()` and `parse()`, then routes the normalized message to the agent resolution pipeline.
+Returns `thread_id` and `job_ids` showing the dispatch result.
+
+## API Endpoints
+
+```
+POST /gateway/providers/:provider/webhook   # generic webhook ingress
+POST /integrations/slack/events             # legacy Slack endpoint
+
+GET  /internal/orgs/{org_id}/agents         # agent directory (filtered by policy)
+POST /internal/orgs/{org_id}/chat/route     # slug-based routing
+
+POST /chat/simulate                         # simulate chat message
+POST /chat/listen                           # subscribe agent to channel/thread
+POST /chat/unlisten                         # unsubscribe agent
+GET  /chat/listeners                        # list active listeners
+```

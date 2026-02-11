@@ -1,12 +1,88 @@
-# Manifest v2 (Current)
+# Manifest (Current)
 
 The manifest (`.eve/manifest.yaml`) is the single source of truth for builds, deploys, pipelines, and workflows.
 Schema is Compose-like with Eve extensions under `x-eve`.
 
+## Minimal Example
+
+Use this as a starting point for new projects. It shows the core patterns: registry auth, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline.
+
+```yaml
+schema: eve/compose/v1
+project: my-project
+
+registry:
+  host: ghcr.io
+  namespace: myorg
+  auth:
+    username_secret: GHCR_USERNAME
+    token_secret: GHCR_TOKEN
+
+services:
+  db:
+    image: postgres:16
+    ports: [5432]
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${secret.DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+    ports: [3000]
+    environment:
+      DATABASE_URL: postgres://app:${secret.DB_PASSWORD}@db:5432/app
+    depends_on:
+      db:
+        condition: service_healthy
+    x-eve:
+      ingress:
+        public: true
+        port: 3000
+      api_spec:
+        type: openapi
+        spec_url: /openapi.json
+
+  migrate:
+    image: flyway/flyway:10
+    command: -url=jdbc:postgresql://db:5432/app -user=app -password=${secret.DB_PASSWORD} -locations=filesystem:/migrations migrate
+    volumes:
+      - ./db/migrations:/migrations:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    x-eve:
+      role: job
+
+environments:
+  test:
+    pipeline: deploy-test
+    overrides:
+      services:
+        api:
+          environment:
+            NODE_ENV: test
+
+pipelines:
+  deploy-test:
+    steps:
+      - name: migrate
+        action: { type: job, service: migrate }
+      - name: deploy
+        depends_on: [migrate]
+        action: { type: deploy }
+```
+
 ## Top-Level Fields
 
 ```yaml
-schema: eve/compose/v2          # optional
+schema: eve/compose/v1          # optional schema identifier
 project: my-project             # optional slug
 registry:                        # optional container registry
 services:                        # required
@@ -29,6 +105,8 @@ registry:
     username_secret: GHCR_USERNAME
     token_secret: GHCR_TOKEN
 ```
+
+The deployer uses these secrets to create Kubernetes `imagePullSecrets` for pulling private images. See the container registry reference for setup details.
 
 String modes:
 
@@ -82,6 +160,7 @@ Notes:
 - `x-eve.role: managed_db` marks a service as a platform-provisioned database.
 - `spec_url` can be relative (resolved against service URL) or absolute.
 - `spec_path` is supported only for local `file://` repos.
+- If a service exposes ports and the cluster domain is configured, Eve creates ingress by default. Set `x-eve.ingress.public: false` to disable.
 
 ### Managed DB Services
 
@@ -160,6 +239,34 @@ depends_on:
     condition: service_healthy     # service_started | service_healthy | started | healthy
 ```
 
+## Platform Environment Variables
+
+Eve automatically injects these variables into all deployed services:
+
+| Variable | Description |
+|----------|-------------|
+| `EVE_API_URL` | Internal cluster URL for server-to-server calls (e.g., `http://eve-api:4701`) |
+| `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps (e.g., `https://api.eh1.incept5.dev`) |
+| `EVE_PROJECT_ID` | The project ID (e.g., `proj_01abc123...`) |
+| `EVE_ORG_ID` | The organization ID (e.g., `org_01xyz789...`) |
+| `EVE_ENV_NAME` | The environment name (e.g., `staging`, `production`) |
+
+Job runners also receive `EVE_ENV_NAMESPACE`, but service containers do not.
+Services can override these values by defining them explicitly in their `environment` section.
+
+**Which API URL to use:**
+
+- Use `EVE_API_URL` for backend/server-side calls from your container to the Eve API (internal cluster networking).
+- Use `EVE_PUBLIC_API_URL` for browser/client-side calls or any code running outside the cluster.
+
+```javascript
+// Server-side: call Eve API from your backend
+const eveApiUrl = process.env.EVE_API_URL;
+
+// Client-side: expose to browser for frontend API calls
+const publicApiUrl = process.env.EVE_PUBLIC_API_URL;
+```
+
 ## Environments
 
 ```yaml
@@ -180,10 +287,6 @@ environments:
         replicas: 2
 ```
 
-- If `pipeline` is set, `eve env deploy <env>` triggers that pipeline.
-- Use `--direct` to bypass pipeline and deploy directly.
-- `overrides` is Compose-style and merges into services.
-
 ### Environment Fields
 
 | Field | Type | Description |
@@ -191,11 +294,58 @@ environments:
 | `type` | string | `persistent` (default) or `temporary` |
 | `kind` | string | `standard` (default) or `preview` (PR envs) |
 | `pipeline` | string | Pipeline name to trigger on deploy |
-| `pipeline_inputs` | object | Inputs passed to pipeline |
+| `pipeline_inputs` | object | Inputs passed to pipeline (CLI `--inputs` wins on conflict) |
 | `approval` | string | `required` to gate deploys |
 | `overrides` | object | Compose-style service overrides |
 | `workers` | array | Worker pool configuration |
 | `labels` | object | Metadata (PR info for preview envs) |
+
+### Environment Pipeline Behavior
+
+When `pipeline` is configured for an environment, `eve env deploy <env> --ref <sha>` triggers a pipeline run instead of performing a direct deployment. This enables:
+
+- Consistent build/test/deploy workflows across environments
+- Promotion patterns where staging/production reuse releases from test
+- Environment-specific pipeline inputs and approval gates
+
+To bypass the pipeline and perform a direct deployment, use `--direct`:
+
+```bash
+eve env deploy staging --ref 0123456789abcdef0123456789abcdef01234567 --direct
+```
+
+### Promotion Example
+
+Define environments that share a pipeline but vary in inputs and approval gates:
+
+```yaml
+environments:
+  test:
+    pipeline: deploy-test
+  staging:
+    pipeline: deploy
+    pipeline_inputs:
+      smoke_test: true
+  production:
+    pipeline: deploy
+    approval: required
+```
+
+Deploy flow:
+
+```bash
+# Build + test + release in test
+eve env deploy test --ref 0123456789abcdef0123456789abcdef01234567
+
+# Promote to staging (reuse release, no rebuild)
+eve release resolve v1.2.3  # Get release_id from test
+eve env deploy staging --ref 0123456789abcdef0123456789abcdef01234567 --inputs '{"release_id":"rel_xxx"}'
+
+# Promote to production (approval required)
+eve env deploy production --ref 0123456789abcdef0123456789abcdef01234567 --inputs '{"release_id":"rel_xxx"}'
+```
+
+This pattern enables build-once, deploy-many promotion workflows without rebuilding images.
 
 ## Pipelines (Steps)
 
@@ -214,11 +364,6 @@ Step types: `action`, `script`, `agent`, or shorthand `run`.
 
 See `references/pipelines-workflows.md` for step types, triggers, and the canonical build-release-deploy pattern.
 
-Platform env vars injected into services:
-- `EVE_API_URL` — internal cluster URL for server-to-server calls
-- `EVE_PUBLIC_API_URL` — public ingress URL for browser-facing apps
-- `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
-
 ## Workflows
 
 ```yaml
@@ -233,6 +378,46 @@ workflows:
 ```
 
 Workflow invocation creates a job with the workflow hints merged.
+
+## Secret Requirements and Validation
+
+Declare required secrets at the top level or per pipeline step:
+
+```yaml
+x-eve:
+  requires:
+    secrets: [GITHUB_TOKEN, REGISTRY_TOKEN]
+
+pipelines:
+  ci-cd-main:
+    steps:
+      - name: integration-tests
+        script:
+          run: "pnpm test"
+        requires:
+          secrets: [DATABASE_URL]
+```
+
+Validate secrets before syncing:
+
+```bash
+eve project sync --validate-secrets     # Warn on missing secrets
+eve project sync --strict               # Fail on missing secrets
+eve manifest validate                   # Schema + secret validation without syncing
+```
+
+Use `eve manifest validate` for pre-flight checks against a local manifest or the latest synced version. Required keys follow standard scope resolution rules.
+
+### Secret Interpolation
+
+Interpolate secrets in environment variables:
+
+```yaml
+environment:
+  DATABASE_URL: postgres://user:${secret.DB_PASSWORD}@db:5432/app
+```
+
+Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
 
 ## Manifest Defaults (`x-eve.defaults`)
 
@@ -261,7 +446,7 @@ x-eve:
 
 ## Project Agent Profiles (`x-eve.agents`)
 
-Defines harness profiles used by orchestration skills:
+Define harness profiles used by orchestration skills:
 
 ```yaml
 x-eve:
@@ -339,25 +524,6 @@ agents:
 eve packs status [--repo-dir <path>]           # Show lockfile + drift
 eve packs resolve [--dry-run] [--repo-dir <path>]  # Preview resolution
 ```
-
-## Secrets Requirements + Interpolation
-
-Declare required secrets:
-
-```yaml
-x-eve:
-  requires:
-    secrets: [GITHUB_TOKEN, REGISTRY_TOKEN]
-```
-
-Interpolate secrets in env vars:
-
-```yaml
-environment:
-  DATABASE_URL: postgres://user:${secret.DB_PASSWORD}@db:5432/app
-```
-
-Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
 
 ## Ingress Defaults
 

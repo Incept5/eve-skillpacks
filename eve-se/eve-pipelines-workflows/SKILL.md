@@ -76,13 +76,30 @@ Build once in test, then promote the same build artifacts to staging/production:
 - Releases carry the build_id forward, ensuring identical images across environments
 - This pattern guarantees you deploy exactly what you tested
 
-Track pipeline execution like any job:
+Track pipeline execution:
 
 ```bash
 eve job list --phase active
 eve job follow <job-id>
 eve job result <job-id>
 ```
+
+### Pipeline Logs & Streaming
+
+Monitor pipeline runs in real time:
+
+```bash
+# Snapshot logs for a run
+eve pipeline logs <pipeline> <run-id>
+
+# Real-time SSE streaming
+eve pipeline logs <pipeline> <run-id> --follow
+
+# Stream specific step
+eve pipeline logs <pipeline> <run-id> --follow --step <name>
+```
+
+Failed steps include failure hints and link to build diagnostics when applicable.
 
 ## Environment Deploy as Pipeline Alias
 
@@ -133,10 +150,26 @@ This pattern enables promotion workflows where you build once in a lower environ
 - Invoke manually:
   - `eve workflow list`
   - `eve workflow show <project> <name>`
-  - `eve workflow run <project> <name> --input '{"k":"v"}'`
-  - `eve workflow invoke <project> <name> --input '{"k":"v"}'`
+  - `eve workflow run <project> <name> --input '{"k":"v"}'` (fire-and-forget)
+  - `eve workflow invoke <project> <name> --input '{"k":"v"}'` (wait for result)
   - `eve workflow logs <job-id>`
 - Invocation creates a job; track it with normal job commands.
+
+### Workflow Hints
+
+Control gating, timeouts, and harness preferences via `hints`:
+
+```yaml
+workflows:
+  remediate:
+    hints:
+      gates: ["remediate:proj_abc123:staging"]
+```
+
+## Planned (Not Implemented)
+
+- Pipeline graph visualization in CLI/UI
+- More robust step-level status propagation from job execution
 
 ## Recursive skill distillation
 

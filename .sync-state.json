@@ -1,6 +1,14 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": null,
-  "last_synced_at": null,
-  "sync_log": []
+  "last_synced_commit": "a4cd5ebc070bd20b4230c38db8074c32f08c9567",
+  "last_synced_at": "2026-02-11T17:30:00Z",
+  "sync_log": [
+    {
+      "commit": "a4cd5ebc070bd20b4230c38db8074c32f08c9567",
+      "commit_short": "a4cd5eb",
+      "synced_at": "2026-02-11T17:30:00Z",
+      "type": "baseline",
+      "summary": "Full baseline sync — all 13 reference docs rewritten, 6 skills updated, agent-native design expanded with platform primitives"
+    }
+  ]
 }
