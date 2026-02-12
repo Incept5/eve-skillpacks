@@ -113,7 +113,18 @@ registry:
 - `auth.username_secret`: name of the secret containing the registry username (defaults to `GHCR_USERNAME`)
 - `auth.token_secret`: name of the secret containing the registry token (defaults to `GITHUB_TOKEN`)
 
-### Required Secrets
+### String Modes
+
+```yaml
+registry: "eve"   # Use Eve-native registry (internal JWT-based auth)
+registry: "none"  # Skip registry handling (public images or external auth)
+```
+
+When `registry: "eve"`, the worker requests a short-lived JWT from the internal
+API (`POST /internal/registry/token`) using `EVE_INTERNAL_API_KEY`. When
+`registry: "none"`, no imagePullSecret is created.
+
+### Required Secrets (BYO Registry)
 
 For GHCR (GitHub Container Registry), set these secrets:
 
@@ -135,7 +146,7 @@ When deploying to Kubernetes, the deployer automatically creates an `imagePullSe
 3. Creates/updates a Kubernetes Secret of type `kubernetes.io/dockerconfigjson`.
 4. Attaches the secret to the deployment's `imagePullSecrets`.
 
-If `registry.host` is not set, no imagePullSecret is created (assumes public images or pre-configured cluster auth).
+If `registry.host` is not set (or `registry: "none"`), no imagePullSecret is created (assumes public images or pre-configured cluster auth).
 
 ### Service Image Tags
 

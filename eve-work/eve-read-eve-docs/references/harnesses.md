@@ -58,8 +58,8 @@ $WORKSPACE_ROOT/                       # e.g. /opt/eve/workspaces
     repo/                              # cloned/copied repository
       AGENTS.md                        # project memory for agents
       CLAUDE.md                        # Claude-specific instructions
-      .agent/skills/                   # installed skills (gitignored)
-      .agent/harnesses/<harness>/      # per-harness config (optional)
+      .agents/skills/                   # installed skills (gitignored)
+      .agents/harnesses/<harness>/      # per-harness config (optional)
       .claude/skills/                  # symlink or overrides (gitignored)
 ```
 
@@ -195,7 +195,7 @@ then run `./bin/eh auth extract --save` to update secrets.
 Per-harness configuration lives in a single root with subfolders:
 
 ```
-.agent/harnesses/
+.agents/harnesses/
   <harness>/
     config.toml|json|yaml
     variants/
@@ -203,8 +203,40 @@ Per-harness configuration lives in a single root with subfolders:
         config.toml|json|yaml
 ```
 
-Resolution: `EVE_HARNESS_CONFIG_ROOT` (if set) -> `<repo>/.agent/harnesses/<harness>`.
+Resolution: `EVE_HARNESS_CONFIG_ROOT` (if set) -> `<repo>/.agents/harnesses/<harness>`.
 If a `variants/<variant>` directory exists, it overlays the base config.
+
+---
+
+## Managed Models (Platform/Org/Project)
+
+Managed models are referenced via `managed/<name>` in `harness_options.model` and
+resolved at worker execution time. The registry merges across scopes:
+
+```
+platform (system settings) <- org <- project
+```
+
+API endpoints:
+- `GET /models?managed=true` -- list managed models
+- `GET /models?org_id=<org_id>&project_id=<project_id>` -- scoped model list
+- `PUT /orgs/:org_id/models/:name` -- set org-level managed model
+- `PUT /projects/:project_id/models/:name` -- set project-level managed model
+
+Workers inject provider-specific env vars based on the model's harness (e.g.
+Claude, Codex, Gemini, Z.ai) and discard the secrets after execution.
+
+---
+
+## Adding a New BYOK Model
+
+1. **Rate card** — `packages/shared/src/pricing/default-rate-card.ts`:
+   add entry under `llm.byok.<provider>.<model-id>`, update effective date.
+2. **Model examples** — `packages/shared/src/harnesses/capabilities.ts`:
+   update `model_examples` for the relevant harness (recommended default first).
+3. **Env example** — `.env.example`: update the suggested model if it's the new default.
+4. **Model normalization** — `packages/shared/src/pricing/model-normalization.ts`:
+   add rules if provider uses non-standard suffixes.
 
 ---
 
@@ -219,7 +251,7 @@ mclaude --print --verbose --output-format stream-json \
 
 - Config dir: `<config root>/mclaude` or `$CLAUDE_CONFIG_DIR`
 - Model: `$CLAUDE_MODEL` or `opus`
-- Skills: mclaude installs from `skills.txt` into `.agent/skills/` at runtime
+- Skills: mclaude installs from `skills.txt` into `.agents/skills/` at runtime
 
 ### zai
 

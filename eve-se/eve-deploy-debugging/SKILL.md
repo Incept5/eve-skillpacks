@@ -102,7 +102,7 @@ eve system logs
 | `401 Unauthorized` | Token expired | `eve auth login` |
 | `git clone failed` | Missing credentials | Set `github_token` or `ssh_key` secret |
 | `service not provisioned` | Environment not created | `eve env create <env>` |
-| `image pull backoff` | Registry auth failed | Verify `GHCR_USERNAME` + `GHCR_TOKEN` secrets |
+| `image pull backoff` | Registry auth failed | Verify `GHCR_USERNAME` + `GHCR_TOKEN` secrets, or use `registry: "eve"` for internal registry |
 | `healthcheck timeout` | App not starting | Check app logs, verify ports in manifest |
 
 ## Build Failures

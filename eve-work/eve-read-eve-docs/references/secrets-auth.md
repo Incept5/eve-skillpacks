@@ -101,6 +101,13 @@ Two host-level files for local development (never committed):
 - **SSH clone**: `ssh_key` secrets are written to a temp key and wired via `GIT_SSH_COMMAND`.
 - Missing auth surfaces explicit errors with remediation hints (`eve secrets set`).
 
+### Fail-Fast on Resolution Failure
+
+The worker fails fast on secret resolution failure instead of silently substituting
+empty strings. Provider credentials are resolved at the platform layer, not cached
+in the worker. If `EVE_INTERNAL_API_KEY` is missing or incorrect, the attempt fails
+immediately with a descriptive error.
+
 ### Troubleshooting Secret Resolution
 
 If a job fails during clone or secret resolution:
@@ -209,6 +216,45 @@ curl -X POST "$EVE_API_URL/auth/verify" \
 # With invite code (for unregistered pubkeys):
 curl -X POST "$EVE_API_URL/auth/verify" \
   -d '{"challenge_id": "...", "signature": "...", "invite_code": "abc123..."}'
+```
+
+### Self-Service Access Requests
+
+Users can submit access requests without an invite:
+
+```bash
+eve auth request-access --org "My Company" --email you@example.com
+eve auth request-access --org "My Company" --ssh-key ~/.ssh/id_ed25519.pub
+eve auth request-access --status <request_id>
+```
+
+Admins review requests via:
+
+```bash
+eve admin access-requests list
+eve admin access-requests approve <request_id>
+eve admin access-requests reject <request_id> --reason "..."
+```
+
+### Credential Check
+
+Inspect local AI tool credential availability:
+
+```bash
+eve auth creds                # Show Claude + Codex cred status
+eve auth creds --claude       # Only Claude
+eve auth creds --codex        # Only Codex
+```
+
+### OAuth Token Sync
+
+Sync local OAuth tokens into Eve secrets:
+
+```bash
+eve auth sync                 # Sync to user-level (default)
+eve auth sync --org org_xxx   # Sync to org-level
+eve auth sync --project proj_xxx  # Sync to project-level
+eve auth sync --dry-run       # Preview without syncing
 ```
 
 ### Token Types

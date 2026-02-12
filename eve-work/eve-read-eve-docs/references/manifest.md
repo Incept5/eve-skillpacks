@@ -8,7 +8,7 @@ Schema is Compose-like with Eve extensions under `x-eve`.
 Use this as a starting point for new projects. It shows the core patterns: registry auth, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline.
 
 ```yaml
-schema: eve/compose/v1
+schema: eve/compose/v2
 project: my-project
 
 registry:
@@ -82,7 +82,7 @@ pipelines:
 ## Top-Level Fields
 
 ```yaml
-schema: eve/compose/v1          # optional schema identifier
+schema: eve/compose/v2          # optional schema identifier
 project: my-project             # optional slug
 registry:                        # optional container registry
 services:                        # required
@@ -417,7 +417,7 @@ environment:
   DATABASE_URL: postgres://user:${secret.DB_PASSWORD}@db:5432/app
 ```
 
-Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
+Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`, `${secret.KEY}`, `${managed.<service>.<field>}`.
 
 ## Manifest Defaults (`x-eve.defaults`)
 
@@ -524,6 +524,21 @@ agents:
 eve packs status [--repo-dir <path>]           # Show lockfile + drift
 eve packs resolve [--dry-run] [--repo-dir <path>]  # Preview resolution
 ```
+
+## Project Bootstrap
+
+Bootstrap creates a project + environments in a single API call:
+
+```bash
+eve project bootstrap --name my-app --repo-url https://github.com/org/repo \
+  --environments staging,production
+```
+
+API: `POST /projects/bootstrap` with body:
+- `org_id`, `name`, `repo_url`, `branch` (required)
+- `slug`, `description`, `template`, `packs`, `environments` (optional)
+
+Idempotent — re-calling with the same name returns the existing project.
 
 ## Ingress Defaults
 

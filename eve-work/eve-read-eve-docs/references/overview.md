@@ -5,7 +5,7 @@
 Before any work on or with Eve Horizon, load this skill and read the relevant references:
 
 ```bash
-openskills read eve-read-eve-docs
+skill read eve-read-eve-docs
 ```
 
 Then review the references that match your task. Start here for architecture and conventions; open `references/cli.md`, `references/manifest.md`, or `references/jobs.md` for specifics.
@@ -305,8 +305,9 @@ See `references/agents-teams.md`.
 Reusable capabilities installed via `skills.txt` manifest:
 
 - `SKILL.md` files with frontmatter metadata.
-- Installed to `.agent/skills/` at clone time.
+- Installed to `.agents/skills/` at clone time (legacy: `.agent/skills/`).
 - Workers run `.eve/hooks/on-clone.sh` to install skills.
+- Preferred flow: AgentPacks via `x-eve.packs` + `.eve/packs.lock.yaml`.
 
 See `references/skills-system.md`.
 

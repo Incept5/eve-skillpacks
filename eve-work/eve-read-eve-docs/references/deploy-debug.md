@@ -156,6 +156,20 @@ else:
         if health.ready: SUCCESS
 ```
 
+## Environment Variable Interpolation
+
+Manifest environment values support these interpolation variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `${ENV_NAME}` | Environment name | `staging` |
+| `${PROJECT_ID}` | Project ID | `proj_01abc...` |
+| `${ORG_ID}` | Organization ID | `org_01xyz...` |
+| `${ORG_SLUG}` | Organization slug | `acme` |
+| `${COMPONENT_NAME}` | Current service name | `api`, `web` |
+| `${secret.KEY}` | Secret value | `${secret.DB_PASSWORD}` |
+| `${managed.<service>.<field>}` | Managed DB value (when provisioned) | `${managed.db.url}` |
+
 ## Platform Env Vars (Injected into Deployed Apps)
 
 | Variable | Purpose |

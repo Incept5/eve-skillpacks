@@ -106,6 +106,45 @@ Print the current access token (useful for scripts):
 eve auth token
 ```
 
+## Self-Service Access Requests
+
+Users without an invite can request access:
+
+```bash
+eve auth request-access --org "My Company" --email you@example.com
+eve auth request-access --org "My Company" --ssh-key ~/.ssh/id_ed25519.pub
+eve auth request-access --status <request_id>
+```
+
+Admins approve or reject via:
+
+```bash
+eve admin access-requests list
+eve admin access-requests approve <request_id>
+eve admin access-requests reject <request_id> --reason "..."
+```
+
+## Credential Check
+
+Verify local AI tool credentials:
+
+```bash
+eve auth creds                # Show Claude + Codex cred status
+eve auth creds --claude       # Only Claude
+eve auth creds --codex        # Only Codex
+```
+
+## OAuth Token Sync
+
+Sync local OAuth tokens into Eve secrets (scope: project > org > user):
+
+```bash
+eve auth sync                       # Sync to user-level
+eve auth sync --org org_xxx         # Sync to org-level
+eve auth sync --project proj_xxx    # Sync to project-level
+eve auth sync --dry-run             # Preview without syncing
+```
+
 ## Key Rotation
 
 Rotate the JWT signing key:

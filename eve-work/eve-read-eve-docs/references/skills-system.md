@@ -3,7 +3,7 @@
 Eve Horizon installs skills via the `skills` CLI. Skills follow the OpenSkills
 SKILL.md format: YAML frontmatter for metadata, imperative instructions in the
 body, and optional bundled resources. Install happens at clone time from a
-manifest into `.agent/skills/`.
+manifest into `.agents/skills/`.
 
 ## SKILL.md Format
 
@@ -71,7 +71,7 @@ https://github.com/incept5/eve-skillpacks  # Remote source
 ```
 
 Run `./bin/eh skills install` to read the manifest, install each source into
-`.agent/skills/`, and symlink `.claude/skills` -> `.agent/skills/`.
+`.agents/skills/`, and symlink `.claude/skills` -> `.agents/skills/`.
 
 ### AgentPacks (Preferred)
 
@@ -116,7 +116,7 @@ The worker runs `.eve/hooks/on-clone.sh` after cloning a fresh workspace:
 2. Skip install if `.agent/skills` is already tracked in the repo
 3. Fall back to `eve-skills install` (minimal helper bundled in worker images)
 
-Install targets (`.agent/skills/`, `.claude/skills/`) are always gitignored.
+Install targets (`.agents/skills/`, `.claude/skills/`) are always gitignored.
 Tracked sources live under repo-local pack paths, listed in `skills.txt` or
 resolved from `packs.lock.yaml`.
 
@@ -124,8 +124,8 @@ resolved from `packs.lock.yaml`.
 
 When `skill read <name>` is invoked, OpenSkills searches (first match wins):
 
-1. `./.agent/skills/` (project universal)
-2. `~/.agent/skills/` (global universal)
+1. `./.agents/skills/` (project universal)
+2. `~/.agents/skills/` (global universal)
 3. `./.claude/skills/` (project Claude-specific)
 4. `~/.claude/skills/` (global Claude-specific)
 
@@ -206,10 +206,10 @@ agents self-select. Keep the body focused; push detail to `references/`.
 include a README.
 
 **Distribution:** Project-specific skills go in-repo (`skillpacks/`). Team
-skills live in a shared Git repo. Personal skills install to `~/.agent/skills/`.
+skills live in a shared Git repo. Personal skills install to `~/.agents/skills/`.
 
 **Version control:** Commit pack sources and manifests. Gitignore install
-targets (`.agent/skills/`, `.claude/skills/`).
+targets (`.agents/skills/`, `.claude/skills/`).
 
 ## Examples
 

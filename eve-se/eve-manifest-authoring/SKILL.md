@@ -10,7 +10,7 @@ Keep the manifest as the single source of truth for build and deploy behavior.
 ## Minimal skeleton (v2)
 
 ```yaml
-schema: eve/compose/v1
+schema: eve/compose/v2
 project: my-project
 
 registry:
@@ -68,10 +68,39 @@ LABEL org.opencontainers.image.description="Service description"
 
 For multi-stage Dockerfiles, add the labels to the **final** stage (the production image).
 
+## Registry Modes
+
+```yaml
+registry: "eve"     # Eve-native registry (internal JWT auth)
+registry: "none"    # Disable registry handling (public images)
+registry:           # BYO registry (full object — see skeleton above)
+  host: ghcr.io
+  namespace: myorg
+  auth: { username_secret: GHCR_USERNAME, token_secret: GHCR_TOKEN }
+```
+
+## Managed Databases
+
+Declare platform-provisioned databases with `x-eve.role: managed_db`:
+
+```yaml
+services:
+  db:
+    x-eve:
+      role: managed_db
+      managed:
+        class: db.p1
+        engine: postgres
+        engine_version: "16"
+```
+
+Not deployed to K8s — provisioned by the orchestrator on first deploy.
+Reference managed values elsewhere: `${managed.db.url}`.
+
 ## Legacy manifests
 
 If the repo still uses `components:` from older manifests, migrate to `services:`
-and add `schema: eve/compose/v1`. Keep ports and env keys the same.
+and add `schema: eve/compose/v2`. Keep ports and env keys the same.
 
 ## Services
 
@@ -131,6 +160,7 @@ browser/client-side code. Services can override these in their `environment` sec
 
 - Env interpolation: `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`.
 - Secret interpolation: `${secret.KEY}` pulls from Eve secrets or `.eve/dev-secrets.yaml`.
+- Managed DB interpolation: `${managed.<service>.<field>}` resolves at deploy time.
 - Use `.eve/dev-secrets.yaml` for local overrides; set real secrets via the API for production.
 
 ## Eve extensions

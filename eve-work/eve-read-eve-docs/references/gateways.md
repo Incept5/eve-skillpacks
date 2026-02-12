@@ -199,6 +199,33 @@ account_id:channel[:thread_id]
 - Slack: `T123ABC:C456DEF:1234567890.123456`
 - Nostr: `<platform-pubkey>:<sender-pubkey>`
 
+## WebChat Provider
+
+Browser-native agent chat via WebSocket. Follows the subscription transport model (like Nostr).
+
+**Connection:**
+```
+ws://gateway:4820/?token=<jwt>
+```
+
+**Send message:**
+```json
+{"type": "message", "text": "Hello", "agent_slug": "coder", "thread_id": "optional"}
+```
+
+**Receive reply:**
+```json
+{"type": "message", "text": "Queued 1 job(s)...", "thread_id": "...", "timestamp": "..."}
+```
+
+Features:
+- JWT auth in WebSocket handshake
+- Heartbeat ping/pong (30s interval)
+- Thread continuity across reconnections
+- Multi-tab support (same user, multiple connections)
+
+Registration: configured as an integration with `provider: webchat`.
+
 ## Chat Simulation
 
 Test the full routing pipeline without a live provider connection.

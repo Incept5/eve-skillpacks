@@ -191,6 +191,11 @@ eve project spend <project_id>                          # View project spend
 eve project members --project proj_xxx
 eve project members add user@example.com --role admin --project proj_xxx
 eve project members remove user_abc --project proj_xxx
+
+# Bootstrap (create project + environments in one call)
+eve project bootstrap --name my-app --repo-url https://github.com/org/repo \
+  --environments staging,production [--branch main] [--slug <slug>] \
+  [--template <name>] [--packs pack1,pack2]
 ```
 
 Notes:
@@ -239,6 +244,7 @@ eve job create --description "Fix the login bug"
   [--defer-until 2026-03-01] [--due-at 2026-03-15]
   [--env staging] [--execution-mode persistent|ephemeral]
   [--resource-refs '<json-array>']                      # Resource refs (org docs/attachments)
+  [--with-apis <names>]                                 # Comma-separated API names to inject
   [--claim] [--agent <id>]                              # Create and immediately claim
 
   # Scheduling hints
@@ -305,6 +311,16 @@ eve job attempts <job-id>                               # List all attempts
 eve job logs <job-id> [--attempt <n>] [--after <cursor>]  # Fetch harness logs
 eve job receipt <job-id>                                # Cost/token receipt
 eve job compare <job-id>                                # Compare attempt results
+
+# Attachments
+eve job attach <job-id> --file <path> --name <name> [--mime <type>]
+eve job attach <job-id> --stdin --name <name> [--mime <type>]
+eve job attachments <job-id>                            # List attachments
+eve job attachment <job-id> <name>                      # Get attachment content
+
+# Batch operations
+eve job batch --project <id> --file <path>              # Submit batch job graph
+eve job batch-validate --file <path>                    # Validate batch without submitting
 ```
 
 Notes:
@@ -451,6 +467,12 @@ eve teams list [--json]
 ## Threads
 
 ```bash
+# Org-scoped thread management
+eve thread create --org org_xxx --key <key>             # Create org thread
+eve thread list --org org_xxx [--scope <scope>]         # List org threads
+  [--key-prefix <prefix>]
+eve thread show <thread-id> --org org_xxx               # Show thread details
+
 eve thread messages <thread-id>                         # List messages
   [--since 5m] [--limit 20] [--json]
 eve thread post <thread-id>                             # Post a message
@@ -544,11 +566,16 @@ eve api call <name> <method> <path>                     # Call API with Eve auth
   [--project <id>] [--env <name>]
 ```
 
+eve api generate [--out <dir>]                          # Export OpenAPI spec
+eve api diff [--exit-code] [--out <dir>]                # Diff generated vs committed spec
+```
+
 Notes:
 - `call` resolves the base URL from the API source, applies Eve auth, and proxies the request.
 - `--json` and `--graphql` accept inline JSON/text or `@file` paths.
 - `--jq` requires `jq` installed locally.
 - Auth precedence: `--token` > `$EVE_JOB_TOKEN` > profile token.
+- `generate` exports the current OpenAPI spec. `diff` compares against committed spec.
 
 ## Chat + Integrations (Slack, Nostr)
 
@@ -611,6 +638,41 @@ eve migrate skills-to-packs                             # Convert skills.txt to 
 
 Reads `skills.txt` and generates the equivalent `x-eve.packs` manifest fragment for migration from legacy skills to the AgentPacks system.
 
+## Providers
+
+```bash
+eve providers list [--json]                             # List registered providers
+eve providers discover <provider> [--json]              # Discover models for a provider
+```
+
+Notes:
+- Providers are first-class entities with auth config, harness mapping, and model discovery.
+- `discover` fetches live model lists from the provider's API (cached with TTL).
+
+## Analytics
+
+```bash
+eve analytics summary --org org_xxx [--window 7d]       # Org-wide summary
+eve analytics jobs --org org_xxx [--window 7d]           # Job analytics
+eve analytics pipelines --org org_xxx [--window 7d]      # Pipeline analytics
+eve analytics health --org org_xxx                       # Environment health overview
+```
+
+## Webhooks
+
+```bash
+eve webhooks create --org org_xxx --url <url> --events <evt1,evt2> --secret <secret>
+  [--filter '{"key":"val"}'] [--project <id>]
+eve webhooks list --org org_xxx
+eve webhooks show <webhook_id> --org org_xxx
+eve webhooks delete <webhook_id> --org org_xxx
+eve webhooks replay <delivery_id> --org org_xxx          # Replay a delivery
+```
+
+Notes:
+- Webhook subscriptions support HMAC signature verification and retry logic.
+- Filters scope events to specific patterns. Project-scoped webhooks are optional.
+
 ## Admin
 
 Administrative commands (require elevated permissions).
@@ -618,6 +680,7 @@ Administrative commands (require elevated permissions).
 ```bash
 # User invitation
 eve admin invite --email user@example.com --github user
+  [--web] [--redirect-to <url>]                         # --web sends Supabase invite email
 
 # Access request management
 eve admin access-requests list
@@ -643,6 +706,12 @@ eve admin pricing seed-defaults                         # Seed default rate card
 eve admin receipts recompute                            # Recompute cost receipts
   [--since 2026-01-01] [--project proj_xxx]
   [--dry-run] [--force]
+
+# Model management (org/project scoped)
+eve admin models list --org org_xxx [--project proj_xxx]
+eve admin models set <name> --org org_xxx               # Set managed model
+  [--project proj_xxx] [--harness <harness>] [--model <model>]
+eve admin models delete <name> --org org_xxx [--project proj_xxx]
 ```
 
 ## System (Internal)
@@ -685,8 +754,8 @@ Quick reference:
 | **Auth** | `login`, `logout`, `status`, `token`, `permissions`, `bootstrap`, `mint`, `creds`, `sync`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `validate`, `plan`, `sync` |
 | **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members` |
-| **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members` |
-| **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs` |
+| **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap` |
+| **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel` |
 | **Releases** | `resolve` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |
@@ -695,18 +764,21 @@ Quick reference:
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |
 | **Agents** | `sync`, `config`, `runtime-status` |
 | **Teams** | `list` |
-| **Threads** | `messages`, `post`, `follow` |
+| **Threads** | `create`, `list`, `show`, `messages`, `post`, `follow` |
 | **Packs** | `status`, `resolve` |
 | **Skills** | `install` |
 | **Models** | `list` |
 | **Harnesses** | `list`, `get` |
 | **Database** | `schema`, `rls`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
-| **API** | `list`, `show`, `spec`, `refresh`, `examples`, `call` |
+| **Providers** | `list`, `discover` |
+| **Analytics** | `summary`, `jobs`, `pipelines`, `health` |
+| **Webhooks** | `create`, `list`, `show`, `delete`, `replay` |
+| **API** | `list`, `show`, `spec`, `refresh`, `examples`, `call`, `generate`, `diff` |
 | **Events** | `list`, `show`, `emit` |
 | **Chat** | `simulate` |
 | **Integrations** | `list`, `slack connect`, `test` |
 | **Supervision** | `supervise` |
 | **Migrate** | `skills-to-packs` |
-| **Admin** | `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts` |
+| **Admin** | `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models` |
 | **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |

@@ -142,7 +142,7 @@ If you have a local clone and want to install only a subset, you can reference p
 
 The installation process:
 1. `skills.txt` references the repo or local pack paths
-2. `eve-worker skills install` (or `./bin/eh skills install`) installs to `.agent/skills/`
+2. `eve-worker skills install` (or `./bin/eh skills install`) installs to `.agents/skills/`
 3. Workers execute the installer on clone via `.eve/hooks/on-clone.sh`
 
 ## Creating a New Skill Pack
@@ -192,7 +192,7 @@ Each skill needs:
 
 ```bash
 eve-worker skills install
-ls .agent/skills
+ls .agents/skills
 skill read <skill-name>
 ```
 
@@ -235,8 +235,8 @@ See references/guide.md for details.
 
 Skills installed from this repo follow the standard OpenSkills search priority:
 
-1. `./.agent/skills/` (project universal)
-2. `~/.agent/skills/` (global universal)
+1. `./.agents/skills/` (project universal)
+2. `~/.agents/skills/` (global universal)
 3. `./.claude/skills/` (project Claude-specific)
 4. `~/.claude/skills/` (global Claude-specific)
 
@@ -247,8 +247,8 @@ Project skills shadow global skills with the same name.
 When a job runs:
 1. Worker clones the repository
 2. `.eve/hooks/on-clone.sh` runs `./bin/eh skills install`
-3. Skills are installed from `skills.txt` into `.agent/skills/`
-4. Harness reads skills directly from `.agent/skills/`
+3. Skills are installed from `skills.txt` into `.agents/skills/`
+4. Harness reads skills directly from `.agents/skills/`
 
 No system-level skill configuration is needed. All skills come from the repository.
 

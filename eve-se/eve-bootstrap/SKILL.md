@@ -108,8 +108,13 @@ If no project exists yet, ask the user for:
 - **Repo URL** (e.g., `git@github.com:org/repo.git`)
 
 ```bash
+# Option A: Ensure project exists
 eve project ensure --name "My App" --slug myapp \
   --repo-url git@github.com:org/repo.git --branch main
+
+# Option B: Bootstrap project + environments in one call
+eve project bootstrap --name "My App" --repo-url git@github.com:org/repo.git \
+  --environments staging,production
 ```
 
 **URL impact:** Slugs determine deployment URLs:
@@ -120,7 +125,7 @@ eve project ensure --name "My App" --slug myapp \
 If `.eve/manifest.yaml` doesn't exist, create a minimal one:
 
 ```yaml
-schema: eve/compose/v1
+schema: eve/compose/v2
 project: myapp
 
 registry:

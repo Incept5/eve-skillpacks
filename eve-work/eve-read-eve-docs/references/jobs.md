@@ -120,6 +120,32 @@ eve job create --project proj_xxx --description "Review brief" \
 Resource refs mount into `.eve/resources/` before harness start. The worker writes
 `.eve/resources/index.json` and injects `EVE_RESOURCE_INDEX` for agents.
 
+### App API Awareness
+
+```bash
+eve job create --description "Analyze data" --with-apis coordinator,analytics
+```
+
+`--with-apis` verifies the named APIs exist for the project, then appends an
+instruction block to the description telling the agent how to call each API via
+`eve api call`. Auth is handled automatically via `EVE_JOB_TOKEN`.
+
+### Attachments
+
+```bash
+eve job attach <job-id> --file ./report.pdf --name report.pdf
+eve job attach <job-id> --stdin --name output.json --mime application/json
+eve job attachments <job-id>           # List attachments
+eve job attachment <job-id> <name>     # Fetch attachment content
+```
+
+### Batch Operations
+
+```bash
+eve job batch --project proj_xxx --file batch.json    # Submit batch job graph
+eve job batch-validate --file batch.json              # Validate without submitting
+```
+
 ### List and View
 
 ```bash
