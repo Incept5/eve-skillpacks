@@ -1,0 +1,45 @@
+schema: eve/compose/v1
+project: eve-skillpacks
+
+x-eve:
+  defaults:
+    harness: zai
+    harness_options:
+      model: glm-4.7
+      reasoning_effort: high
+    hints:
+      permission_policy: auto_edit
+    git:
+      ref: main
+      commit: auto
+      push: on_success
+
+  packs:
+    - source: ./
+      packs: [eve-work, eve-se, eve-design]
+
+workflows:
+  sync-horizon:
+    trigger:
+      cron:
+        schedule: "0 */6 * * *"
+    hints:
+      harness: zai
+      model: glm-4.7
+      reasoning_effort: high
+    steps:
+      - agent:
+          prompt: |
+            You are the eve-skillpacks auto-sync agent.
+
+            1. Clone https://github.com/incept5/eve-horizon.git to ../eve-horizon
+               (shallow clone of main is sufficient)
+            2. Load the sync-horizon skill and execute the full sync workflow
+            3. The sync skill will:
+               - Read .sync-state.json to find the last synced commit
+               - Discover what changed in eve-horizon since then
+               - Update affected reference docs and skills (AI distillation, not copy)
+               - Update .sync-state.json with the new commit hash
+            4. If there are changes, they will be committed and pushed automatically
+               by the job's git controls
+            5. If there are no changes, report that skillpacks are already up to date
