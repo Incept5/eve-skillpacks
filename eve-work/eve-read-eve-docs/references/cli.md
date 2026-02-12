@@ -197,6 +197,33 @@ Notes:
 - `repo_url` accepts HTTPS, SSH (`git@host:org/repo.git`), or `file://` (local/dev only).
 - `project sync` reads the manifest from `--dir` (or cwd) and pushes it to the API.
 
+## Docs (Org Documents)
+
+Org docs are versioned, queryable documents stored at canonical paths.
+
+```bash
+eve docs write --org org_xxx --path /pm/features/FEAT-123.md --stdin
+eve docs read --org org_xxx --path /pm/features/FEAT-123.md
+eve docs read --org org_xxx --path /pm/features/FEAT-123.md --version 3
+eve docs show --org org_xxx --path /pm/features/FEAT-123.md --verbose
+eve docs versions --org org_xxx --path /pm/features/FEAT-123.md
+eve docs query --org org_xxx --path-prefix /pm/features/ \
+  --where 'metadata.feature_status in draft,review' --sort updated_at:desc
+eve docs search --org org_xxx --query "risk score"
+eve docs delete --org org_xxx --path /pm/features/FEAT-123.md
+```
+
+## Resources (Resolver)
+
+Resource URIs unify org docs and job attachments.
+
+```bash
+eve resources resolve org_docs:/pm/features/FEAT-123.md
+eve resources resolve org_docs:/pm/features/FEAT-123.md@v4 --json
+eve resources ls org_docs:/pm/features/
+eve resources cat job_attachments:/myproj-a3f2dd12/plan.md
+```
+
 ## Jobs
 
 See `references/jobs.md` for lifecycle details. Jobs are the fundamental unit of work.
@@ -211,6 +238,7 @@ eve job create --description "Fix the login bug"
   [--labels "bug,urgent"] [--assignee user_abc]
   [--defer-until 2026-03-01] [--due-at 2026-03-15]
   [--env staging] [--execution-mode persistent|ephemeral]
+  [--resource-refs '<json-array>']                      # Resource refs (org docs/attachments)
   [--claim] [--agent <id>]                              # Create and immediately claim
 
   # Scheduling hints

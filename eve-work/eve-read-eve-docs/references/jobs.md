@@ -78,6 +78,28 @@ GET  /threads/{id}/messages?since=<iso>&limit=<n>    List messages
 POST /threads/{id}/messages                          Post message
 ```
 
+## Resource Refs
+
+`resource_refs` attach org documents or job attachments to a job. The worker
+hydrates them into `.eve/resources/` before harness launch.
+
+```json
+[
+  {
+    "uri": "org_docs:/pm/features/FEAT-123.md@v4",
+    "label": "Approved Plan",
+    "required": true,
+    "mount_path": "pm/approved-plan.md"
+  }
+]
+```
+
+Fields:
+- `uri` (required): `org_docs:/path[@vN]` or `job_attachments:/job_id/name`
+- `label` (optional): human readable
+- `required` (optional, default true): fail provisioning when missing
+- `mount_path` (optional): relative path under `.eve/resources/`
+
 ## CLI Quick Reference
 
 ### Create
@@ -89,7 +111,14 @@ eve job create --description "Review" --harness mclaude --model opus-4.5 --reaso
 eve job create --description "Fix checkout" \
   --git-ref main --git-branch job/fix-checkout \
   --git-create-branch if_missing --git-commit auto --git-push on_success
+
+# Resource refs (org docs + attachments)
+eve job create --project proj_xxx --description "Review brief" \
+  --resource-refs='[{"uri":"org_docs:/pm/features/FEAT-123.md@v4","required":true,"mount_path":"pm/brief.md","label":"Approved Plan"}]'
 ```
+
+Resource refs mount into `.eve/resources/` before harness start. The worker writes
+`.eve/resources/index.json` and injects `EVE_RESOURCE_INDEX` for agents.
 
 ### List and View
 

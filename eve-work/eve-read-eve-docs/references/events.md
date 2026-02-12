@@ -51,8 +51,16 @@ Delivered via gateway: `POST /gateway/providers/slack/webhook` (or legacy `POST 
 |------|---------|---------|
 | `system.job.failed` | Job execution failure | `{ job_id, attempt_id, error_message, error_code, exit_code }` |
 | `system.pipeline.failed` | Pipeline run failure | `{ run_id, pipeline_name, error_message, error_code, exit_code }` |
+| `system.doc.created` | Org doc created | `{ org_id, project_id, doc_id, doc_version_id, path, version, content_hash, mutation_id, request_id, metadata }` |
+| `system.doc.updated` | Org doc updated | `{ org_id, project_id, doc_id, doc_version_id, path, version, content_hash, mutation_id, request_id, metadata }` |
+| `system.doc.deleted` | Org doc deleted | `{ org_id, project_id, doc_id, path, version, content_hash, mutation_id, request_id, metadata }` |
+| `system.resource.hydration.started` | Worker begins resource hydration | `{ job_id, attempt_id, resource_count }` |
+| `system.resource.hydration.completed` | Worker completes hydration | `{ job_id, attempt_id, resolved_count, missing_optional_count, failed_required_count, resources[] }` |
+| `system.resource.hydration.failed` | Worker hydration failed | `{ job_id, attempt_id, resolved_count, missing_optional_count, failed_required_count, resources[] }` |
 
 These are emitted automatically by the orchestrator when failures occur. Use them for self-healing automation.
+
+Doc events are emitted by the org docs API. Hydration events are emitted by the worker before harness launch.
 
 ### Runner Events (Worker-Emitted)
 
