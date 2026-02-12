@@ -174,7 +174,7 @@ Slugs are immutable after creation. Choose short, meaningful values.
 ```bash
 eve project list [--all] [--include-deleted] [--name <filter>]
 eve project ensure --name "My Project" --slug myproj \
-  --repo-url https://github.com/org/repo --branch main
+  [--repo-url https://github.com/org/repo] [--branch main]
   [--org org_xxx] [--force]
 eve project get <project_id>
 eve project update <project_id>
@@ -199,6 +199,7 @@ eve project bootstrap --name my-app --repo-url https://github.com/org/repo \
 ```
 
 Notes:
+- `project ensure` supports repo-less creation for early bootstrap; omit `--repo-url` to reserve slug/id first, then set repo later with `project ensure --repo-url ...` or `project update --repo-url ...`.
 - `repo_url` accepts HTTPS, SSH (`git@host:org/repo.git`), or `file://` (local/dev only).
 - `project sync` reads the manifest from `--dir` (or cwd) and pushes it to the API.
 

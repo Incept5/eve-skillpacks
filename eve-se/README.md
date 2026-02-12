@@ -17,6 +17,7 @@ Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-co
 - **eve-pipelines-workflows** - Define and run pipelines and workflows
 - **eve-troubleshooting** - CLI-first troubleshooting runbooks
 - **eve-repo-upkeep** - Keep repos aligned with platform best practices
+- **eve-web-ui-testing-agent-browser** - Web UI testing with Vercel agent-browser
 
 ## Installation
 
