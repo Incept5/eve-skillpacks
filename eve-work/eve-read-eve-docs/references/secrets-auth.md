@@ -168,6 +168,7 @@ eve auth bootstrap --status
 ```
 
 Production requires `EVE_BOOTSTRAP_TOKEN`. Use your real email -- it becomes your login identity.
+In local/non-production environments, `eve auth bootstrap` attempts the API recovery path even when bootstrap is marked completed, and can return an existing admin token when recovery mode is allowed.
 
 ### Challenge-Response Login
 
@@ -235,6 +236,12 @@ eve admin access-requests list
 eve admin access-requests approve <request_id>
 eve admin access-requests reject <request_id> --reason "..."
 ```
+
+Approval semantics:
+- Approval is transactional (no partial org/user leftovers on failure).
+- Duplicate fingerprints reuse the existing identity owner instead of failing.
+- Re-approving an already-approved request is idempotent.
+- Legacy partial orgs with matching slug+name are reused during approval.
 
 ### Credential Check
 

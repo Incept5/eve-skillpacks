@@ -96,6 +96,7 @@ Notes:
 - `auth token` outputs the raw Bearer token for scripting and curl.
 - `auth mint` is admin-only; creates tokens scoped to specific orgs/projects/roles.
 - Service accounts create machine identities with scoped tokens for app backends.
+- On local/non-production stacks, `auth bootstrap` attempts server-side recovery even after bootstrap is marked complete.
 
 ## Access (Roles, Bindings, Policy-as-Code)
 
@@ -218,6 +219,30 @@ eve docs query --org org_xxx --path-prefix /pm/features/ \
 eve docs search --org org_xxx --query "risk score"
 eve docs delete --org org_xxx --path /pm/features/FEAT-123.md
 ```
+
+## FS Sync (Org Filesystem)
+
+Org-scoped filesystem sync control plane (device enrollment, links, stream, conflicts).
+
+```bash
+eve fs sync init --org org_xxx --local ~/Eve/acme --mode two-way
+eve fs sync status --org org_xxx
+eve fs sync logs --org org_xxx --follow
+
+eve fs sync pause --org org_xxx [--link <link_id>]
+eve fs sync resume --org org_xxx [--link <link_id>]
+eve fs sync disconnect --org org_xxx [--link <link_id>]
+eve fs sync mode --org org_xxx --set pull-only [--link <link_id>]
+
+eve fs sync conflicts --org org_xxx [--open-only]
+eve fs sync resolve --org org_xxx --conflict fscf_xxx --strategy pick-remote
+eve fs sync doctor --org org_xxx
+```
+
+Notes:
+- Sync modes map to API values: `two-way -> two_way`, `push-only -> push_only`, `pull-only -> pull_only`.
+- `logs --follow` streams SSE events (`fs_event`, `fs_checkpoint`) and resumes with `--after`.
+- If `--link` is omitted for lifecycle commands, CLI targets the most recently updated link in the org.
 
 ## Resources (Resolver)
 
@@ -558,7 +583,7 @@ eve api refresh <name> [project] [--env <name>]         # Refresh cached spec
 eve api examples <name> [project] [--env <name>]        # Generate curl examples from spec
 
 eve api call <name> <method> <path>                     # Call API with Eve auth
-  [--json <payload|@file>]                              # JSON request body
+  [--json <payload|@file>] [--data <payload|@file>]     # JSON request body
   [--graphql <query|@file>]                             # GraphQL query
   [--variables '{"k":"v"}']                             # GraphQL variables
   [--jq <expr>]                                         # Filter response with jq
@@ -573,7 +598,10 @@ eve api diff [--exit-code] [--out <dir>]                # Diff generated vs comm
 
 Notes:
 - `call` resolves the base URL from the API source, applies Eve auth, and proxies the request.
-- `--json` and `--graphql` accept inline JSON/text or `@file` paths.
+- `--json` and `--data` are aliases (`-d` shorthand also works); use only one body flag.
+- `--json`/`--data` and `--graphql` accept inline JSON/text or `@file` paths.
+- `--env` falls back to `$EVE_ENV_NAME` when omitted.
+- `call` rewrites service DNS/ingress base URLs to match runtime context (local shell vs in-cluster job).
 - `--jq` requires `jq` installed locally.
 - Auth precedence: `--token` > `$EVE_JOB_TOKEN` > profile token.
 - `generate` exports the current OpenAPI spec. `diff` compares against committed spec.
@@ -656,7 +684,7 @@ Notes:
 eve analytics summary --org org_xxx [--window 7d]       # Org-wide summary
 eve analytics jobs --org org_xxx [--window 7d]           # Job analytics
 eve analytics pipelines --org org_xxx [--window 7d]      # Pipeline analytics
-eve analytics health --org org_xxx                       # Environment health overview
+eve analytics env-health --org org_xxx                   # Environment health overview
 ```
 
 ## Webhooks
@@ -666,8 +694,13 @@ eve webhooks create --org org_xxx --url <url> --events <evt1,evt2> --secret <sec
   [--filter '{"key":"val"}'] [--project <id>]
 eve webhooks list --org org_xxx
 eve webhooks show <webhook_id> --org org_xxx
+eve webhooks deliveries <webhook_id> --org org_xxx [--limit 50]
+eve webhooks test <webhook_id> --org org_xxx
 eve webhooks delete <webhook_id> --org org_xxx
-eve webhooks replay <delivery_id> --org org_xxx          # Replay a delivery
+eve webhooks enable <webhook_id> --org org_xxx
+eve webhooks replay <webhook_id> --org org_xxx
+  [--from-event <event_id>] [--to <iso-time>] [--max-events <n>] [--dry-run]
+eve webhooks replay-status <webhook_id> <replay_id> --org org_xxx
 ```
 
 Notes:
@@ -715,6 +748,10 @@ eve admin models set <name> --org org_xxx               # Set managed model
 eve admin models delete <name> --org org_xxx [--project proj_xxx]
 ```
 
+Notes:
+- Access-request approval is retry-safe (`approve` returns the existing approved record on repeat calls).
+- Duplicate identity fingerprints are attached to the existing identity owner.
+
 ## System (Internal)
 
 ```bash
@@ -735,6 +772,46 @@ eve system logs <service> [--tail 50]                   # Service logs
 eve system pods                                         # K8s pod status
 eve system events [--limit 50]                          # Recent platform events
 ```
+
+## Ollama (Inference Targets)
+
+```bash
+eve ollama targets [--scope-kind <platform|org|project>] [--scope-id <id>]
+eve ollama target add --name <name> --base-url <url>
+  [--scope-kind <kind>] [--scope-id <id>]
+  [--target-type external_ollama|internal_pool]
+  [--transport-profile ollama_api|openai_compat]
+  [--api-key-ref <secret_ref>]
+eve ollama target rm <target_id>
+eve ollama target test <target_id> [--org-id <id>] [--project-id <id>]
+
+eve ollama models
+eve ollama model add --canonical <model_id> --provider <provider> --slug <provider_model_slug>
+
+eve ollama installs [--target-id <id>] [--model-id <id>]
+eve ollama install add --target-id <id> --model-id <id>
+  [--requires-warm-start true|false] [--min-target-capacity <n>]
+eve ollama install rm --target-id <id> --model-id <id>
+
+eve ollama aliases [--scope-kind <kind>] [--scope-id <id>]
+eve ollama alias set --alias <name> --target-id <target_id> --model-id <model_id>
+  [--scope-kind <kind>] [--scope-id <id>]
+eve ollama alias rm --alias <name> [--scope-kind <kind>] [--scope-id <id>]
+
+eve ollama assignments [--scope-kind <kind>] [--scope-id <id>]
+eve ollama route-policies [--scope-kind <kind>] [--scope-id <id>]
+eve ollama route-policy set --scope-kind <kind> [--scope-id <id>]
+  --preferred-target-id <target_id>
+  [--fallback-to-alias-target true|false]
+eve ollama route-policy rm --scope-kind <kind> [--scope-id <id>]
+```
+
+Notes:
+- Use installs + route policy to switch between local and external Ollama endpoints.
+- `fallback-to-alias-target=true` keeps requests flowing if preferred target is not eligible for the model.
+- `/inference/v1/chat/completions` usage gates are controlled by:
+  - `EVE_INFERENCE_ORG_TOKENS_PER_HOUR`
+  - `EVE_INFERENCE_PROJECT_TOKENS_PER_HOUR`
 
 ## Debugging (CLI-first)
 
@@ -769,6 +846,7 @@ Quick reference:
 | **Packs** | `status`, `resolve` |
 | **Skills** | `install` |
 | **Models** | `list` |
+| **Ollama** | `targets`, `target add/rm/test`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
 | **Harnesses** | `list`, `get` |
 | **Database** | `schema`, `rls`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
