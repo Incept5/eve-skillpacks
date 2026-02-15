@@ -11,12 +11,22 @@ Default to **staging** for user guidance. Use local/docker only when explicitly 
 | Kubernetes | `k8s` | Integration, staging, production | Ephemeral pods |
 | Docker Compose | `docker` (default) | Local dev iteration | Local process |
 
+Agent runtime hot path is configured separately with `EVE_AGENT_RUNTIME_EXECUTION_MODE`:
+- `inline` (default): execute directly in warm runtime pods
+- `runner`: fallback to per-attempt runner pod execution
+
 ## K8s Architecture
 
 - **API, Orchestrator, Worker**: Deployments in the `eve` namespace (worker is not per-env).
 - **Postgres**: StatefulSet with 5Gi PVC.
 - **Runner pods**: Ephemeral pods spawned per job attempt for isolated execution.
 - **Ingress**: Access via `http://api.eve.lvh.me` -- no port-forwarding needed.
+
+When web auth is enabled, the stack also runs:
+- **supabase-auth (GoTrue)** at `auth.<domain>`
+- **sso** at `sso.<domain>`
+- **mailpit** at `mail.<domain>` (local only)
+- **auth bootstrap job** for GoTrue DB role provisioning
 
 ```bash
 ./bin/eh k8s start     # Start k3d cluster + apply manifests
@@ -31,8 +41,8 @@ The worker runs a periodic reaper that cleans up orphaned runner pods and PVCs a
 ### Secrets Provisioning
 
 1. Define secrets in `system-secrets.env.local` (e.g., `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`).
-2. Run `./bin/eh k8s secrets` to sync into the K8s secret `eve-app` (restarts worker only).
-3. If rotating API/orchestrator secrets (`EVE_INTERNAL_API_KEY`, `EVE_SECRETS_MASTER_KEY`), run `./bin/eh k8s deploy` or restart those deployments.
+2. Run `./bin/eh k8s secrets` to sync `system-secrets.env.local` plus auth-derived keys into the K8s secret `eve-app`.
+3. Restart deployments that consume `eve-app` (`eve-api`, `eve-orchestrator`, `eve-worker`) so updated env values are loaded.
 4. API reads system secrets as baseline for all environments.
 
 ### Ingress Routing
@@ -76,7 +86,7 @@ Optimized for fast local iteration. **Security note:** exposes services on local
 
 ```bash
 ./bin/eh docker auth    # Extract auth credentials from host
-./bin/eh docker start   # Start the stack
+./bin/eh start docker   # Start the stack
 ```
 
 | Aspect | Docker Compose | K8s (k3d) |
@@ -186,12 +196,15 @@ Use `EVE_API_URL` for backend calls from containers. Use `EVE_PUBLIC_API_URL` fo
 
 | Variable | Component | Purpose |
 |----------|-----------|---------|
+| `ORCH_LOOP_INTERVAL_MS` | Orchestrator | Main claim/dispatch loop cadence |
 | `ORCH_CONCURRENCY` | Orchestrator | Base concurrency |
 | `ORCH_CONCURRENCY_MIN` / `_MAX` | Orchestrator | Tuner bounds |
 | `ORCH_TUNER_ENABLED` | Orchestrator | Enable adaptive tuning |
 | `ORCH_TUNER_INTERVAL_MS` | Orchestrator | Tuning check interval |
 | `ORCH_TUNER_CPU_THRESHOLD` | Orchestrator | CPU threshold for scaling |
 | `ORCH_TUNER_MEMORY_THRESHOLD` | Orchestrator | Memory threshold for scaling |
+| `EVE_WORKER_POLL_INTERVAL_MS` | Orchestrator | Poll cadence for worker completion events |
+| `EVE_AGENT_RUNTIME_POLL_INTERVAL_MS` | Orchestrator | Poll cadence for agent-runtime completion events |
 | `EVE_RUNNER_IMAGE` | Worker | Container image for runner pods |
 | `EVE_RUNNER_REAPER_ENABLED` | Worker | Enable pod reaper |
 | `EVE_RUNNER_REAPER_INTERVAL_MS` | Worker | Reaper sweep interval |
@@ -238,6 +251,9 @@ Common causes: phase is not `ready`, blocked by dependencies, orchestrator unhea
 eve job diagnose <id>          # Status, timeline, attempts, errors, recommendations
 eve job logs <id> --attempt N  # Detailed logs for specific attempt
 ```
+
+`eve job diagnose` also shows LLM routing metadata for managed models (direct/bridge,
+bridge ID, protocol pair, effective base URL).
 
 ### Job Stuck Active
 
@@ -303,6 +319,8 @@ Check orchestrator/worker logs for `[resolveSecrets]` warnings. Verify `EVE_INTE
 | Error | Meaning | Fix |
 |-------|---------|-----|
 | "OAuth token has expired" | Claude auth stale | `./bin/eh auth extract --save` then redeploy |
+| "No protocol bridge..." | Harness/provider protocol mismatch has no bridge route | Align managed model harness/provider or add a matching bridge |
+| "Bridge ... missing base URL/API key" | Bridge runtime env is not configured | Set `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_URL` and `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_KEY` |
 | "git clone failed" | Repo inaccessible | Check GITHUB_TOKEN secret |
 | "Service X ready check failed" | Service provisioning issue | Check manifest services, container logs |
 | "Orchestrator restarted while attempt was running" | Job orphaned on restart | Auto-retries via recovery |

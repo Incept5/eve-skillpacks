@@ -87,7 +87,7 @@ CLI is a thin wrapper; all control flows through the API.
 - **Worker**: clones repo, invokes harness, streams JSONL logs.
 - **Harness**: wrapper for Claude/Codex/Gemini/Z.ai via `eve-agent-cli`.
 - **Gateway**: routes inbound messages from Slack/Nostr to agents.
-- **Agent Runtime**: org-scoped warm pods for low-latency chat responses.
+- **Agent Runtime**: org-scoped warm pods for low-latency chat responses. Local k3d defaults to dynamic multi-org tracking and inline execution in warm pods.
 
 **Key flows**:
 
@@ -208,7 +208,7 @@ eve job show <id> --verbose
 eve job follow <id>               # Stream harness logs
 eve job logs <id>                 # Historical logs
 eve job result <id>               # Exit status + outputs
-eve job diagnose <id>             # Full diagnostic dump
+eve job diagnose <id>             # Full diagnostic dump (includes managed-model routing metadata)
 eve env show <project> <env>      # Deployment health
 ```
 

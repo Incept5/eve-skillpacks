@@ -176,6 +176,10 @@ Requires `Z_AI_API_KEY`. The worker maps this to `ANTHROPIC_API_KEY` at spawn ti
 The Docker image strips `ANTHROPIC_API_KEY` from zai's settings.json so the runtime
 value takes precedence.
 
+`ANTHROPIC_BASE_URL` precedence for zai adapter:
+1. `ANTHROPIC_BASE_URL`
+2. `Z_AI_BASE_URL` (fallback)
+
 ### Gemini Harness
 
 Uses `GEMINI_API_KEY` or `GOOGLE_API_KEY`. No special credential setup.
@@ -225,6 +229,19 @@ API endpoints:
 
 Workers inject provider-specific env vars based on the model's harness (e.g.
 Claude, Codex, Gemini, Z.ai) and discard the secrets after execution.
+
+Managed model routing is protocol-aware and transparent:
+- Provider identity stays upstream (`provider` does not change to bridge identity).
+- Worker compares harness transport compatibility vs provider API compatibility.
+- Compatible pair -> direct route.
+- Mismatch -> protocol bridge route (if a bridge exists for that compatibility pair).
+
+Current bridge registry includes:
+- `litellm-anthropic-openai` (`anthropic` -> `openai`)
+
+Runtime bridge config keys:
+- `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_URL`
+- `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_KEY`
 
 ---
 

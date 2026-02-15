@@ -434,6 +434,11 @@ x-eve:
       reasoning_effort: high
     hints:
       permission_policy: auto_edit
+      resource_class: job.c1
+      max_cost:
+        currency: usd
+        amount: 5
+      max_tokens: 200000
     git:
       ref_policy: auto
       branch: job/${job_id}
@@ -443,6 +448,10 @@ x-eve:
     workspace:
       mode: job
 ```
+
+`hints` can include budgeting and accounting fields such as `resource_class`,
+`max_cost`, and `max_tokens`. These map to scheduling hints and per-attempt
+budget enforcement.
 
 ## Project Agent Profiles (`x-eve.agents`)
 

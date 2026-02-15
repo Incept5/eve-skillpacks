@@ -1,7 +1,7 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "a47a359bcf206671912d074b4b38faf477e05572",
-  "last_synced_at": "2026-02-12T15:10:00Z",
+  "last_synced_commit": "a94efa2a2e1e13282a2906e1a5e0a6e098b15a3d",
+  "last_synced_at": "2026-02-13T17:46:35Z",
   "sync_log": [
     {
       "commit": "a4cd5ebc070bd20b4230c38db8074c32f08c9567",
@@ -16,6 +16,13 @@
       "synced_at": "2026-02-12T15:10:00Z",
       "type": "incremental",
       "summary": "75-commit incremental sync — schema v2, .agents/ rename, managed databases, WebChat provider, project bootstrap, registry modes, self-service access requests, OAuth sync, job attachments/batch, provider registry, analytics/webhooks CLI"
+    },
+    {
+      "commit": "a94efa2a2e1e13282a2906e1a5e0a6e098b15a3d",
+      "commit_short": "a94efa2",
+      "synced_at": "2026-02-13T17:46:35Z",
+      "type": "incremental",
+      "summary": "22-commit incremental sync — managed-model + protocol bridge routing, ollama inference CLI rollout, app API runtime safety docs, webhook/analytics refinements, and deploy/debug/auth updates"
     }
   ]
 }

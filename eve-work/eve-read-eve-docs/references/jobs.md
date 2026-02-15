@@ -127,8 +127,9 @@ eve job create --description "Analyze data" --with-apis coordinator,analytics
 ```
 
 `--with-apis` verifies the named APIs exist for the project, then appends an
-instruction block to the description telling the agent how to call each API via
-`eve api call`. Auth is handled automatically via `EVE_JOB_TOKEN`.
+instruction block to the description with a runtime-safe Node `fetch` helper for
+in-job API calls. The helper uses `EVE_JOB_TOKEN` (or local creds fallback) and
+works without requiring the `eve` CLI inside the runner.
 
 ### Attachments
 

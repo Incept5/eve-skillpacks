@@ -124,6 +124,10 @@ When `registry: "eve"`, the worker requests a short-lived JWT from the internal
 API (`POST /internal/registry/token`) using `EVE_INTERNAL_API_KEY`. When
 `registry: "none"`, no imagePullSecret is created.
 
+BuildKit registry transport controls:
+- `EVE_BUILDKIT_INSECURE_REGISTRIES` (optional): comma-separated hosts that must use insecure/plain-HTTP registry transport.
+- `EVE_BUILDKIT_INSECURE_ALL=true` (optional, local troubleshooting only): force insecure registry transport for all BuildKit registry ops.
+
 ### Required Secrets (BYO Registry)
 
 For GHCR (GitHub Container Registry), set these secrets:
@@ -180,6 +184,18 @@ eve env deploy test --ref main --repo-dir .
 ```
 
 This avoids the push/pull roundtrip to GHCR, making local iteration much faster. Use this pattern when developing and testing deployment configuration before committing to a full pipeline run.
+
+### Build Reuse Fast Path
+
+Build actions reuse the most recent successful build artifacts when these match:
+- `project_id`
+- `git_sha`
+- `manifest_hash`
+- requested services/components
+
+This speeds up repeated local deploy loops (same ref, same manifest). Controls:
+- Per-run: action input `force_rebuild: true`
+- Global: `EVE_BUILD_REUSE=false` in worker env
 
 ## Release Model
 

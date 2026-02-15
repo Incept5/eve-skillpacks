@@ -25,6 +25,10 @@ Run `/sync-horizon` to pull latest platform changes into skillpacks. This:
 - `eve-se/` — Platform-specific (deploy, manifest, auth, pipelines, troubleshooting)
 - `eve-design/` — Architecture & design thinking (agent-native design)
 
+## Private Skills
+
+`private-skills/` contains skills that make development in this repo more efficient. Install them via `eve skill install` with a `skills.txt` containing `../private-skill`, then access them as normal skills.
+
 ## Agent-Native Philosophy
 
 Every skill should embody agent-native thinking: parity, granularity, composability, emergent capability. When an agent loads our skills, it should understand not just *how* to use Eve, but *how to think* about building on Eve.

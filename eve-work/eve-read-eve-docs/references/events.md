@@ -62,14 +62,17 @@ These are emitted automatically by the orchestrator when failures occur. Use the
 
 Doc events are emitted by the org docs API. Hydration events are emitted by the worker before harness launch.
 
-### Runner Events (Worker-Emitted)
+### Webhook Events
 
-| Type | Trigger | Payload |
-|------|---------|---------|
-| `runner.started` | Agent begins execution | `{ attemptId, jobId }` |
-| `runner.progress` | Agent reports progress | `{ attemptId, jobId, message, percentage }` |
-| `runner.completed` | Agent finishes successfully | `{ attemptId, jobId, result }` |
-| `runner.failed` | Agent execution fails | `{ attemptId, jobId, error, exitCode }` |
+Org and project webhooks can subscribe to event types emitted by the API. The
+webhook system stores deliveries and supports replay of failed or filtered
+deliveries.
+
+### LLM Usage Events
+
+Harnesses emit `llm.call` events after each provider call. These events contain
+usage-only metadata (token counts, model identifiers) and are used for receipts
+and live cost tracking. No prompt or response content is included.
 
 ### Cron Events
 
@@ -111,6 +114,12 @@ GET  /projects/{project_id}/events/{id}    # Get event details
 ## Trigger Routing
 
 The orchestrator polls pending events, matches them against manifest triggers, and creates pipeline runs or workflow jobs.
+
+Claiming mechanics use `FOR UPDATE SKIP LOCKED`, so multiple orchestrator
+instances can process the queue without double-claiming.
+
+Events can include a `dedupe_key`; the API checks for an existing event with
+the same key before creating a new record.
 
 ### How Triggers Work
 
@@ -217,5 +226,4 @@ pipelines:
 
 ## Planned (Not Implemented)
 
-- Stronger dedupe/idempotency semantics.
 - Event replay/reprocessing.
