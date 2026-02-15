@@ -9,6 +9,7 @@ Skills for doing productive work using Eve Horizon patterns.
 - **eve-job-lifecycle** - Create, manage, and review jobs and dependencies
 - **eve-job-debugging** - Monitor and debug jobs via CLI
 - **eve-skill-distillation** - Turn repeated patterns into reusable skills
+- **eve-agent-memory** - Choose and combine storage primitives to give agents persistent memory
 
 ## Installation
 

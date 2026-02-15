@@ -69,8 +69,12 @@ eve-skillpacks/
     │   └── SKILL.md
     ├── eve-job-debugging/
     │   └── SKILL.md
-    └── eve-skill-distillation/
-        └── SKILL.md
+    ├── eve-skill-distillation/
+    │   └── SKILL.md
+    └── eve-agent-memory/
+        ├── SKILL.md
+        └── references/
+            └── storage-primitives.md
 ```
 
 ## Skill Packs
@@ -112,6 +116,7 @@ Skills for doing productive work using Eve Horizon patterns.
 - **eve-job-lifecycle**: Create, manage, and review jobs and dependencies
 - **eve-job-debugging**: Monitor and debug jobs via CLI
 - **eve-skill-distillation**: Turn repeated patterns into reusable skills
+- **eve-agent-memory**: Choose and combine storage primitives for agent memory — workspace, attachments, threads, org docs, filesystem, managed DB
 
 **Who should use**: Anyone using Eve Horizon for knowledge work - whether software engineering, research, writing, or other domains.
 
