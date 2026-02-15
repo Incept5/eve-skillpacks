@@ -26,9 +26,9 @@ Identify all the patterns worth distilling from recent work. For each one:
 - Choose the target repo/pack first - is this likely to be
   - `./private-skills/` or similar for repo-specific development workflows that are not going to be imported into other projects (private)
   - `./private-eve-dev-skills/` when working in the eve-horizon repo and the skills relate to internal development of the platform itself (private)
-  - `../eve-skillsets/eve-se/`  for Eve platform work (deploy, auth, manifests, pipelines)
-  - `../eve-skillsets/eve-work/` for general knowledge work (docs, orchestration, distillation)
-  - `../eve-skillsets/eve-design/` for architecture and design thinking
+  - `../eve-skillpacks/eve-se/`  for Eve platform work (deploy, auth, manifests, pipelines)
+  - `../eve-skillpacks/eve-work/` for general knowledge work (docs, orchestration, distillation)
+  - `../eve-skillpacks/eve-design/` for architecture and design thinking
 
 ### Step 2: Plan work items (orchestrator)
 
