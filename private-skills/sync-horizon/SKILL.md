@@ -13,58 +13,111 @@ Synchronize eve-skillpacks with the latest state of the eve-horizon repository.
 - `.sync-state.json` must exist in the repo root (create from template if missing)
 - `.sync-map.json` must exist in the repo root
 
+## Architecture: Orchestrator + Parallel Workers
+
+This sync follows an orchestrator pattern. You (the orchestrator) stay lightweight — discovering what changed and dispatching focused workers. Each worker handles one update in isolation with its own context budget.
+
+**Why:** Previous runs exhausted the context window by reading every diff and every doc in the orchestrator. The fix is strict separation: the orchestrator sees only file names and summaries; workers see only their specific diffs and target files.
+
 ## Workflow
 
-### Phase 1: Discover Changes
+### Phase 1: Discover Changes (orchestrator — stay lightweight)
 
 1. Read `.sync-state.json` to get `last_synced_commit`
 2. If `last_synced_commit` is null, use the first eve-horizon commit (full baseline sync)
-3. Run in eve-horizon:
+3. Get the commit log:
    ```bash
    cd ../eve-horizon && git log --oneline <last_synced_commit>..HEAD
    ```
-4. Get the detailed diff of watched paths:
+4. Get the diff stat of watched paths (file names and line counts only):
    ```bash
    cd ../eve-horizon && git diff --stat <last_synced_commit>..HEAD -- docs/system/ docs/ideas/agent-native-design.md docs/ideas/platform-primitives-for-agentic-apps.md packages/cli/src/commands/ AGENTS.md
    ```
-5. For each changed file, read `git diff <last_synced_commit>..HEAD -- <file>` to understand what changed
 
-### Phase 2: Analyze Impact
+**STOP.** Do NOT read individual file diffs. You only need the `--stat` output to know which files changed. Reading diffs is the workers' job.
 
-Using `.sync-map.json`, determine:
+### Phase 2: Plan Work Items (orchestrator)
 
-1. **Reference doc updates**: Which reference docs need updating based on changed source files
-2. **Skill updates**: Which skills need updating based on changed concepts/commands
-3. **New skill opportunities**: Are there new platform features that deserve their own skill?
-4. **Refactoring opportunities**: Should any skills be split, merged, or restructured?
+Read `.sync-map.json` and cross-reference the changed files against the `reference_docs` and `skill_triggers` mappings.
 
-Create a change plan listing:
-- Files to update with summary of changes
-- New files to create with rationale
-- Skills to refactor with reasoning
+For each affected target, create a tracked work item:
+- **Title**: `Update <target-file> with <brief change summary>`
+- **Description** — include everything a worker needs to operate independently:
+  - The eve-horizon repo path (`../eve-horizon`)
+  - The commit range: `<last_synced_commit>..HEAD`
+  - Which source files changed (from `--stat`)
+  - The target file path to update
+  - Whether this is a reference doc update, skill update, or new skill creation
+  - The update rules (see "Worker Instructions" below)
 
-### Phase 3: Execute Updates
+Add a final work item: `Update sync state and produce report` — blocked until all updates finish.
 
-For each affected reference doc:
-1. Read the current eve-horizon source doc(s)
-2. Read the current skillpack reference doc
-3. Distill the changes into the reference doc — these are curated distillations, not copies
-4. Preserve the reference doc's existing structure and voice
+If the user gave additional instructions (e.g., "analyze storage gaps"), add that as a separate work item too, also blocked until updates finish.
 
-For each affected skill:
-1. Read the current skill SKILL.md
-2. Identify what needs to change (new commands, changed workflows, new capabilities)
-3. Update the skill maintaining imperative voice and conciseness
+### Phase 3: Dispatch Workers (parallel)
 
-For new skills:
-1. Create the skill directory with SKILL.md
-2. Add references/ if needed
-3. Update the parent pack README
-4. Update ARCHITECTURE.md listings
+Spawn one background worker per work item. Launch them all at once so they run in parallel.
 
-### Phase 4: Update Tracking
+**Each worker prompt must be self-contained.** The worker has no access to the orchestrator's conversation. Include:
 
-1. Get the current HEAD of eve-horizon:
+1. The exact git command to get the diff:
+   ```
+   cd ../eve-horizon && git diff <last_synced_commit>..HEAD -- <source-file-1> <source-file-2>
+   ```
+2. The target file to read and modify
+3. If diffs are large, the full source doc path to read from eve-horizon as reference
+4. The appropriate update rules from below
+
+#### Worker Instructions: Reference Docs
+
+> Read the git diff for your assigned source files. Read the current reference doc.
+> Distill the changes into the reference doc — these are curated summaries for agents, not copies of the source.
+> Preserve the existing structure, voice, and formatting.
+> Edit the existing file; do not rewrite from scratch.
+
+#### Worker Instructions: Skills
+
+> Read the git diff for your assigned source files. Read the current SKILL.md.
+> Update with new commands, changed workflows, or new capabilities.
+> Maintain imperative voice and conciseness. Skills teach agents how to think, not just what to type.
+> Edit the existing file; do not rewrite from scratch.
+
+#### Worker Instructions: New Skills
+
+> Create a new directory under the appropriate pack with a SKILL.md file.
+> Add a `references/` subdirectory if the skill needs detailed reference material.
+> Follow the conventions of existing skills in the same pack.
+
+#### Example Worker Prompt
+
+```
+You are updating a reference doc in the eve-skillpacks repository.
+
+## Your Task
+Update the file: eve-work/eve-read-eve-docs/references/secrets-auth.md
+
+## Context
+The eve-horizon repo is at ../eve-horizon. Changes since commit abc1234:
+- docs/system/auth.md changed (access groups, scoped bindings)
+- docs/system/secrets.md changed (credential check improvements)
+
+## Steps
+1. Run: cd ../eve-horizon && git diff abc1234..HEAD -- docs/system/auth.md docs/system/secrets.md
+2. Read: eve-work/eve-read-eve-docs/references/secrets-auth.md
+3. If the diff is large, also read the full source files from ../eve-horizon/docs/system/
+4. Distill the changes into the reference doc — preserve existing structure and voice
+5. Edit the existing file (do not rewrite it from scratch)
+
+These are curated distillations for agents, not verbatim copies. Keep them concise and actionable.
+```
+
+### Phase 4: Collect Results and Update Tracking (orchestrator)
+
+Wait for all workers to complete. As each finishes, mark its work item done.
+
+Once all update work items are complete:
+
+1. Get current HEAD:
    ```bash
    cd ../eve-horizon && git rev-parse HEAD
    ```
@@ -72,13 +125,17 @@ For new skills:
    - Set `last_synced_commit` to the HEAD hash
    - Set `last_synced_at` to current ISO timestamp
    - Append to `sync_log` (keep last 10 entries)
-3. Update ARCHITECTURE.md if pack structure changed
+3. Update ARCHITECTURE.md if the pack structure changed (new skills added or removed)
 
-### Phase 5: Report
+### Phase 5: Report (orchestrator)
 
-Output a sync report:
+Output a sync report summarizing all work:
+
 ```
 ## Sync Report: <old_commit_short>..<new_commit_short>
+
+### Commits
+- <count> commits synced
 
 ### Platform Changes
 - <list of eve-horizon changes that affected skillpacks>
@@ -92,9 +149,13 @@ Output a sync report:
 ### New Skills
 - <skill>: <why created>
 
-### Refactoring
-- <what was restructured and why>
-
 ### Next Steps
 - <any manual follow-up needed>
 ```
+
+## Key Constraints
+
+- **Orchestrator context budget**: The orchestrator must never read full diffs or source docs directly. It only sees: sync state JSON, sync map JSON, `--stat` output, commit log, and worker result summaries.
+- **Worker independence**: Each worker prompt must be fully self-contained — commit range, source paths, target path, and update rules all included. Workers cannot reference the orchestrator's conversation.
+- **Parallelism**: All workers launch simultaneously. No worker depends on another worker's output.
+- **Edit, don't rewrite**: Workers modify existing files incrementally. Full rewrites lose carefully curated structure.

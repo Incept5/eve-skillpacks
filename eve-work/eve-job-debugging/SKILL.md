@@ -26,9 +26,3 @@ Every debugging capability must be available through the CLI. If you find yourse
 ## System health
 
 - `eve system health` to confirm the API is reachable.
-
-## Recursive skill distillation
-
-- Add new debugging patterns and failure signatures as they appear.
-- Split advanced diagnosis into a new skill if this grows too large.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.

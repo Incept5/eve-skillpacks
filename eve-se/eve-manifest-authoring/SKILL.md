@@ -187,9 +187,3 @@ x-eve:
   packs:
     - source: ./skillpacks/my-pack
 ```
-
-## Recursive skill distillation
-
-- Add new manifest patterns and pitfalls as they emerge.
-- Split deep details into a `references/` file if this skill grows.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.

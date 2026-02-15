@@ -8,6 +8,12 @@ description: Execute software engineering plan documents using Eve jobs, depende
 Translate a plan document into Eve jobs, parallelize work, and drive review/verification
 through job phases and dependencies.
 
+**Orchestration model**: The root epic is the *orchestrator* — it plans, delegates, and
+coordinates but does not execute heavy work itself. Phase jobs are *sub-orchestrators*
+that break a phase into tasks. Task jobs are *workers* — each one receives a
+self-contained description and executes independently with no access to the parent's
+context.
+
 ## When to Use
 
 - A plan/spec exists and the work should be orchestrated as Eve jobs.
@@ -15,7 +21,7 @@ through job phases and dependencies.
 
 ## Workflow
 
-### 1) Load context
+### 1) Load context (orchestrator)
 
 - Read the plan doc and extract phases, deliverables, and blockers.
 - If present, read `AGENTS.md` for repo-specific rules.
@@ -23,8 +29,10 @@ through job phases and dependencies.
   ```bash
   eve job current --json
   ```
+- Stay lightweight: the orchestrator reads just enough to plan the breakdown.
+  Delegate deep analysis (reading large files, exploring code) to worker jobs.
 
-### 2) Create or confirm the root epic
+### 2) Create or confirm the root epic (orchestrator)
 
 If the root job does not exist, create one:
 ```bash
@@ -35,11 +43,14 @@ eve job create \
   --phase backlog
 ```
 
-If a root job already exists, use it as the orchestrator.
+If a root job already exists, use it as the orchestrator. The root epic
+never executes implementation work — it creates phase jobs, wires up
+dependencies, and waits.
 
-### 3) Break down into phase jobs
+### 3) Break down into phase jobs (sub-orchestrators)
 
-Create one child job per plan phase (backlog or ready). Include a short scope and deliverable.
+Create one child job per plan phase. Each phase job acts as a sub-orchestrator:
+it breaks its scope into task jobs and coordinates them.
 
 ```bash
 eve job create \
@@ -54,15 +65,25 @@ Add dependencies so the parent waits on each phase:
 eve job dep add $EVE_JOB_ID $PHASE_JOB_ID --type waits_for
 ```
 
-### 4) Create task jobs under each phase
+### 4) Create task jobs under each phase (workers)
 
-Split each phase into 2-6 atomic tasks with clear deliverables:
+Split each phase into 2-6 atomic tasks with clear deliverables.
+
+**If a phase has only one task, execute it directly** in the phase job rather
+than creating a child — avoid unnecessary orchestration overhead.
+
+For multi-task phases, create child worker jobs. Each worker description must be
+**self-contained**: the executing agent has no access to the parent's context, the
+plan document, or prior conversation. Include in the description:
+- The objective and deliverable
+- Relevant file paths and module names
+- Any constraints, conventions, or context the worker needs to succeed
 
 ```bash
 eve job create \
   --project $EVE_PROJECT_ID \
   --parent $PHASE_JOB_ID \
-  --description "Task: <objective>. Deliverable: <result>" \
+  --description "Task: <objective>. Deliverable: <result>. Files: <paths>. Context: <anything the worker needs>" \
   --phase ready
 ```
 
@@ -78,7 +99,11 @@ eve job dep add $PHASE_JOB_ID $TASK_JOB_ID --type waits_for
 
 ### 6) Execute tasks and update phases
 
-For each task:
+Workers pick up task jobs and execute them independently. Each worker:
+1. Reads its own job description for scope and context.
+2. Does the work (reads files, writes code, runs tests).
+3. Reports completion.
+
 ```bash
 eve job update $TASK_JOB_ID --phase active
 # do the work
@@ -97,10 +122,11 @@ eve job close $TASK_JOB_ID --reason "Done"
 - Submit the phase job when all tasks are complete.
 - When all phases complete, submit the root epic for review.
 
-### 8) Orchestrator waiting signal (optional)
+### 8) Orchestrator waiting signal
 
-If the root or phase job is only coordinating children, return a waiting signal
-after dependencies are created:
+After an orchestrator (root or phase) creates its child jobs and wires
+dependencies, it should return a waiting signal. This frees the orchestrator's
+resources while children execute in parallel:
 
 ```json-result
 {
@@ -110,6 +136,14 @@ after dependencies are created:
   }
 }
 ```
+
+## Context Management
+
+Orchestrators should stay lightweight:
+- **Read just enough** to plan the decomposition — don't analyze entire codebases.
+- **Push context into child descriptions** — file paths, conventions, constraints.
+- **Delegate reading and analysis** to workers. A worker that needs to understand a module should read it itself.
+- **Avoid duplicating work** — if two tasks need the same context, mention the shared source in both descriptions rather than summarizing it for them.
 
 ## Minimal Mapping from Beads to Eve Jobs
 

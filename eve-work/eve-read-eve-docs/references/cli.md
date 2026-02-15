@@ -103,6 +103,8 @@ Notes:
 ```bash
 # Permission queries (require org admin)
 eve access can --org org_xxx --user user_abc --permission chat:write
+  [--group <slug>] [--resource-type <type>]             # Scope check to group/resource
+  [--resource <id>] [--action <action>]
 eve access can --org org_xxx --service-principal sp_xxx --permission jobs:read
 eve access explain --org org_xxx --user user_abc --permission jobs:admin
   [--project proj_xxx]                                  # Trace permission origin
@@ -117,10 +119,29 @@ eve access roles delete pm_manager --org org_xxx
 
 # Role bindings
 eve access bind --org org_xxx --user user_abc --role pm_manager
-  [--project proj_xxx]
+  [--project proj_xxx] [--group <slug>]                 # Bind to group
+  [--scope-json '{"orgfs":"/eng/*","envdb":"schema:app"}']  # Restrict access paths
 eve access bindings list --org org_xxx [--project proj_xxx]
 eve access unbind --org org_xxx --user user_abc --role pm_manager
   [--project proj_xxx]
+
+# Access groups (fine-grained data-plane authorization)
+eve access groups create --org org_xxx --slug eng-team --name "Engineering"
+  [--description "..."]
+eve access groups list --org org_xxx
+eve access groups show <slug-or-id> --org org_xxx
+eve access groups update <slug-or-id> --org org_xxx [--name] [--description]
+eve access groups delete <slug-or-id> --org org_xxx
+
+# Group membership
+eve access groups members list <slug-or-id> --org org_xxx
+eve access groups members add <slug-or-id> --org org_xxx --user <id>
+eve access groups members add <slug-or-id> --org org_xxx --service-principal <id>
+eve access groups members remove <slug-or-id> --org org_xxx --user <id>
+
+# Memberships introspection (effective access for a principal)
+eve access memberships --org org_xxx --user <id>
+eve access memberships --org org_xxx --service-principal <id>
 
 # Policy-as-code (declarative .eve/access.yaml)
 eve access validate --file .eve/access.yaml             # Validate syntax
@@ -134,6 +155,7 @@ Notes:
 - `can`/`explain` work for both users and service principals.
 - Custom roles are additive -- they layer permissions on top of base membership roles.
 - `--prune` removes roles/bindings present in API but absent from the YAML file.
+- Groups are first-class authorization primitives for data-plane segmentation. Bindings can carry `--scope-json` to restrict orgfs/orgdocs/envdb access paths.
 
 ## Init
 
@@ -448,6 +470,7 @@ eve env delete <project> <env> [--force]                # Destroy environment
 Notes:
 - If a pipeline is configured, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
 - `--ref` must be a 40-character SHA, or a ref resolved against `--repo-dir`/cwd.
+- When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically POST'd to sync before deploying.
 - `env create --type temporary` creates ephemeral environments for preview/testing.
 - `env suspend/resume` allow pausing environments without destroying them.
 
@@ -546,6 +569,7 @@ Notes:
 ```bash
 eve db schema --env <name> [--project <id>]             # Show DB schema
 eve db rls --env <name>                                 # Show RLS policies
+eve db rls init --with-groups [--out <path>] [--force]  # Scaffold group-aware RLS helpers
 eve db sql --env <name> --sql "SELECT 1"                # Run query (read-only default)
   [--params '["arg1"]']                                 # Parameterized query
   [--write]                                             # Enable mutations
@@ -830,7 +854,7 @@ Quick reference:
 |----------|-------------|
 | **Profile** | `list`, `show`, `use`, `create`, `set`, `remove` |
 | **Auth** | `login`, `logout`, `status`, `token`, `permissions`, `bootstrap`, `mint`, `creds`, `sync`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
-| **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `validate`, `plan`, `sync` |
+| **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `groups create/list/show/update/delete`, `groups members list/add/remove`, `memberships`, `validate`, `plan`, `sync` |
 | **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members` |
 | **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
@@ -839,6 +863,7 @@ Quick reference:
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |
 | **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
 | **Environments** | `create`, `deploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `suspend`, `resume`, `delete` |
+| **FS Sync** | `init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor` |
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |
 | **Agents** | `sync`, `config`, `runtime-status` |
 | **Teams** | `list` |
@@ -848,7 +873,7 @@ Quick reference:
 | **Models** | `list` |
 | **Ollama** | `targets`, `target add/rm/test`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
 | **Harnesses** | `list`, `get` |
-| **Database** | `schema`, `rls`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
+| **Database** | `schema`, `rls`, `rls init`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
 | **Providers** | `list`, `discover` |
 | **Analytics** | `summary`, `jobs`, `pipelines`, `health` |

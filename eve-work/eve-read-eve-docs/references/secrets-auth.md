@@ -237,11 +237,120 @@ eve admin access-requests approve <request_id>
 eve admin access-requests reject <request_id> --reason "..."
 ```
 
+List responses use the canonical `{ "data": [...] }` envelope. `eve auth list-service-accounts` output also uses the data envelope.
+
 Approval semantics:
 - Approval is transactional (no partial org/user leftovers on failure).
 - Duplicate fingerprints reuse the existing identity owner instead of failing.
 - Re-approving an already-approved request is idempotent.
 - Legacy partial orgs with matching slug+name are reused during approval.
+
+### Access Groups + Scoped Bindings
+
+First-class access groups provide fine-grained data-plane authorization. Groups contain users and service principals, and bindings can carry scoped access constraints for org filesystem paths, org document paths, and environment DB schemas/tables.
+
+#### Groups CLI
+
+```bash
+eve access groups create --org org_xxx --slug eng-team --name "Engineering Team" \
+  [--description "Backend engineering group"]
+eve access groups list --org org_xxx
+eve access groups show eng-team --org org_xxx
+eve access groups update eng-team --org org_xxx --name "Platform Engineering"
+eve access groups delete eng-team --org org_xxx
+
+# Group membership
+eve access groups members list eng-team --org org_xxx
+eve access groups members add eng-team --org org_xxx --user user_abc
+eve access groups members add eng-team --org org_xxx --service-principal sp_xxx
+eve access groups members remove eng-team --org org_xxx --user user_abc
+```
+
+#### Scoped Bindings
+
+Bindings can carry `--scope-json` to restrict data-plane access:
+
+```bash
+eve access bind --org org_xxx --group grp_xxx --role data-reader \
+  --scope-json '{"orgfs":{"allow_prefixes":["/shared/","/reports/"]}}'
+
+eve access bind --org org_xxx --user user_abc --role db-analyst \
+  --scope-json '{"envdb":{"schemas":["public"],"tables":["analytics_*"]}}'
+```
+
+Scope structure supports three resource types:
+- `orgfs`: `allow_prefixes`, `read_only_prefixes` for org filesystem paths
+- `orgdocs`: `allow_prefixes`, `read_only_prefixes` for org document paths
+- `envdb`: `schemas`, `tables` for environment database access
+
+#### Resource-Specific Access Checks
+
+Check access against specific resources:
+
+```bash
+eve access can --org org_xxx --user user_abc --permission orgfs:read \
+  --resource-type orgfs --resource /reports/q4.md --action read
+
+eve access can --org org_xxx --group grp_xxx --permission envdb:read \
+  --resource-type envdb --resource public.analytics --action read
+```
+
+`explain` also shows scope match details:
+
+```bash
+eve access explain --org org_xxx --user user_abc --permission orgfs:write
+```
+
+#### Memberships Introspection
+
+Inspect the full effective access for any principal:
+
+```bash
+eve access memberships --org org_xxx --user user_abc
+eve access memberships --org org_xxx --service-principal sp_xxx
+```
+
+Returns: base roles, group memberships, direct bindings, effective bindings (with role expansion and group resolution), effective permissions, and effective scopes for orgfs/orgdocs/envdb.
+
+#### Policy-as-Code (Groups + Scoped Bindings)
+
+The `.eve/access.yaml` format now supports groups and scoped bindings:
+
+```yaml
+access:
+  groups:
+    eng-team:
+      name: Engineering Team
+      description: Backend engineering group
+      members:
+        - type: user
+          id: user_abc
+        - type: service_principal
+          id: sp_xxx
+    data-team:
+      name: Data Analytics Team
+      members:
+        - type: user
+          id: user_def
+
+  roles:
+    data-reader:
+      scope: org
+      permissions: [orgfs:read, orgdocs:read, envdb:read]
+
+  bindings:
+    - roles: [data-reader]
+      subject:
+        type: group
+        id: data-team
+      scope:
+        orgfs:
+          allow_prefixes: ["/shared/", "/reports/"]
+        envdb:
+          schemas: [public]
+```
+
+`validate`, `plan`, and `sync` now handle groups, group members, and scoped bindings. The plan output includes group creates/updates/prunes, member adds/removes, and binding scope replacements.
 
 ### Credential Check
 

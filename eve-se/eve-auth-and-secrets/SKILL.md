@@ -14,6 +14,8 @@ Use this workflow to log in to Eve and manage secrets for your app.
 - Adding or rotating secrets
 - Secret interpolation errors during deploys
 - Setting up identity providers or org invites
+- Setting up access groups and scoped data-plane authorization
+- Configuring group-aware RLS for environment databases
 
 ## Authentication
 
@@ -144,6 +146,70 @@ eve auth sync --org org_xxx         # Sync to org-level
 eve auth sync --project proj_xxx    # Sync to project-level
 eve auth sync --dry-run             # Preview without syncing
 ```
+
+## Access Groups + Scoped Access
+
+Groups are first-class authorization primitives that segment data-plane access (org filesystem, org docs, environment databases). Create groups, add members, and bind roles with scoped constraints:
+
+```bash
+# Create a group
+eve access groups create --org org_xxx --slug eng-team --name "Engineering"
+
+# Add members
+eve access groups members add eng-team --org org_xxx --user user_abc
+eve access groups members add eng-team --org org_xxx --service-principal sp_xxx
+
+# Bind a role with scoped access
+eve access bind --org org_xxx --group grp_xxx --role data-reader \
+  --scope-json '{"orgfs":{"allow_prefixes":["/shared/"]},"envdb":{"schemas":["public"]}}'
+
+# Check effective access
+eve access memberships --org org_xxx --user user_abc
+```
+
+### Scope Types
+
+| Resource | Scope Fields | Example |
+|----------|-------------|---------|
+| Org Filesystem | `orgfs.allow_prefixes`, `orgfs.read_only_prefixes` | `"/shared/"`, `"/reports/"` |
+| Org Documents | `orgdocs.allow_prefixes`, `orgdocs.read_only_prefixes` | `"/pm/features/"` |
+| Environment DB | `envdb.schemas`, `envdb.tables` | `"public"`, `"analytics_*"` |
+
+### Group-Aware RLS
+
+Scaffold RLS helper functions for group-based row-level security in environment databases:
+
+```bash
+eve db rls init --with-groups
+```
+
+This creates SQL helpers (`app.current_user_id()`, `app.current_group_ids()`, `app.has_group()`) that read session context set by Eve's runtime. Use them in RLS policies:
+
+```sql
+CREATE POLICY notes_group_read ON notes FOR SELECT
+  USING (group_id = ANY(app.current_group_ids()));
+```
+
+### Policy-as-Code
+
+Groups are fully supported in `.eve/access.yaml`:
+
+```yaml
+access:
+  groups:
+    eng-team:
+      name: Engineering Team
+      members:
+        - type: user
+          id: user_abc
+  bindings:
+    - roles: [data-reader]
+      subject: { type: group, id: eng-team }
+      scope:
+        orgfs: { allow_prefixes: ["/shared/"] }
+```
+
+Apply with `eve access sync --file .eve/access.yaml --org org_xxx`.
 
 ## Key Rotation
 

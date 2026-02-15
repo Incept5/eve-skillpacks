@@ -170,9 +170,3 @@ workflows:
 
 - Pipeline graph visualization in CLI/UI
 - More robust step-level status propagation from job execution
-
-## Recursive skill distillation
-
-- Add new pipeline or workflow patterns as they emerge.
-- Split specialized flows into new eve-se skills when needed.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.

@@ -15,6 +15,15 @@ dependencies, and maximizing parallel execution while respecting depth limits.
 3. Parallelize by default when tasks can proceed independently.
 4. Use relations to encode true dependencies, not preference.
 5. Leaf jobs execute; parent jobs orchestrate and wait.
+6. Orchestrators stay lightweight — dispatch work, don't accumulate it.
+
+## When to Orchestrate vs Execute Directly
+
+Not every job needs decomposition. Use this heuristic:
+
+- **Execute directly** when the work is atomic, self-contained, and fits comfortably in a single agent's context and capability. Examples: fix a single bug, write one document section, run a diagnostic check.
+- **Orchestrate** when the work has independent sub-parts that benefit from parallelism, when the scope exceeds what a single agent should hold in context at once, or when different parts require different skills or tool access.
+- **Default to direct execution.** Orchestration has overhead (job creation, waiting, resumption). Only decompose when parallelism or scope genuinely demands it.
 
 ## Always Start With Context
 
@@ -68,6 +77,17 @@ If current depth >= target, execute directly.
 
 If no target depth is provided, default to Story depth (2) unless the scope clearly indicates EPIC.
 
+## Context Management
+
+The orchestrator's most precious resource is its context window. Protect it:
+
+- **Do not read large files or datasets in the orchestrator.** If analysis is needed, create a child job to do the reading and summarize the results.
+- **Keep the orchestrator's role to planning, dispatching, and synthesizing.** The orchestrator decides *what* to do and *how to split it*, then delegates the actual work.
+- **Avoid accumulating child outputs inline.** When resuming after children complete, read only the summaries or outcomes you need to verify completion — not the full content of every child's work product.
+- **Front-load decomposition thinking.** Spend context on planning the breakdown, not on doing partial work that will be redone by children.
+
+A well-run orchestrator should finish with most of its context budget unspent.
+
 ## Per-Job Orchestration Flow
 
 1. Fetch context (`eve job current --json`).
@@ -77,16 +97,18 @@ If no target depth is provided, default to Story depth (2) unless the scope clea
 3. Decide whether to decompose:
    - If the work is sizable or parallelizable, create child jobs.
    - Each child inherits the same target depth.
-4. Add relations:
+4. Write self-contained child descriptions (see template below).
+5. Add relations:
    - Use `waits_for` for standard gating.
    - Use `blocks` only for strict ordering constraints.
-5. Return waiting signal after relations exist.
-6. Resume when children complete; re-check context and continue.
+6. Return waiting signal after relations exist.
+7. Resume when children complete; read summaries, verify, and continue.
 
-## Creating Child Jobs (CLI)
+## Creating Child Jobs
 
-Use `eve job create` with `--parent` to spawn sub-jobs. Provide clear, atomic
-descriptions and pass the target depth in the child description.
+Create child jobs using `eve job create` with `--parent`. Each child description must be
+**fully self-contained** — the child agent has no access to the parent's conversation,
+context, or reasoning. Everything the child needs to act must be in the description itself.
 
 ```bash
 # Create two child jobs in parallel
@@ -112,8 +134,9 @@ eve job dep add $EVE_JOB_ID $CHILD_B_ID --type waits_for
 
 - Favor multiple small, independent children over one large child.
 - If tasks can run in parallel, create them and make the parent wait on all.
-- Avoid chaining children unless the outputs are truly sequential.
+- Avoid chaining children unless the output of one is a genuine input to the next.
 - Every child repeats the same decision process and may create grandchildren if depth allows.
+- A good decomposition reduces each child's scope to something a single agent can complete without exhausting its context window.
 
 ## Dependencies and Relations
 
@@ -169,9 +192,10 @@ eve job submit $EVE_JOB_ID --summary "Completed work and ready for review"
 
 When a parent resumes after children complete:
 
-- Read the child outputs and verify they meet the parent scope.
+- Read child summaries and outcomes — not their full work products. Protect context.
+- Verify that child outputs collectively satisfy the parent's scope.
 - If review is required, submit the parent for review after verification.
-- If no review is required, summarize child outcomes and complete the parent.
+- If no review is required, synthesize child outcomes into a parent summary and complete.
 
 ## Failure Handling
 
@@ -182,16 +206,26 @@ If a child fails:
 
 ## Child Job Description Template
 
-Use a consistent header so children inherit depth and decision rules:
+Every child description must be self-contained. The child agent starts cold — no access to
+the parent's conversation, files read, or reasoning. Include everything it needs:
 
 ```
 Target depth: 3 (EPIC). Current depth: 1.
 If current depth < target, you may create child jobs and use waits_for relations to parallelize.
 If current depth >= target, execute directly.
 
-Scope: <concise child objective>
-Deliverable: <clear outcome>
+Context: <why this work exists — enough background for the child to act without asking>
+Scope: <concise child objective — what to do>
+Inputs: <specific file paths, data references, or prior outputs the child needs>
+Deliverable: <clear, verifiable outcome — what "done" looks like>
+Constraints: <boundaries, standards, or requirements to honor>
 ```
+
+Key rules for child descriptions:
+- **Name specific files and paths.** "Update the auth module" is ambiguous; "Update `/src/auth/handler.ts` to add token refresh logic" is actionable.
+- **Include relevant decisions already made.** If the parent chose an approach, tell the child — don't make it re-derive the decision.
+- **State the deliverable as a verifiable condition.** "Tests pass" or "File exists at path X" beats "implement feature Y."
+- **Never assume the child can read the parent's mind.** If in doubt, over-specify.
 
 ## Knowledge-Work Examples (Non-SWE)
 
@@ -204,14 +238,9 @@ Deliverable: <clear outcome>
 
 - [ ] Read context and depth
 - [ ] Determine target depth and level
-- [ ] Decide direct vs decompose
-- [ ] Create children in parallel where possible
-- [ ] Add relations
+- [ ] Decide: execute directly or orchestrate? (default to direct if work is atomic)
+- [ ] If orchestrating: plan the decomposition, then create children with self-contained descriptions
+- [ ] Favor parallel children over sequential chains
+- [ ] Add relations before signaling
 - [ ] Return `json-result` waiting (if children exist)
-- [ ] Resume and complete
-
-## Recursive skill distillation
-
-- Capture new orchestration patterns and edge cases here.
-- Split out a new skill when a focused pattern keeps repeating.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.
+- [ ] On resume: read child summaries (not full outputs), verify, and complete

@@ -36,9 +36,3 @@ Use jobs as the unit of work and keep phases explicit.
 
 - Emit a fenced `json-result` block with `eve.status` as `waiting`, `success`, or `failed`.
 - Return `waiting` only after dependencies exist.
-
-## Recursive skill distillation
-
-- Add new lifecycle patterns and edge cases as they appear.
-- Split review or dependency workflows into new skills if they grow.
-- Update the eve-skillpacks README and ARCHITECTURE listings after changes.

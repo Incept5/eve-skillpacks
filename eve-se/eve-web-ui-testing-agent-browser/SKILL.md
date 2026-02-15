@@ -57,18 +57,12 @@ For proxy testing:
 export AGENT_BROWSER_PROXY="http://user:pass@proxy-host:port"
 ```
 
-## Install the Upstream Agent Skill (Optional)
+## Install the Upstream Skill (Optional)
 
-When an agent runtime supports skill install, add the upstream skill pack:
-
-```bash
-npx skills add vercel-labs/agent-browser
-```
-
-For Eve-managed projects, install from source if needed:
+If your runtime supports skill installation, add the upstream skill:
 
 ```bash
-eve skills install https://github.com/vercel-labs/agent-browser
+eve skill install https://github.com/vercel-labs/agent-browser
 ```
 
 ## Core Workflow

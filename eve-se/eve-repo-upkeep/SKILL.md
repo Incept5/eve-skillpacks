@@ -5,7 +5,7 @@ description: Keep Eve-compatible repos aligned with platform best practices and 
 
 # Eve Repo Upkeep
 
-Use this workflow to keep an app repo current with Eve conventions.
+Keep an app repo current with Eve conventions. The checks are independent — run them in parallel when multiple areas need attention.
 
 ## When to Use
 
@@ -13,9 +13,25 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Before a major deploy or release
 - When onboarding a new maintainer
 
-## Files to Keep Current
+## Phase 1: Assess
 
-### `.eve/manifest.yaml`
+Quickly determine which areas need attention. Check which of these files exist and whether they look stale — don't deep-read every file, just note which areas need work:
+
+- `.eve/manifest.yaml` — does it exist? Is the schema line `eve/compose/v1`?
+- `skills.txt` — does it exist? Are there pinned or obsolete entries?
+- `AGENTS.md` / `CLAUDE.md` — do they reference current skills?
+- `agents/` directory — do `agents.yaml`, `teams.yaml`, `chat.yaml` exist?
+- Codebase — any obvious deprecated CLI patterns or inline secrets?
+
+If only one area needs work, handle it directly. Otherwise, proceed to Phase 2.
+
+## Phase 2: Dispatch Workers
+
+Create one worker per area that needs updating. Each worker description below is self-contained — a worker can execute its area independently without context from the others.
+
+### Worker: Manifest Alignment
+
+Check and fix `.eve/manifest.yaml`:
 
 - Ensure `schema: eve/compose/v1` is present.
 - Prefer `services:` over legacy `components:`.
@@ -28,23 +44,26 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Services with Docker images should have `build.context` defined.
 - Registry auth secrets (GHCR_USERNAME, GHCR_TOKEN or GITHUB_TOKEN) should be configured.
 
-### `skills.txt`
+### Worker: Skills File
+
+Check and fix `skills.txt`:
 
 - Keep Eve skillpack references up to date.
 - Remove obsolete packs or pinned versions.
 
-### Agent Instructions (AGENTS.md / CLAUDE.md)
+### Worker: Agent Instructions
+
+Check and fix `AGENTS.md`, `CLAUDE.md`, and `agents/` config files:
 
 - Update skill references to include `eve-se-index`.
 - Remove stale commands or URLs.
+- `agents/agents.yaml` defines agents and skills — verify entries are current.
+- `agents/teams.yaml` defines team composition and dispatch — verify structure.
+- `agents/chat.yaml` defines chat routing rules and permissions — verify rules.
 
-### Agent Config Files (`agents/`)
+### Worker: Deprecated Patterns
 
-- `agents/agents.yaml` defines agents and skills.
-- `agents/teams.yaml` defines team composition and dispatch.
-- `agents/chat.yaml` defines chat routing rules and permissions.
-
-## Check for Deprecated Patterns
+Search the codebase for deprecated patterns and fix or flag them:
 
 - Old CLI commands (`eve deploy` vs `eve env deploy`)
 - Old deploy syntax without `--ref` parameter
@@ -55,7 +74,9 @@ Use this workflow to keep an app repo current with Eve conventions.
 - Services with Docker images but no `build.context` configuration
 - Missing registry authentication secrets (GHCR_USERNAME, GHCR_TOKEN/GITHUB_TOKEN)
 
-## Test After Updates
+## Phase 3: Verify
+
+After all workers complete, run final verification:
 
 ```bash
 # Local validation (Docker Compose)
