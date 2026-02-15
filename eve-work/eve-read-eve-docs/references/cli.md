@@ -2,6 +2,8 @@
 
 Complete reference for the Eve Horizon CLI (`eve`). Every command supports `--json` for machine-readable output unless noted otherwise.
 
+**Data envelope:** All list endpoints return `{ "data": [...] }` in JSON mode. The CLI handles both wrapped and unwrapped responses transparently, so agents should always expect the `data` wrapper when parsing `--json` output from list commands.
+
 ## Environment Setup
 
 Default to **staging** for user guidance. Use local/docker only when explicitly asked.
@@ -126,11 +128,11 @@ eve access unbind --org org_xxx --user user_abc --role pm_manager
   [--project proj_xxx]
 
 # Access groups (fine-grained data-plane authorization)
-eve access groups create --org org_xxx --slug eng-team --name "Engineering"
-  [--description "..."]
+eve access groups create "Engineering" --org org_xxx [--slug eng-team]
+  [--description "..."]                                      # Name as positional arg or --name
 eve access groups list --org org_xxx
 eve access groups show <slug-or-id> --org org_xxx
-eve access groups update <slug-or-id> --org org_xxx [--name] [--description]
+eve access groups update <slug-or-id> --org org_xxx [--name] [--slug] [--description]
 eve access groups delete <slug-or-id> --org org_xxx
 
 # Group membership
@@ -152,10 +154,11 @@ eve access sync --file .eve/access.yaml --org org_xxx   # Apply changes
 ```
 
 Notes:
-- `can`/`explain` work for both users and service principals.
+- `can`/`explain` work for users, service principals, and groups.
 - Custom roles are additive -- they layer permissions on top of base membership roles.
 - `--prune` removes roles/bindings present in API but absent from the YAML file.
 - Groups are first-class authorization primitives for data-plane segmentation. Bindings can carry `--scope-json` to restrict orgfs/orgdocs/envdb access paths.
+- Policy sync validates that bindings with data-plane permissions (orgfs/orgdocs/envdb) include matching scope constraints. Bindings without required scopes fail validation.
 
 ## Init
 
@@ -248,6 +251,9 @@ Org-scoped filesystem sync control plane (device enrollment, links, stream, conf
 
 ```bash
 eve fs sync init --org org_xxx --local ~/Eve/acme --mode two-way
+  [--include "*.md,docs/**"] [--exclude "node_modules/**"]
+  [--remote-path /subdir]                                    # Remote root (default: /)
+  [--device-name "my-laptop"]                                # Device label (default: hostname)
 eve fs sync status --org org_xxx
 eve fs sync logs --org org_xxx --follow
 
@@ -263,6 +269,7 @@ eve fs sync doctor --org org_xxx
 
 Notes:
 - Sync modes map to API values: `two-way -> two_way`, `push-only -> push_only`, `pull-only -> pull_only`.
+- `init` enrolls a device and creates a sync link in one step. Use `--include`/`--exclude` for glob-based filtering.
 - `logs --follow` streams SSE events (`fs_event`, `fs_checkpoint`) and resumes with `--after`.
 - If `--link` is omitted for lifecycle commands, CLI targets the most recently updated link in the org.
 
@@ -470,7 +477,7 @@ eve env delete <project> <env> [--force]                # Destroy environment
 Notes:
 - If a pipeline is configured, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
 - `--ref` must be a 40-character SHA, or a ref resolved against `--repo-dir`/cwd.
-- When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically POST'd to sync before deploying.
+- When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically synced to the API (POST'd with git SHA and branch) before deploying. If no local manifest is found, the server-side manifest is used as-is.
 - `env create --type temporary` creates ephemeral environments for preview/testing.
 - `env suspend/resume` allow pausing environments without destroying them.
 
@@ -568,8 +575,8 @@ Notes:
 
 ```bash
 eve db schema --env <name> [--project <id>]             # Show DB schema
-eve db rls --env <name>                                 # Show RLS policies
-eve db rls init --with-groups [--out <path>] [--force]  # Scaffold group-aware RLS helpers
+eve db rls --env <name>                                 # Show RLS policies + group context diagnostics
+eve db rls init --with-groups [--out <path>] [--force]  # Scaffold group-aware RLS helper SQL
 eve db sql --env <name> --sql "SELECT 1"                # Run query (read-only default)
   [--params '["arg1"]']                                 # Parameterized query
   [--write]                                             # Enable mutations
@@ -583,7 +590,10 @@ eve db scale --env <name> --class db.p1|db.p2|db.p3     # Scale managed DB class
 eve db destroy --env <name> --force                     # Destroy managed DB
 ```
 
-Migration files: `YYYYMMDDHHmmss_description.sql` in `db/migrations/` by default.
+Notes:
+- `rls` now includes group context diagnostics: shows the resolved principal, org, project, env, group IDs, and permissions for the current session. Useful for debugging why policies are not matching.
+- `rls init --with-groups` scaffolds `app.current_user_id()`, `app.current_group_ids()`, and `app.has_group()` SQL functions to `db/rls/helpers.sql` (or `--out <path>`). Apply the output SQL to your target environment DB, then reference these helpers in RLS policies.
+- Migration files: `YYYYMMDDHHmmss_description.sql` in `db/migrations/` by default.
 
 ## Manifest
 
@@ -706,10 +716,14 @@ Notes:
 
 ```bash
 eve analytics summary --org org_xxx [--window 7d]       # Org-wide summary
-eve analytics jobs --org org_xxx [--window 7d]           # Job analytics
-eve analytics pipelines --org org_xxx [--window 7d]      # Pipeline analytics
-eve analytics env-health --org org_xxx                   # Environment health overview
+eve analytics jobs --org org_xxx [--window 7d]           # Job counters (created/completed/failed/active)
+eve analytics pipelines --org org_xxx [--window 7d]      # Pipeline success rates and durations
+eve analytics env-health --org org_xxx                   # Environment health snapshot (total/healthy/degraded/unknown)
 ```
+
+Notes:
+- All analytics endpoints return aggregate counters, not per-item listings. Use `--json` for machine-readable output.
+- `--window` accepts relative durations like `7d`, `24h`, `30d`.
 
 ## Webhooks
 
@@ -873,10 +887,10 @@ Quick reference:
 | **Models** | `list` |
 | **Ollama** | `targets`, `target add/rm/test`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
 | **Harnesses** | `list`, `get` |
-| **Database** | `schema`, `rls`, `rls init`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
+| **Database** | `schema`, `rls`, `rls init --with-groups`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
 | **Providers** | `list`, `discover` |
-| **Analytics** | `summary`, `jobs`, `pipelines`, `health` |
+| **Analytics** | `summary`, `jobs`, `pipelines`, `env-health` |
 | **Webhooks** | `create`, `list`, `show`, `delete`, `replay` |
 | **API** | `list`, `show`, `spec`, `refresh`, `examples`, `call`, `generate`, `diff` |
 | **Events** | `list`, `show`, `emit` |

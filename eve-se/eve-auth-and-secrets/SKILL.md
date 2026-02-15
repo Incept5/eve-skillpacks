@@ -126,6 +126,10 @@ eve admin access-requests approve <request_id>
 eve admin access-requests reject <request_id> --reason "..."
 ```
 
+List responses use the canonical `{ "data": [...] }` envelope.
+
+Approval is atomic (single DB transaction) and idempotent -- re-approving a completed request returns the existing record. If the fingerprint is already registered, Eve reuses that identity owner. If a legacy partial org matches the requested slug and name, Eve reuses it during approval. Failed attempts never leave partial state.
+
 ## Credential Check
 
 Verify local AI tool credentials:
@@ -190,26 +194,68 @@ CREATE POLICY notes_group_read ON notes FOR SELECT
   USING (group_id = ANY(app.current_group_ids()));
 ```
 
-### Policy-as-Code
+### Membership Introspection
 
-Groups are fully supported in `.eve/access.yaml`:
+Inspect a principal's full effective access -- base org/project roles, group memberships, resolved bindings, and merged scopes:
+
+```bash
+eve access memberships --org org_xxx --user user_abc
+eve access memberships --org org_xxx --service-principal sp_xxx
+```
+
+The response includes `effective_scopes` (merged across all bindings), `effective_permissions`, and each binding's `matched_via` (direct or group).
+
+### Resource-Specific Access Checks
+
+Check and explain access against a specific data-plane resource:
+
+```bash
+eve access can orgfs:read /shared/reports --org org_xxx
+eve access explain orgfs:write /shared/reports --org org_xxx --user user_abc
+```
+
+The response includes `scope_required`, `scope_matched`, and per-grant `scope_reason` explaining why a binding did or did not match the requested resource path.
+
+### Policy-as-Code (v2)
+
+Declare groups, roles, and scoped bindings in `.eve/access.yaml`. Use `version: 2`:
 
 ```yaml
+version: 2
 access:
   groups:
     eng-team:
       name: Engineering Team
+      description: Scoped access for engineering collaborators
       members:
         - type: user
           id: user_abc
+  roles:
+    app_editor:
+      scope: org
+      permissions:
+        - orgdocs:read
+        - orgdocs:write
+        - orgfs:read
+        - envdb:read
   bindings:
-    - roles: [data-reader]
-      subject: { type: group, id: eng-team }
+    - subject: { type: group, id: eng-team }
+      roles: [app_editor]
       scope:
-        orgfs: { allow_prefixes: ["/shared/"] }
+        orgdocs: { allow_prefixes: ["/groups/app/**"] }
+        orgfs: { allow_prefixes: ["/groups/app/**"] }
+        envdb: { schemas: ["app"] }
 ```
 
-Apply with `eve access sync --file .eve/access.yaml --org org_xxx`.
+Validate, plan, and sync:
+
+```bash
+eve access validate --file .eve/access.yaml
+eve access plan --file .eve/access.yaml --org org_xxx
+eve access sync --file .eve/access.yaml --org org_xxx
+```
+
+Sync is declarative: it creates, updates, and prunes groups, members, roles, and bindings to match the YAML. Invalid scope configurations fail fast before any mutations are applied. Binding subjects can be `user`, `service_principal`, or `group`.
 
 ## Key Rotation
 
@@ -285,10 +331,12 @@ The worker uses secrets for repository access:
 |---------|-----|
 | Not authenticated | Run `eve auth login` |
 | Token expired | Re-run `eve auth login` (tokens auto-refresh if within 5 min of expiry) |
+| Bootstrap already completed | Use `eve auth login` (existing user) or `eve admin invite` (new users). On non-prod stacks, `eve auth bootstrap` auto-attempts server recovery. For wrong-email recovery: `eve auth bootstrap --email correct@example.com` |
 | Secret missing | Confirm with `eve secrets list` and set the key |
 | Interpolation error | Verify `${secret.KEY}` spelling; run `eve manifest validate --validate-secrets` |
 | Git clone failed | Check `github_token` or `ssh_key` secret is set |
 | Service can't reach API | Verify `EVE_API_URL` is injected (check `eve env show`) |
+| Scoped access denied | Run `eve access explain <permission> <resource> --org <org>` to see scope match details. Check that the binding's scope constraints include the target path/schema |
 
 ### Incident Response (Secret Leak)
 

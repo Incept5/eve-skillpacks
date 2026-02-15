@@ -44,9 +44,9 @@ eve org ensure test-org --slug test-org             # 3. Use the CLI
 
 **Phase**: Pre-MVP (K8s runtime + agent runtime + chat gateway complete).
 
-**What exists**: monorepo with API, orchestrator, worker, agent runtime, and gateway services. Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Persistent environment deployment to K8s. Manifest variable interpolation. Ingress routing. Job execution with mclaude/zai harnesses. Agent/team/thread primitives with repo-first sync. Chat gateway with Slack integration. Agent runtime (org-scoped warm pods). CLI as npm package and local `./bin/eh` helpers. K8s local stack via k3d.
+**What exists**: monorepo with API, orchestrator, worker, agent runtime, and gateway services. Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Persistent environment deployment to K8s. Manifest variable interpolation. Ingress routing. Job execution with mclaude/zai harnesses. Agent/team/thread primitives with repo-first sync. Chat gateway with Slack integration. Agent runtime (org-scoped warm pods). CLI as npm package and local `./bin/eh` helpers. K8s local stack via k3d. Org filesystem sync (control-plane APIs, event spine integration, `eve fs sync` CLI command group).
 
-**What's next**: production domain configuration, registry-based image deployment, UI dashboards, Slack interactive approvals.
+**What's next**: platform-wide groups with scoped resource access (default-deny data plane, group-scoped grants for members/agents/users, fs path ACLs, group-aware DB RLS), production domain configuration, registry-based image deployment, UI dashboards, Slack interactive approvals.
 
 ### Pre-Deployment Phase
 
