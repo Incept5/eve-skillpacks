@@ -2,10 +2,10 @@
 
 ## Load Eve Docs First
 
-Before any work on or with Eve Horizon, load this skill and read the relevant references:
+Before any work on or with Eve Horizon, load this skill:
 
-```bash
-skill read eve-read-eve-docs
+```
+/eve-read-eve-docs
 ```
 
 Then review the references that match your task. Start here for architecture and conventions; open `references/cli.md`, `references/manifest.md`, or `references/jobs.md` for specifics.
@@ -27,6 +27,7 @@ This shows what environments are running, the correct `EVE_API_URL` for each, po
 | K8s (k3d) | `http://api.eve.lvh.me` | Manual tests, deployment testing |
 | Docker Compose | `http://localhost:4801` | Integration tests, quick dev loop |
 | Local pnpm dev | `http://localhost:4801` | Hot-reload development |
+| Staging | `https://api.eh1.incept5.dev` | Production-like testing |
 
 No port-forwarding required for K8s -- all services are accessible via Ingress.
 
@@ -42,11 +43,11 @@ eve org ensure test-org --slug test-org             # 3. Use the CLI
 
 ## Current State
 
-**Phase**: Pre-MVP (K8s runtime + agent runtime + chat gateway complete).
+**Phase**: Pre-MVP (K8s runtime + agent runtime + chat gateway + builds/deploy pipeline + auth/RBAC complete).
 
-**What exists**: monorepo with API, orchestrator, worker, agent runtime, and gateway services. Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Persistent environment deployment to K8s. Manifest variable interpolation. Ingress routing. Job execution with mclaude/zai harnesses. Agent/team/thread primitives with repo-first sync. Chat gateway with Slack integration. Agent runtime (org-scoped warm pods). CLI as npm package and local `./bin/eh` helpers. K8s local stack via k3d. Org filesystem sync (control-plane APIs, event spine integration, `eve fs sync` CLI command group).
+**What exists**: monorepo with 6 services (API, orchestrator, worker, agent runtime, gateway, SSO). Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Full auth stack (SSH login, web auth via GoTrue + SSO broker, service principals, custom roles, access groups). RBAC with policy-as-code and default-deny data plane. Persistent environment deployment to K8s with manifest variable interpolation and ingress routing. First-class builds (BuildKit), releases, and pipelines (build -> release -> deploy). Job execution with mclaude/claude/zai/gemini/code/codex harnesses via `eve-agent-cli`. Managed models (platform/org/project scoped) with transparent protocol bridge routing. Provider registry + model discovery. Agent/team/thread primitives with repo-first sync and AgentPacks (`x-eve.packs`). Chat gateway with Slack + Nostr integration. Agent runtime (org-scoped warm pods). Org filesystem sync + org docs. Cost tracking (execution receipts, resource classes, budgets, balance ledger). Analytics, webhooks, and supervision primitives. Ollama inference targets (external + internal pools, routing policies). On-demand GPU wake via ASG API. Agent app API access (`--with-apis` flag, `@eve/app-auth` SDK). CLI as npm package (`@eve-horizon/cli`) and local `./bin/eh` helpers. K8s local stack via k3d.
 
-**What's next**: platform-wide groups with scoped resource access (default-deny data plane, group-scoped grants for members/agents/users, fs path ACLs, group-aware DB RLS), production domain configuration, registry-based image deployment, UI dashboards, Slack interactive approvals.
+**What's next**: platform-wide groups with fs path ACLs and group-aware DB RLS, app compute classes and substrate-aware deployment, UI dashboards, Slack interactive approvals.
 
 ### Pre-Deployment Phase
 
@@ -64,44 +65,47 @@ Eve Horizon is a **job-first platform** that runs AI-powered skills against Git 
 - **CLI-first**: humans and agents use the same CLI against the API.
 - **Job-centric**: all work is tracked as jobs with phases, priorities, and dependencies.
 - **Event-driven**: automation routes through an event spine in Postgres.
-- **Skills-based**: reusable capabilities live as `SKILL.md` files in repos.
+- **Skills-based**: reusable capabilities live as `SKILL.md` files in repos; preferred flow via AgentPacks.
 - **Isolated execution**: each job attempt runs in a fresh workspace with a cloned repo.
 - **Staging-first**: default guidance targets staging; local dev is opt-in.
+- **Auth-complete**: SSH login, web auth (GoTrue + SSO), service principals, custom roles, access groups, policy-as-code.
 
 ## Architecture Summary
 
 ```
-User -> CLI -> API -> Orchestrator -> Worker -> Harness -> Agent
-                |       |             |
-                |       |             +-> Runner pods (k8s)
-                |       +-> Postgres (jobs, attempts, events, secrets)
-Chat -> Gateway +
-Agent Runtime (warm pods) --+
+User -> CLI -> API -> Orchestrator -> Worker -> eve-agent-cli -> Harness -> Agent
+         |      |            |              |
+Chat -> Gateway +         Postgres      JobWorkspace (runner pods)
+          +-> Agent Runtime (warm pods)
+          +-> Inference (Ollama targets + protocol bridges)
 
 ONLY URL needed: EVE_API_URL
 CLI is a thin wrapper; all control flows through the API.
 ```
 
-- **API**: single gateway for org/project/job CRUD, secrets, events, runs.
+**Services** (6 in the monorepo):
+
+- **API**: single gateway for org/project/job CRUD, secrets, events, runs, auth, inference.
 - **Orchestrator**: polls ready jobs, routes events to pipelines/workflows.
-- **Worker**: clones repo, invokes harness, streams JSONL logs.
-- **Harness**: wrapper for Claude/Codex/Gemini/Z.ai via `eve-agent-cli`.
+- **Worker**: clones repo, invokes harness via `eve-agent-cli`, streams JSONL logs.
 - **Gateway**: routes inbound messages from Slack/Nostr to agents.
-- **Agent Runtime**: org-scoped warm pods for low-latency chat responses. Local k3d defaults to dynamic multi-org tracking and inline execution in warm pods.
+- **Agent Runtime**: org-scoped warm pods for low-latency chat responses.
+- **SSO**: GoTrue + SSO broker for web authentication.
 
 **Key flows**:
 
 1. Create job -> API validates -> stored in DB.
 2. Orchestrator claims ready jobs -> creates JobWorkspace.
-3. Worker invokes selected harness (mclaude/zai) -> streams JSONL logs.
+3. Worker invokes selected harness (mclaude/claude/zai/gemini/code/codex) -> streams JSONL logs.
 4. Chat flow: Slack -> Gateway -> API routes -> jobs + threads -> Agent Runtime executes.
-5. HITL review -> continue or complete.
+5. Build flow: pipeline step -> BuildKit -> push images -> release -> deploy to K8s namespace.
+6. HITL review -> continue or complete.
 
 ## Key Decisions
 
 | Decision | Rationale |
 |---|---|
-| mclaude + zai via cc-mirror | Claude Opus support and Z.ai via job-level selection |
+| 6 harnesses via eve-agent-cli | Uniform invocation for mclaude/claude/zai/gemini/code/codex |
 | Job (not Task) terminology | Avoids collision with cc-mirror's Task tools |
 | NestJS for backend | Clean architecture, TypeScript native |
 | Hierarchical job IDs | `{slug}-{hash8}` root, `{parent}.{n}` children |
@@ -113,6 +117,11 @@ CLI is a thin wrapper; all control flows through the API.
 | Agent runtime (warm pods) | Reduces per-message cold starts for chat workflows |
 | Chat gateway + Slack mapping | Multi-tenant `team_id -> org_id` routing |
 | Repo-first agents sync | Deterministic config via `--ref` |
+| Two-repo deploy model | Source builds images, infra repo applies K8s manifests |
+| BuildKit-first builds | Replaced kaniko; reliable in-cluster container builds |
+| Managed models + protocol bridges | Transparent harness/provider routing without changing upstream identity |
+| GoTrue + SSO broker | Web auth via Supabase-compatible auth, dual-mode API auth |
+| Default-deny data plane | Members/agents/users need explicit group-scoped grants |
 
 ## Conventions
 
@@ -253,6 +262,7 @@ Integration tests use API endpoints, not direct DB queries. Test and dev use sep
 
 | Repo | Expected Path | Purpose |
 |---|---|---|
+| incept5-eve-infra | `../incept5-eve-infra` | K8s manifests, kustomize overlays, deploy automation |
 | eve-horizon-starter | `../eve-horizon-starter` | Starter template for new Eve projects |
 | eve-horizon-fullstack-example | `../eve-horizon-fullstack-example` | Example fullstack app for deployment testing |
 | eve-skillpacks | `../eve-skillpacks` | Published skill packs referenced by `skills.txt` |
@@ -267,9 +277,11 @@ When platform behavior changes in eve-horizon, the corresponding reference file 
 
 The standard deployment flow:
 
-1. **Build**: create container images from source code.
+1. **Build**: create container images from source code (BuildKit-based).
 2. **Release**: capture a deployable snapshot (SHA + manifest + digests).
 3. **Deploy**: apply release to an environment.
+
+Staging deploys use a **two-repo model**: source repo (`eve-horizon`) builds and pushes images on `release-v*` tags, then dispatches to the infra repo (`incept5-eve-infra`) which applies K8s manifests.
 
 Pipelines orchestrate these steps as a job graph. See `references/builds-releases.md`.
 

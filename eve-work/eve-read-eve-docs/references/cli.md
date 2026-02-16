@@ -222,7 +222,24 @@ eve project members remove user_abc --project proj_xxx
 eve project bootstrap --name my-app --repo-url https://github.com/org/repo \
   --environments staging,production [--branch main] [--slug <slug>] \
   [--template <name>] [--packs pack1,pack2]
+
+# Status (cross-profile deployment overview)
+eve project status [--profile <name>] [--env <name>] [--json]
 ```
+
+`eve project status` shows a unified deployment overview across all configured profiles. For each profile it reports:
+
+- **Project** -- ID and name
+- **Environments** -- name, type (`persistent`/`temporary`), status (`active`/`suspended`)
+- **Revision** -- current release git SHA (short), version/tag, and deploy age (e.g. `3h ago`)
+- **Services** -- per-component pod readiness (`ready`/`not-ready`/`completed`), with inferred ingress URLs
+
+Flags:
+- `--profile <name>` -- restrict output to a single profile (default: all profiles)
+- `--env <name>` -- filter to a specific environment within each profile
+- `--json` -- machine-readable output with full `{ profiles: [...] }` envelope
+
+The command aggregates data from the project, releases, environments, and pod diagnostics APIs. Suspended environments are listed but skip service queries. Service URLs are inferred from the namespace and cluster domain (e.g. `https://{component}.{orgSlug}-{projectSlug}-{env}.{domain}`).
 
 Notes:
 - `project ensure` supports repo-less creation for early bootstrap; omit `--repo-url` to reserve slug/id first, then set repo later with `project ensure --repo-url ...` or `project update --repo-url ...`.
@@ -870,7 +887,7 @@ Quick reference:
 | **Auth** | `login`, `logout`, `status`, `token`, `permissions`, `bootstrap`, `mint`, `creds`, `sync`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `groups create/list/show/update/delete`, `groups members list/add/remove`, `memberships`, `validate`, `plan`, `sync` |
 | **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members` |
-| **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap` |
+| **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap`, `status` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel` |
 | **Releases** | `resolve` |
