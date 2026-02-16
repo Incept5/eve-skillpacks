@@ -1,15 +1,8 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "3bb245e615c96b3df224a5500ae57a968e803fed",
-  "last_synced_at": "2026-02-15T17:00:00Z",
+  "last_synced_commit": "4fc1b70f2dd66d3dcbe29d714c695bd4e92d0463",
+  "last_synced_at": "2026-02-16T09:30:00Z",
   "sync_log": [
-    {
-      "commit": "094767f2a9dd8e4825027ed8c75a7a76005a80cf",
-      "commit_short": "094767f",
-      "synced_at": "2026-02-15T12:43:00Z",
-      "type": "incremental",
-      "summary": "47-commit incremental sync — access groups CRUD + scoped bindings, org-fs sync baseline, policy-as-code v2, DB RLS group helpers, API response standardization, auth bootstrap recovery hardening, deploy auto-sync manifest, platform Ollama inference"
-    },
     {
       "commit": "2f203512c9a8c8a1fa303764a1d7ae38b7272d21",
       "commit_short": "2f20351",
@@ -23,6 +16,13 @@
       "synced_at": "2026-02-15T17:00:00Z",
       "type": "incremental",
       "summary": "5-commit incremental sync — agent memory platform (kv, memory, search, thread distillation, context hydration), deploy recovery (env rollback/reset/recover, db reset/wipe), docs lifecycle metadata, k3d context guard"
+    },
+    {
+      "commit": "4fc1b70f2dd66d3dcbe29d714c695bd4e92d0463",
+      "commit_short": "4fc1b70",
+      "synced_at": "2026-02-16T09:30:00Z",
+      "type": "incremental",
+      "summary": "21-commit incremental sync — local k3d stack CLI (eve local up/down/status/health/reset/logs), ingress aliases (vanity URLs, admin reclaim), access bind --project required, staging kubeconfig safety, OpenAPI spec regen"
     }
   ]
 }

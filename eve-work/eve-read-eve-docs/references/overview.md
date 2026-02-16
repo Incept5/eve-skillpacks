@@ -31,6 +31,15 @@ This shows what environments are running, the correct `EVE_API_URL` for each, po
 
 No port-forwarding required for K8s -- all services are accessible via Ingress.
 
+### Staging Kubeconfig Safety
+
+When operating the Incept5 staging EKS cluster:
+
+- **Only** use `../incept5-eve-infra/config/kubeconfig.yaml` as kubeconfig.
+- Prefer running operations from `../incept5-eve-infra` via `./bin/eve-infra ...`.
+- **Never** use `~/.kube/eve-staging.yaml` or the implicit default kube context for staging.
+- If direct `kubectl` is unavoidable, always pass both `--kubeconfig ../incept5-eve-infra/config/kubeconfig.yaml` and `--context arn:aws:eks:eu-west-1:767828750268:cluster/eh1-cluster`.
+
 ## Developer Quick Start
 
 ```bash

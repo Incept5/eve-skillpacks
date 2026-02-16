@@ -11,10 +11,10 @@ Default to **staging** for user guidance. Use local/docker only when explicitly 
 ```bash
 export EVE_API_URL=https://api.eh1.incept5.dev   # staging (default)
 export EVE_API_URL=http://localhost:4801          # local/docker (opt-in)
-export EVE_API_URL=http://api.eve.lvh.me          # k8s ingress (local)
+export EVE_API_URL=http://api.eve.lvh.me          # k8s ingress (local k3d stack)
 ```
 
-Use `./bin/eh status` to discover the correct URL for the current instance.
+Use `./bin/eh status` to discover the correct URL for the current instance. For local development, `eve local up` provisions a full k3d stack and prints the correct API URL.
 
 ## Profile
 
@@ -121,7 +121,7 @@ eve access roles delete pm_manager --org org_xxx
 
 # Role bindings
 eve access bind --org org_xxx --user user_abc --role pm_manager
-  [--project proj_xxx] [--group <slug>]                 # Bind to group
+  [--project proj_xxx] [--group <slug>]                 # --project required (no profile fallback)
   [--scope-json '{"orgfs":"/eng/*","envdb":"schema:app"}']  # Restrict access paths
 eve access bindings list --org org_xxx [--project proj_xxx]
 eve access unbind --org org_xxx --user user_abc --role pm_manager
@@ -158,6 +158,7 @@ Notes:
 - Custom roles are additive -- they layer permissions on top of base membership roles.
 - `--prune` removes roles/bindings present in API but absent from the YAML file.
 - Groups are first-class authorization primitives for data-plane segmentation. Bindings can carry `--scope-json` to restrict orgfs/orgdocs/envdb access paths.
+- `bind --project` must be passed explicitly when creating project-scoped bindings; the CLI no longer falls back to the profile's default project to avoid silently mis-scoping bindings.
 - Policy sync validates that bindings with data-plane permissions (orgfs/orgdocs/envdb) include matching scope constraints. Bindings without required scopes fail validation.
 
 ## Init
@@ -200,7 +201,7 @@ Slugs are immutable after creation. Choose short, meaningful values.
 ```bash
 eve project list [--all] [--include-deleted] [--name <filter>]
 eve project ensure --name "My Project" --slug myproj \
-  [--repo-url https://github.com/org/repo] [--branch main]
+  [--repo-url https://github.com/org/repo] [--branch main]  # --repo is an alias for --repo-url
   [--org org_xxx] [--force]
 eve project get <project_id>
 eve project update <project_id>
@@ -232,7 +233,7 @@ eve project status [--profile <name>] [--env <name>] [--json]
 - **Project** -- ID and name
 - **Environments** -- name, type (`persistent`/`temporary`), status (`active`/`suspended`)
 - **Revision** -- current release git SHA (short), version/tag, and deploy age (e.g. `3h ago`)
-- **Services** -- per-component pod readiness (`ready`/`not-ready`/`completed`), with inferred ingress URLs
+- **Services** -- per-component pod readiness (`ready`/`not-ready`/`completed`), with inferred ingress URLs and any custom ingress alias URLs
 
 Flags:
 - `--profile <name>` -- restrict output to a single profile (default: all profiles)
@@ -520,6 +521,7 @@ Notes:
 - If a pipeline is configured, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
 - Deploy accepts either `--ref` (git SHA) or `--release-tag` (named release) -- provide exactly one.
 - When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically synced to the API (POST'd with git SHA and branch) before deploying. If no local manifest is found, the server-side manifest is used as-is.
+- `env show` displays ingress aliases (custom domain mappings) when present on an environment.
 - `env create --type temporary` creates ephemeral environments for preview/testing.
 - `env suspend/resume` allow pausing environments without destroying them.
 - `rollback` redeploys a previous release without tearing down. `reset` tears down workloads first, then redeploys.
@@ -921,11 +923,18 @@ eve admin models list --org org_xxx [--project proj_xxx]
 eve admin models set <name> --org org_xxx               # Set managed model
   [--project proj_xxx] [--harness <harness>] [--model <model>]
 eve admin models delete <name> --org org_xxx [--project proj_xxx]
+
+# Ingress aliases (custom domain aliases for services)
+eve admin ingress-aliases list                          # List all aliases
+  [--alias <alias>] [--project <id>] [--environment <id>]
+  [--limit <n>] [--offset <n>]
+eve admin ingress-aliases reclaim <alias> --reason "..."  # Reclaim an alias
 ```
 
 Notes:
 - Access-request approval is retry-safe (`approve` returns the existing approved record on repeat calls).
 - Duplicate identity fingerprints are attached to the existing identity owner.
+- `ingress-aliases reclaim` forcibly releases an alias from its current project/environment. Requires a `--reason`.
 
 ## System (Internal)
 
@@ -988,6 +997,74 @@ Notes:
   - `EVE_INFERENCE_ORG_TOKENS_PER_HOUR`
   - `EVE_INFERENCE_PROJECT_TOKENS_PER_HOUR`
 
+## Local Stack (k3d)
+
+Provision and manage a full Eve platform stack locally using k3d (k3s-in-Docker). Requires Docker Desktop. The CLI auto-installs `k3d` and `kubectl` into `~/.eve/bin/` if not already present.
+
+Supported platforms: macOS and Linux (amd64 and arm64).
+
+```bash
+# Bring up the local stack (creates cluster, pulls images, migrates DB, starts all services)
+eve local up
+  [--version <x.y.z>]                                  # Platform version (default: latest)
+  [--skip-deploy]                                      # Start cluster only, skip image deploy
+  [--skip-health]                                      # Don't wait for API health check
+  [--timeout <seconds>]                                # Rollout timeout (default: 300)
+  [--verbose]                                          # Show kubectl/docker output
+  [--json]                                             # Machine-readable output
+
+# Stop the local cluster (preserves state)
+eve local down
+  [--destroy]                                          # Delete cluster and all data
+  [--force]                                            # Skip confirmation prompt
+
+# Full status dashboard
+eve local status
+  [--watch]                                            # Auto-refresh every 5s
+  [--json]
+
+# Health check (exits non-zero if unhealthy)
+eve local health [--json]
+
+# Destroy and recreate from scratch
+eve local reset
+  [--force]                                            # Skip confirmation prompt
+
+# Stream service logs
+eve local logs [<service>]                             # Omit service for all logs
+  [--follow] [-f]                                      # Tail logs
+  [--tail <n>]                                         # Lines to show (default: 50)
+  [--since <duration>]                                 # e.g. 5m, 1h
+```
+
+**Services:** api, orchestrator, worker, gateway, agent-runtime, auth, mailpit, sso, postgres.
+
+**Local URLs** (available after `eve local up`):
+- API: `http://api.eve.lvh.me`
+- Auth: `http://auth.eve.lvh.me`
+- Mail: `http://mail.eve.lvh.me`
+- SSO: `http://sso.eve.lvh.me`
+
+**Typical workflow:**
+```bash
+eve local up                                           # First run: ~5min (image pulls)
+export EVE_API_URL=http://api.eve.lvh.me
+eve org ensure "my-org" --slug my-org                  # Bootstrap an org
+eve local status --watch                               # Monitor services
+eve local logs api --follow                            # Debug API issues
+eve local down                                         # Stop (state preserved)
+eve local up                                           # Restart (fast, no re-pull)
+eve local reset --force                                # Nuclear option: destroy + recreate
+```
+
+Notes:
+- `up` is idempotent: re-running starts a stopped cluster or skips if already running.
+- `down` without `--destroy` preserves cluster state; `up` resumes quickly.
+- `reset` is equivalent to `down --destroy` followed by `up`.
+- Version resolution queries GHCR for the latest tag common across all platform images.
+- The cluster binds ports 80/443 on localhost via k3d's load balancer.
+- Kube context is set to `k3d-eve-local` automatically.
+
 ## Debugging (CLI-first)
 
 See `references/deploy-debug.md` for the debugging ladder and system health workflows.
@@ -1040,5 +1117,6 @@ Quick reference:
 | **Integrations** | `list`, `slack connect`, `test` |
 | **Supervision** | `supervise` |
 | **Migrate** | `skills-to-packs` |
-| **Admin** | `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models` |
+| **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |
+| **Admin** | `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models`, `ingress-aliases` |
 | **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |
