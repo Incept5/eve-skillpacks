@@ -5,7 +5,50 @@ Schema is Compose-like with Eve extensions under `x-eve`.
 
 ## Minimal Example
 
-Use this as a starting point for new projects. It shows the core patterns: registry auth, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline.
+The simplest possible deployable project. Uses the Eve-native registry so `image` fields are auto-derived from service keys:
+
+```yaml
+schema: eve/compose/v2
+project: my-app
+
+registry: "eve"
+
+services:
+  app:
+    build:
+      context: .
+    ports: ["3000"]
+    x-eve:
+      ingress:
+        public: true
+
+environments:
+  sandbox:
+    pipeline: deploy
+
+pipelines:
+  deploy:
+    steps:
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
+      - name: deploy
+        depends_on: [release]
+        action: { type: deploy, env_name: sandbox }
+```
+
+Deploy with two commands:
+
+```bash
+eve project sync --dir .
+eve env deploy sandbox --ref main
+```
+
+## Full Example
+
+A more complete manifest showing registry auth, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline:
 
 ```yaml
 schema: eve/compose/v2
@@ -61,8 +104,8 @@ services:
       role: job
 
 environments:
-  test:
-    pipeline: deploy-test
+  sandbox:
+    pipeline: deploy-sandbox
     overrides:
       services:
         api:
@@ -70,7 +113,7 @@ environments:
             NODE_ENV: test
 
 pipelines:
-  deploy-test:
+  deploy-sandbox:
     steps:
       - name: migrate
         action: { type: job, service: migrate }
@@ -139,6 +182,8 @@ services:
 ```
 
 Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`, `healthcheck`, `volumes`.
+
+**Image auto-derivation**: When a service has `build` config and a `registry` is configured (`"eve"` or `{ host: ... }`), the `image` field is optional. The platform derives the image name from the service key (e.g., a service named `app` gets `image: app`, which is then prefixed with the registry host at build time). This means the minimal buildable service only needs `build` and `ports`.
 
 ### Eve Service Extensions (`x-eve`)
 

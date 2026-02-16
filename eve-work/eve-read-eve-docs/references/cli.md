@@ -521,6 +521,8 @@ Notes:
 - If a pipeline is configured, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
 - Deploy accepts either `--ref` (git SHA) or `--release-tag` (named release) -- provide exactly one.
 - When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically synced to the API (POST'd with git SHA and branch) before deploying. If no local manifest is found, the server-side manifest is used as-is.
+- **Auto-creation**: `eve env deploy` auto-creates the environment if it is defined in `manifest.environments` but does not yet exist in the database. No separate `eve env create` step is needed for first deploys.
+- If the environment is not defined in the manifest, the error message lists the environments that are defined in the manifest, helping users correct typos or discover available targets.
 - `env show` displays ingress aliases (custom domain mappings) when present on an environment.
 - `env create --type temporary` creates ephemeral environments for preview/testing.
 - `env suspend/resume` allow pausing environments without destroying them.

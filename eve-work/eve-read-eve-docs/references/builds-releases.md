@@ -152,9 +152,32 @@ When deploying to Kubernetes, the deployer automatically creates an `imagePullSe
 
 If `registry.host` is not set (or `registry: "none"`), no imagePullSecret is created (assumes public images or pre-configured cluster auth).
 
+### Image Name Auto-Derivation
+
+When a service has `build` config and a `registry` is configured (`"eve"` or `{ host: ... }`), the `image` field is optional. The platform derives the image name from the service key:
+
+```yaml
+# image is auto-derived as "api" from the service key
+services:
+  api:
+    build:
+      context: ./apps/api
+```
+
+The derived name is prefixed with the registry host at build time (e.g., `registry.eh1.incept5.dev/api:sha-abc123`). You can still set `image` explicitly to override the default.
+
+### Zero-Artifact Build Failure
+
+Builds that discover services with `build` config but produce zero buildable artifacts now **fail with guidance** instead of silently succeeding. This catches common misconfigurations:
+- Missing `Dockerfile` in the build context
+- `build.context` pointing to a non-existent directory
+- Services with `build` config but no actual build output
+
+The error message identifies which services were expected to build and suggests corrective action.
+
 ### Service Image Tags
 
-Services specify their full image path without a tag:
+Services can specify their full image path without a tag:
 
 ```yaml
 services:

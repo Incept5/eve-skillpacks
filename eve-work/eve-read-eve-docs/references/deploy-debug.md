@@ -95,6 +95,55 @@ Optimized for fast local iteration. **Security note:** exposes services on local
 | Prod parity | Moderate | High |
 | Runner pods | No (local process) | Yes (ephemeral) |
 
+## First Deploy Quickstart
+
+The fastest path from zero to a running deployment. Create a minimal `.eve/manifest.yaml`:
+
+```yaml
+schema: eve/compose/v2
+project: my-app
+
+registry: "eve"
+
+services:
+  app:
+    build:
+      context: .
+    ports: ["3000"]
+    x-eve:
+      ingress:
+        public: true
+
+environments:
+  sandbox:
+    pipeline: deploy
+
+pipelines:
+  deploy:
+    steps:
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
+      - name: deploy
+        depends_on: [release]
+        action: { type: deploy, env_name: sandbox }
+```
+
+Then deploy with two commands:
+
+```bash
+eve project sync --dir .
+eve env deploy sandbox --ref main
+```
+
+Key points:
+- **`registry: "eve"`** uses the Eve-native container registry -- no external registry setup needed.
+- **`image` is optional** when `build` and `registry` are configured -- the platform derives image names from service keys.
+- **`eve env deploy` auto-creates** the `sandbox` environment because it is defined in `manifest.environments`. No separate `eve env create` step is required.
+- The pipeline builds, releases, and deploys in sequence. Access the app at `http://app.{orgSlug}-{projectSlug}-sandbox.{domain}`.
+
 ## Deploying Environments
 
 ```bash
