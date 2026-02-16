@@ -1,15 +1,8 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "2f203512c9a8c8a1fa303764a1d7ae38b7272d21",
-  "last_synced_at": "2026-02-15T16:30:00Z",
+  "last_synced_commit": "3bb245e615c96b3df224a5500ae57a968e803fed",
+  "last_synced_at": "2026-02-15T17:00:00Z",
   "sync_log": [
-    {
-      "commit": "a94efa2a2e1e13282a2906e1a5e0a6e098b15a3d",
-      "commit_short": "a94efa2",
-      "synced_at": "2026-02-13T17:46:35Z",
-      "type": "incremental",
-      "summary": "22-commit incremental sync — managed-model + protocol bridge routing, ollama inference CLI rollout, app API runtime safety docs, webhook/analytics refinements, and deploy/debug/auth updates"
-    },
     {
       "commit": "094767f2a9dd8e4825027ed8c75a7a76005a80cf",
       "commit_short": "094767f",
@@ -23,6 +16,13 @@
       "synced_at": "2026-02-15T16:30:00Z",
       "type": "incremental",
       "summary": "13-commit incremental sync — AGENTS.md refactor (platform state refresh, project memory to CLAUDE.md), eve project status command, on-demand GPU wake, staging environment, OpenAPI spec regen"
+    },
+    {
+      "commit": "3bb245e615c96b3df224a5500ae57a968e803fed",
+      "commit_short": "3bb245e",
+      "synced_at": "2026-02-15T17:00:00Z",
+      "type": "incremental",
+      "summary": "5-commit incremental sync — agent memory platform (kv, memory, search, thread distillation, context hydration), deploy recovery (env rollback/reset/recover, db reset/wipe), docs lifecycle metadata, k3d context guard"
     }
   ]
 }

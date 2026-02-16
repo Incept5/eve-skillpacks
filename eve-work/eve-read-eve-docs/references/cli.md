@@ -248,10 +248,13 @@ Notes:
 
 ## Docs (Org Documents)
 
-Org docs are versioned, queryable documents stored at canonical paths.
+Org docs are versioned, queryable documents stored at canonical paths. Documents support lifecycle metadata: review schedules, expiry, and staleness tracking.
 
 ```bash
 eve docs write --org org_xxx --path /pm/features/FEAT-123.md --stdin
+  [--review-in 30d] [--expires-in 90d]                    # Lifecycle scheduling
+  [--lifecycle-status active|archived|draft]               # Lifecycle status
+eve docs create ...                                        # Alias for write
 eve docs read --org org_xxx --path /pm/features/FEAT-123.md
 eve docs read --org org_xxx --path /pm/features/FEAT-123.md --version 3
 eve docs show --org org_xxx --path /pm/features/FEAT-123.md --verbose
@@ -259,8 +262,19 @@ eve docs versions --org org_xxx --path /pm/features/FEAT-123.md
 eve docs query --org org_xxx --path-prefix /pm/features/ \
   --where 'metadata.feature_status in draft,review' --sort updated_at:desc
 eve docs search --org org_xxx --query "risk score"
+  [--mode text|semantic|hybrid]                            # Search mode (default: text)
+eve docs stale --org org_xxx [--overdue-by 7d]             # Find docs past review date
+  [--prefix /agents/] [--limit 50]
+eve docs review --org org_xxx --path /pm/features/FEAT-123.md \
+  --next-review 30d                                        # Mark reviewed, set next review
 eve docs delete --org org_xxx --path /pm/features/FEAT-123.md
 ```
+
+Notes:
+- `--review-in` and `--review-due` are mutually exclusive (relative duration vs ISO timestamp).
+- `--expires-in` and `--expires-at` are mutually exclusive.
+- `stale` returns documents whose `review_due` has passed. Use `--overdue-by` to filter by staleness threshold.
+- `search --mode semantic` uses vector similarity; `hybrid` combines text + semantic.
 
 ## FS Sync (Org Filesystem)
 
@@ -469,6 +483,8 @@ eve env deploy <env-name> --ref <sha-or-branch>
   [--inputs '{"k":"v"}']
   [--image-tag <tag>]                                   # Use specific image tag
   [--watch] [--timeout 300]                             # Wait for deployment to complete
+  [--skip-preflight]                                    # Skip preflight checks
+eve env deploy <env-name> --release-tag v1.2.3          # Deploy by release tag (no ref needed)
 
 # Create / manage
 eve env create <name> --type persistent|temporary
@@ -485,18 +501,29 @@ eve env logs <project> <env>
   [--pod <name>] [--container <name>]
   [--previous] [--all-pods]
 
+# Recovery
+eve env rollback <env> --release <id|tag|previous>      # Roll back to a known release
+  [--project <id>] [--skip-preflight]
+eve env reset <env> [--release <id|tag|previous>]       # Teardown workloads and redeploy
+  [--project <id>] [--force]
+  [--danger-reset-production] [--skip-preflight]
+eve env recover <project> <env>                         # Analyze state, suggest recovery command
+
 # Lifecycle
 eve env suspend <project> <env> --reason "maintenance"  # Pause environment
 eve env resume <project> <env>                          # Resume suspended env
 eve env delete <project> <env> [--force]                # Destroy environment
+  [--danger-delete-production]                          # Required for production envs
 ```
 
 Notes:
 - If a pipeline is configured, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
-- `--ref` must be a 40-character SHA, or a ref resolved against `--repo-dir`/cwd.
+- Deploy accepts either `--ref` (git SHA) or `--release-tag` (named release) -- provide exactly one.
 - When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically synced to the API (POST'd with git SHA and branch) before deploying. If no local manifest is found, the server-side manifest is used as-is.
 - `env create --type temporary` creates ephemeral environments for preview/testing.
 - `env suspend/resume` allow pausing environments without destroying them.
+- `rollback` redeploys a previous release without tearing down. `reset` tears down workloads first, then redeploys.
+- `recover` is a diagnostic-first command: it analyzes the environment state (active pipeline runs, failed releases) and outputs a suggested next command.
 
 ## Secrets
 
@@ -552,7 +579,88 @@ eve thread post <thread-id>                             # Post a message
   --body '{"kind":"update","body":"text"}'
   [--actor-type user] [--actor-id <id>] [--job-id <id>]
 eve thread follow <thread-id>                           # Tail messages (polls every 3s)
+
+# Distillation (summarize thread into memory or docs)
+eve thread distill <thread-id> --org org_xxx
+  [--to <doc-path>]                                     # Write distillation to org docs path
+  [--agent <slug>] [--category <name>] [--key <key>]    # Write to agent memory
+  [--prompt "custom distillation prompt"]
+  [--auto --threshold <n> --interval <duration>]        # Auto-distill on message threshold
 ```
+
+Notes:
+- `distill` summarizes a thread's messages into a condensed form. Output can be routed to an org doc path (`--to`) or to agent memory (`--agent` + `--category` + `--key`).
+- `--auto` enables automatic re-distillation when message count exceeds `--threshold` since last distillation, checked on `--interval`.
+
+## KV (Agent Key-Value Store)
+
+Namespaced key-value storage scoped to an agent within an org. Values can be any JSON type.
+
+```bash
+eve kv set --org org_xxx --agent <slug> --key <key> --value <json-or-string>
+  [--namespace <ns>] [--ttl <seconds>]                  # Optional namespace (default: "default") and TTL
+eve kv get --org org_xxx --agent <slug> --key <key>
+  [--namespace <ns>]
+eve kv list --org org_xxx --agent <slug>                # List keys in namespace
+  [--namespace <ns>] [--limit <n>]
+eve kv mget --org org_xxx --agent <slug> --keys a,b,c   # Batch get multiple keys
+  [--namespace <ns>]
+eve kv delete --org org_xxx --agent <slug> --key <key>
+  [--namespace <ns>]
+```
+
+Notes:
+- Namespace defaults to `"default"` when omitted.
+- `--value` is parsed as JSON if valid, otherwise stored as a string.
+- `--ttl` sets a time-to-live in seconds; expired keys are not returned.
+
+## Memory (Agent Memory)
+
+Structured long-term memory for agents. Entries are organized by agent, category, and key, with support for lifecycle metadata, tagging, confidence scores, and cross-agent search.
+
+```bash
+eve memory set --org org_xxx (--agent <slug>|--shared)
+  --category <category> --key <key>
+  (--file <path>|--stdin|--content <text>)              # Content source
+  [--tags "architecture,decision"]                      # Comma-separated tags
+  [--confidence 0.9]                                    # Confidence score (0-1)
+  [--supersedes <memory-id>]                            # Supersede a previous entry
+  [--lifecycle-status active|archived|draft]
+  [--review-in 30d] [--expires-in 90d]                  # Lifecycle scheduling
+
+eve memory get --org org_xxx (--agent <slug>|--shared)
+  --key <key> [--category <category>]
+
+eve memory list --org org_xxx (--agent <slug>|--shared)
+  [--category <category>] [--tags a,b] [--limit <n>]
+
+eve memory delete --org org_xxx (--agent <slug>|--shared)
+  --category <category> --key <key>
+
+eve memory search --org org_xxx --query <text>           # Cross-agent memory search
+  [--agent <slug>] [--limit <n>]
+```
+
+Notes:
+- `--shared` stores memory in the org-wide shared namespace (agent slug `shared`).
+- `--supersedes` links the new entry to a previous one, forming a revision chain.
+- `search` queries across all agents in the org unless `--agent` scopes it to one.
+- Lifecycle fields (`--review-in`, `--expires-in`) work identically to org docs.
+
+## Search (Unified Cross-Source Search)
+
+Federated search across all org data sources: memory, docs, threads, attachments, and events.
+
+```bash
+eve search --org org_xxx --query <text>
+  [--sources memory,docs,threads,attachments,events]    # Comma-separated source filter
+  [--agent <slug>]                                      # Scope to agent's data
+  [--limit <n>]
+```
+
+Notes:
+- When `--sources` is omitted, all sources are searched.
+- Results are ranked by relevance and grouped by source type.
 
 ## Packs (AgentPacks)
 
@@ -590,17 +698,26 @@ Notes:
 
 ## Database (Environment DBs)
 
+All `db` subcommands accept either `--env <name>` (API-proxied) or `--url <postgres-url>` (direct connection). When `--url` is used, the CLI connects directly to the database without going through the Eve API. The `EVE_DB_URL` env var (or `.env` file) is used as a fallback for `sql` and `migrate`.
+
 ```bash
 eve db schema --env <name> [--project <id>]             # Show DB schema
+eve db schema --url <postgres-url>                      # Show schema via direct connection
 eve db rls --env <name>                                 # Show RLS policies + group context diagnostics
 eve db rls init --with-groups [--out <path>] [--force]  # Scaffold group-aware RLS helper SQL
 eve db sql --env <name> --sql "SELECT 1"                # Run query (read-only default)
   [--params '["arg1"]']                                 # Parameterized query
   [--write]                                             # Enable mutations
   [--file ./query.sql]                                  # Run SQL from file
+eve db sql --url <postgres-url> --sql "SELECT 1"        # Direct SQL execution
 eve db migrate --env <name> [--path db/migrations]      # Apply pending migrations
+eve db migrate --url <postgres-url> [--path db/migrations]  # Direct migration apply
 eve db migrations --env <name>                          # List applied migrations
 eve db new <description> [--path db/migrations]         # Create migration file
+eve db reset --env <name> --force [--no-migrate]        # Drop and recreate schema, re-apply migrations
+  [--danger-reset-production] [--path db/migrations]
+eve db reset --url <postgres-url> --force               # Direct schema reset
+eve db wipe --env <name> --force                        # Reset schema without re-applying migrations
 eve db status --env <name>                              # Managed DB status
 eve db rotate-credentials --env <name>                  # Rotate managed DB credentials
 eve db scale --env <name> --class db.p1|db.p2|db.p3     # Scale managed DB class
@@ -611,6 +728,9 @@ Notes:
 - `rls` now includes group context diagnostics: shows the resolved principal, org, project, env, group IDs, and permissions for the current session. Useful for debugging why policies are not matching.
 - `rls init --with-groups` scaffolds `app.current_user_id()`, `app.current_group_ids()`, and `app.has_group()` SQL functions to `db/rls/helpers.sql` (or `--out <path>`). Apply the output SQL to your target environment DB, then reference these helpers in RLS policies.
 - Migration files: `YYYYMMDDHHmmss_description.sql` in `db/migrations/` by default.
+- `reset` drops all schemas (except `pg_catalog`, `information_schema`) and re-applies migrations. Use `--no-migrate` (or `wipe`) to skip migration re-apply.
+- `--danger-reset-production` is required when resetting production environments via the API.
+- `--url` mode uses the `@eve/migrate` library for direct `migrate`, `migrations`, `reset`, and `wipe` operations.
 
 ## Manifest
 
@@ -877,6 +997,7 @@ Quick reference:
 - `eve job follow <id>` -- stream harness logs in real time
 - `eve job runner-logs <id>` -- K8s pod logs for startup failures
 - `eve env diagnose <project> <env>` -- environment health + K8s events
+- `eve env recover <project> <env>` -- analyze state and suggest recovery action
 - `eve system health` -- platform-wide health check
 
 ## All Commands Summary
@@ -888,23 +1009,27 @@ Quick reference:
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `groups create/list/show/update/delete`, `groups members list/add/remove`, `memberships`, `validate`, `plan`, `sync` |
 | **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members` |
 | **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap`, `status` |
+| **Docs** | `write`/`create`, `read`, `show`, `list`, `search`, `stale`, `review`, `versions`, `query`, `delete` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel` |
 | **Releases** | `resolve` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |
 | **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
-| **Environments** | `create`, `deploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `suspend`, `resume`, `delete` |
+| **Environments** | `create`, `deploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
 | **FS Sync** | `init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor` |
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |
 | **Agents** | `sync`, `config`, `runtime-status` |
 | **Teams** | `list` |
-| **Threads** | `create`, `list`, `show`, `messages`, `post`, `follow` |
+| **Threads** | `create`, `list`, `show`, `messages`, `post`, `follow`, `distill` |
+| **KV** | `set`, `get`, `list`, `mget`, `delete` |
+| **Memory** | `set`, `get`, `list`, `delete`, `search` |
+| **Search** | `search` (unified cross-source) |
 | **Packs** | `status`, `resolve` |
 | **Skills** | `install` |
 | **Models** | `list` |
 | **Ollama** | `targets`, `target add/rm/test`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
 | **Harnesses** | `list`, `get` |
-| **Database** | `schema`, `rls`, `rls init --with-groups`, `sql`, `migrate`, `migrations`, `new`, `status`, `rotate-credentials`, `scale`, `destroy` |
+| **Database** | `schema`, `rls`, `rls init --with-groups`, `sql`, `migrate`, `migrations`, `new`, `reset`, `wipe`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
 | **Providers** | `list`, `discover` |
 | **Analytics** | `summary`, `jobs`, `pipelines`, `env-health` |
