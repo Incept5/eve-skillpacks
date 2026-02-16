@@ -19,6 +19,13 @@ This sync follows an orchestrator pattern. You (the orchestrator) stay lightweig
 
 **Why:** Previous runs exhausted the context window by reading every diff and every doc in the orchestrator. The fix is strict separation: the orchestrator sees only file names and summaries; workers see only their specific diffs and target files.
 
+## Output Standards (State Today + Progressive Access)
+
+- Distill only shipped platform behavior from eve-horizon source docs.
+- Do not carry roadmap content into skillpacks. Remove or ignore sections such as `Planned (Not Implemented)`, `What's next`, roadmap/future notes, and "current vs planned" framing.
+- Keep `eve-work/eve-read-eve-docs/SKILL.md` task-first: route by intent, then load only the minimal reference files needed.
+- Keep reference docs scoped and actionable; avoid broad copy-paste from system docs.
+
 ## Workflow
 
 ### Phase 1: Discover Changes (orchestrator — stay lightweight)
@@ -54,6 +61,10 @@ Add a final work item: `Update sync state and produce report` — blocked until 
 
 If the user gave additional instructions (e.g., "analyze storage gaps"), add that as a separate work item too, also blocked until updates finish.
 
+If any work item touches `eve-work/eve-read-eve-docs`, also add:
+- `Run state-today compliance scan for eve-read-eve-docs`
+- `Validate progressive-access routing in eve-read-eve-docs/SKILL.md`
+
 ### Phase 3: Dispatch Workers (parallel)
 
 Spawn one background worker per work item. Launch them all at once so they run in parallel.
@@ -71,7 +82,9 @@ Spawn one background worker per work item. Launch them all at once so they run i
 #### Worker Instructions: Reference Docs
 
 > Read the git diff for your assigned source files. Read the current reference doc.
-> Distill the changes into the reference doc — these are curated summaries for agents, not copies of the source.
+> Distill only implemented behavior into the reference doc; these are curated summaries for agents, not copies of the source.
+> Exclude roadmap content: remove or ignore `Planned (Not Implemented)`, `What's next`, roadmap/future sections, and "current vs planned" wording.
+> Keep progressive access intact: preserve concise structure and include only task-relevant detail.
 > Preserve the existing structure, voice, and formatting.
 > Edit the existing file; do not rewrite from scratch.
 
@@ -79,6 +92,8 @@ Spawn one background worker per work item. Launch them all at once so they run i
 
 > Read the git diff for your assigned source files. Read the current SKILL.md.
 > Update with new commands, changed workflows, or new capabilities.
+> Keep the skill state-today only: remove speculative or planned sections.
+> Ensure progressive disclosure: SKILL.md should route and instruct; deep detail belongs in `references/`.
 > Maintain imperative voice and conciseness. Skills teach agents how to think, not just what to type.
 > Edit the existing file; do not rewrite from scratch.
 
@@ -86,6 +101,7 @@ Spawn one background worker per work item. Launch them all at once so they run i
 
 > Create a new directory under the appropriate pack with a SKILL.md file.
 > Add a `references/` subdirectory if the skill needs detailed reference material.
+> Keep all content state-today only; avoid planned/roadmap sections.
 > Follow the conventions of existing skills in the same pack.
 
 #### Example Worker Prompt
@@ -105,7 +121,7 @@ The eve-horizon repo is at ../eve-horizon. Changes since commit abc1234:
 1. Run: cd ../eve-horizon && git diff abc1234..HEAD -- docs/system/auth.md docs/system/secrets.md
 2. Read: eve-work/eve-read-eve-docs/references/secrets-auth.md
 3. If the diff is large, also read the full source files from ../eve-horizon/docs/system/
-4. Distill the changes into the reference doc — preserve existing structure and voice
+4. Distill only shipped behavior into the reference doc and exclude planned/roadmap content
 5. Edit the existing file (do not rewrite it from scratch)
 
 These are curated distillations for agents, not verbatim copies. Keep them concise and actionable.
@@ -121,11 +137,20 @@ Once all update work items are complete:
    ```bash
    cd ../eve-horizon && git rev-parse HEAD
    ```
-2. Update `.sync-state.json`:
+2. Run state-today compliance scans (must return no matches):
+   ```bash
+   rg -n "Planned \\(Not Implemented\\)|## Planned|What's next|current vs planned|Planned vs Current" eve-work/eve-read-eve-docs -g '*.md'
+   rg -n "^## Planned|Planned \\(Not Implemented\\)" eve-work eve-se eve-design -g 'SKILL.md'
+   ```
+3. Validate progressive-access routing for doc entry skill:
+   ```bash
+   rg -n "^## Task Router \\(Progressive Access\\)" eve-work/eve-read-eve-docs/SKILL.md
+   ```
+4. Update `.sync-state.json`:
    - Set `last_synced_commit` to the HEAD hash
    - Set `last_synced_at` to current ISO timestamp
    - Append to `sync_log` (keep last 10 entries)
-3. Update ARCHITECTURE.md if the pack structure changed (new skills added or removed)
+5. Update ARCHITECTURE.md if the pack structure changed (new skills added or removed)
 
 ### Phase 5: Report (orchestrator)
 
@@ -149,6 +174,12 @@ Output a sync report summarizing all work:
 ### New Skills
 - <skill>: <why created>
 
+### State-Today Compliance
+- <pass/fail + scan results>
+
+### Progressive Access Updates
+- <routing or reference-structure improvements made>
+
 ### Next Steps
 - <any manual follow-up needed>
 ```
@@ -159,3 +190,5 @@ Output a sync report summarizing all work:
 - **Worker independence**: Each worker prompt must be fully self-contained — commit range, source paths, target path, and update rules all included. Workers cannot reference the orchestrator's conversation.
 - **Parallelism**: All workers launch simultaneously. No worker depends on another worker's output.
 - **Edit, don't rewrite**: Workers modify existing files incrementally. Full rewrites lose carefully curated structure.
+- **State-today fidelity**: Output docs and skills must represent current, shipped behavior only.
+- **Progressive access**: Preserve task-first routing in entry skills and keep deep detail in references.

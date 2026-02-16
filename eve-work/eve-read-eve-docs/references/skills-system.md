@@ -176,27 +176,6 @@ For skills.txt, add `./skillpacks/my-pack/*`. For AgentPacks, add under
 
 **4. Commit:** Track pack sources and manifest. Never commit install targets.
 
-## Skill-Based Workflows (Planned)
-
-A workflow skill is a normal skill with extra frontmatter:
-
-```yaml
----
-name: prd-workflow
-kind: workflow
-version: 1
-inputs_schema: inputs.schema.json
-outputs_schema: outputs.schema.json
-config: config.yaml
-skills_required: [eve-review-plan, eve-review-security]
----
-```
-
-Workflow skills remain runnable via `skill read` but enable tooling to treat
-them as orchestratable workflows. Override config per-project via
-`.eve/skills/<name>/config.yaml`. Resolution: job inputs > project override >
-skill default.
-
 ## Best Practices
 
 **Authoring:** Write in imperative form. Include a "When to Use" section so

@@ -296,7 +296,7 @@ Design services with health endpoints. Eve polls health to determine deployment 
 **Environments:**
 - [ ] Staging and production environments defined
 - [ ] Each environment linked to a pipeline
-- [ ] Promotion workflow planned (build once, deploy many)
+- [ ] Promotion workflow defined (build once, deploy many)
 - [ ] Recovery procedure known (diagnose -> rollback -> reset)
 
 **Secrets:**

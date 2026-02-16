@@ -50,13 +50,11 @@ eve org ensure test-org --slug test-org             # 3. Use the CLI
 ./bin/eh k8s stop                                  # 4. Clean up
 ```
 
-## Current State
+## Current State (Implemented)
 
 **Phase**: Pre-MVP (K8s runtime + agent runtime + chat gateway + builds/deploy pipeline + auth/RBAC complete).
 
 **What exists**: monorepo with 6 services (API, orchestrator, worker, agent runtime, gateway, SSO). Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Full auth stack (SSH login, web auth via GoTrue + SSO broker, service principals, custom roles, access groups). RBAC with policy-as-code and default-deny data plane. Persistent environment deployment to K8s with manifest variable interpolation and ingress routing. First-class builds (BuildKit), releases, and pipelines (build -> release -> deploy). Job execution with mclaude/claude/zai/gemini/code/codex harnesses via `eve-agent-cli`. Managed models (platform/org/project scoped) with transparent protocol bridge routing. Provider registry + model discovery. Agent/team/thread primitives with repo-first sync and AgentPacks (`x-eve.packs`). Chat gateway with Slack + Nostr integration. Agent runtime (org-scoped warm pods). Org filesystem sync + org docs. Cost tracking (execution receipts, resource classes, budgets, balance ledger). Analytics, webhooks, and supervision primitives. Ollama inference targets (external + internal pools, routing policies). On-demand GPU wake via ASG API. Agent app API access (`--with-apis` flag, `@eve/app-auth` SDK). CLI as npm package (`@eve-horizon/cli`) and local `./bin/eh` helpers. K8s local stack via k3d.
-
-**What's next**: platform-wide groups with fs path ACLs and group-aware DB RLS, app compute classes and substrate-aware deployment, UI dashboards, Slack interactive approvals.
 
 ### Pre-Deployment Phase
 
@@ -361,7 +359,3 @@ See `references/skills-system.md`.
 | Deploy + debug | `references/deploy-debug.md` |
 | Harnesses | `references/harnesses.md` |
 | Gateway plugins | `references/gateways.md` |
-
-## Planned vs Current
-
-System docs often separate **Current (Implemented)** from **Planned** sections. Treat "Planned" as non-functional unless the user confirms it is shipped.

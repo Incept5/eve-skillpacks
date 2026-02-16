@@ -1,6 +1,6 @@
 ---
 name: eve-read-eve-docs
-description: Load first. Index of distilled Eve Horizon system docs for CLI usage, manifests, pipelines, jobs, secrets, agents, builds, events, and debugging.
+description: Load first. State-today index of distilled Eve Horizon system docs with task-based routing for CLI/API usage, manifests, pipelines, jobs, secrets, agents, builds, events, and debugging.
 triggers:
   - eve docs
   - eve horizon docs
@@ -30,13 +30,26 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Any question about how to use Eve Horizon via CLI or API.
 - Any question about `.eve/manifest.yaml`, pipelines, workflows, jobs, or secrets.
 - Any question about events, triggers, agents, teams, builds, or deployments.
-- Any time you need the authoritative "current vs planned" status.
 
 ## How to Use
 
 1. Start with `references/overview.md` for core concepts, IDs, and the reference index.
-2. Open the relevant reference(s) below based on the task.
-3. Prefer **Current (Implemented)** guidance; **Planned** sections are not live.
+2. Use the task router below to choose the smallest set of references for the request.
+3. Open only the relevant reference files and avoid loading unrelated docs.
+4. Ask for missing project or environment inputs before giving prescriptive commands.
+
+## Task Router (Progressive Access)
+
+- Platform orientation, environment URLs, and architecture: `references/overview.md`
+- Command syntax, flags, and CLI workflows: `references/cli.md`
+- Manifest authoring and config structure: `references/manifest.md`
+- Pipelines, workflows, triggers, and event-driven automation: `references/pipelines-workflows.md` + `references/events.md`
+- Job lifecycle, scheduling, and execution debugging: `references/jobs.md`
+- Build, release, and deployment behavior: `references/builds-releases.md` + `references/deploy-debug.md`
+- Agents, teams, and chat routing: `references/agents-teams.md` + `references/gateways.md`
+- Secrets, auth, access control, and identity providers: `references/secrets-auth.md`
+- Skills installation, packs, and resolution order: `references/skills-system.md`
+- Harness selection and sandbox policy: `references/harnesses.md`
 
 ## Index
 
@@ -58,4 +71,5 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 
 - Eve is **API-first**; the CLI only needs `EVE_API_URL`.
 - Do **not** assume URLs, ports, or environment state--ask if unknown.
+- These references describe shipped platform behavior only.
 - If anything is missing or unclear, ask for the missing inputs.

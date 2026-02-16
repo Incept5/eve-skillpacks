@@ -273,10 +273,3 @@ GET  /projects/{project_id}/workflows
 GET  /projects/{project_id}/workflows/{name}
 POST /projects/{project_id}/workflows/{name}/invoke?wait=true|false
 ```
-
-## Planned (Not Implemented)
-
-- **Step-level status propagation**: more robust status tracking from job execution back to pipeline steps.
-- **Pipeline graph visualization**: visual representation of pipeline DAGs in CLI and UI.
-- **Workflow schema validation**: request/response schema validation for workflow inputs and outputs.
-- **Skill-based workflows**: OpenSkills with workflow-specific SKILL.md metadata.

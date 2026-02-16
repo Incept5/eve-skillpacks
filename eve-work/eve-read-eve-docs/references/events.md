@@ -223,7 +223,3 @@ pipelines:
       - name: diagnose
         agent: { prompt: "Diagnose the failed deploy and suggest a fix" }
 ```
-
-## Planned (Not Implemented)
-
-- Event replay/reprocessing.

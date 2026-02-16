@@ -165,8 +165,3 @@ workflows:
     hints:
       gates: ["remediate:proj_abc123:staging"]
 ```
-
-## Planned (Not Implemented)
-
-- Pipeline graph visualization in CLI/UI
-- More robust step-level status propagation from job execution
