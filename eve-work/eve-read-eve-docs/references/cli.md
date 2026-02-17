@@ -14,6 +14,22 @@ export EVE_API_URL=http://localhost:4801          # local/docker (opt-in)
 export EVE_API_URL=http://api.eve.lvh.me          # k8s ingress (local k3d stack)
 ```
 
+Managed Ollama targets live on the same API host using `/inference/v1`:
+
+```bash
+export EVE_MANAGED_OLLAMA_URL="${EVE_API_URL%/}/inference/v1"
+```
+
+Examples:
+
+```bash
+# staging
+export EVE_MANAGED_OLLAMA_URL=https://api.eh1.incept5.dev/inference/v1
+
+# local/docker
+export EVE_MANAGED_OLLAMA_URL=http://localhost:4801/inference/v1
+```
+
 Use `./bin/eh status` to discover the correct URL for the current instance. For local development, `eve local up` provisions a full k3d stack and prints the correct API URL.
 
 ## Profile
@@ -995,6 +1011,7 @@ eve ollama route-policy rm --scope-kind <kind> [--scope-id <id>]
 Notes:
 - Use installs + route policy to switch between local and external Ollama endpoints.
 - `fallback-to-alias-target=true` keeps requests flowing if preferred target is not eligible for the model.
+- Managed inference traffic is served from `.../inference/v1` on the active API URL (for example, `https://api.eh1.incept5.dev/inference/v1` in staging), matching the OpenAPI route `/inference/v1/chat/completions`.
 - `/inference/v1/chat/completions` usage gates are controlled by:
   - `EVE_INFERENCE_ORG_TOKENS_PER_HOUR`
   - `EVE_INFERENCE_PROJECT_TOKENS_PER_HOUR`
