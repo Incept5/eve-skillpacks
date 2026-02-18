@@ -1,5 +1,20 @@
 # Builds + Releases (Current)
 
+## Use When
+- You need to understand build/run semantics and output artifacts.
+- You need to debug build or release failures.
+- You need commands for deterministic deploy pipelines and image promotion.
+
+## Load Next
+- `references/pipelines-workflows.md` for build/release/deploy pipeline flow.
+- `references/cli.md` for inspect and execute build/release commands.
+- `references/manifest.md` for image/input and service build configuration.
+
+## Ask If Missing
+- Confirm target `project`, `environment`, and pipeline/branch context.
+- Confirm manifest build entries and target services.
+- Confirm which artifact (image digest, build/run id, or release id) you need to inspect.
+
 ## Build Model
 
 Builds are first-class primitives that track container image construction. The model is three-tier:

@@ -1,5 +1,20 @@
 # Agents, Teams + Chat Routing
 
+## Use When
+- You need to define or verify agent and team YAML for chat dispatch.
+- You need to route inbound Slack/Nostr messages to specific personas or team workflows.
+- You need to set or audit gateway discovery policy (`none`, `discoverable`, `routable`).
+
+## Load Next
+- `references/gateways.md` to map provider-specific message handling.
+- `references/pipelines-workflows.md` for job-based escalation or workflow handoffs.
+- `references/skills-system.md` when resolving agent pack prerequisites.
+
+## Ask If Missing
+- Confirm the target project/org manifest path and whether agents are repo-synced.
+- Confirm whether routing is intended to be command-only or auto-routable in chat.
+- Confirm if team dispatch should use fanout, relay, or lead/merge semantics.
+
 ## Overview
 
 Agents, teams, and chat routes are repo-first YAML configurations synced to Eve via `eve agents sync`. The repo is the source of truth. Agents are personas with skills and policies; teams are dispatch groups that coordinate agents; routes map inbound chat messages to targets.

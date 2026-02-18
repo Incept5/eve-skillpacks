@@ -1,5 +1,20 @@
 # Secrets + Auth Reference
 
+## Use When
+- You need to manage secret scope, interpolation, and environment overrides.
+- You need to configure auth, identities, roles, or policy behavior.
+- You need to onboard service principals or troubleshoot permission failures.
+
+## Load Next
+- `references/cli.md` for secret and auth command workflows.
+- `references/manifest.md` for manifest `x-eve.requires` and interpolation.
+- `references/skills-system.md` when auth affects installed capabilities.
+
+## Ask If Missing
+- Confirm scope needed (project, org, user, or system) before setting values.
+- Confirm whether values come from `.eve/dev-secrets.yaml`, API sources, or CI inputs.
+- Confirm required roles/access groups when permission checks are failing.
+
 ## Secrets
 
 ### Scope Hierarchy

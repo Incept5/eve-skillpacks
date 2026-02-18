@@ -1,5 +1,20 @@
 # Eve Horizon Overview
 
+## Use When
+- You need first-time orientation for Eve Horizon concepts and IDs.
+- You need to confirm which entry doc and environment context to load first.
+- You need an overall roadmap of commands and reference selection before deep dives.
+
+## Load Next
+- `references/cli.md` for interface and command-level tasks.
+- `references/manifest.md` for architecture-to-config mapping.
+- `references/jobs.md` or `references/pipelines-workflows.md` for execution and automation tasks.
+
+## Ask If Missing
+- Confirm whether the user is on staging, local docker, or k3s/k3d stack.
+- Confirm whether local repos are synced and whether `./bin/eh status` has been run.
+- Confirm the target org/project context before giving prescriptive commands.
+
 ## Load Eve Docs First
 
 Before any work on or with Eve Horizon, load this skill:

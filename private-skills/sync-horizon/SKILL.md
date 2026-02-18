@@ -64,6 +64,7 @@ If the user gave additional instructions (e.g., "analyze storage gaps"), add tha
 If any work item touches `eve-work/eve-read-eve-docs`, also add:
 - `Run state-today compliance scan for eve-read-eve-docs`
 - `Validate progressive-access routing in eve-read-eve-docs/SKILL.md`
+- `Run CLI module progression check for cli task file coverage`
 
 ### Phase 3: Dispatch Workers (parallel)
 
@@ -137,13 +138,14 @@ Once all update work items are complete:
    ```bash
    cd ../eve-horizon && git rev-parse HEAD
    ```
-2. Run state-today compliance scans (must return no matches):
+2. Run state-today and progressive-access checks (must return no matches/failures):
+   ```bash
+   ./private-skills/sync-horizon/scripts/check-state-today.sh
+   ```
+3. Optional: keep legacy scan references for audit:
    ```bash
    rg -n "Planned \\(Not Implemented\\)|## Planned|What's next|current vs planned|Planned vs Current" eve-work/eve-read-eve-docs -g '*.md'
    rg -n "^## Planned|Planned \\(Not Implemented\\)" eve-work eve-se eve-design -g 'SKILL.md'
-   ```
-3. Validate progressive-access routing for doc entry skill:
-   ```bash
    rg -n "^## Task Router \\(Progressive Access\\)" eve-work/eve-read-eve-docs/SKILL.md
    ```
 4. Update `.sync-state.json`:
@@ -179,6 +181,9 @@ Output a sync report summarizing all work:
 
 ### Progressive Access Updates
 - <routing or reference-structure improvements made>
+
+### Optional Automated Guard
+- `private-skills/sync-horizon/scripts/check-state-today.sh` run status
 
 ### Next Steps
 - <any manual follow-up needed>

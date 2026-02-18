@@ -42,6 +42,12 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 
 - Platform orientation, environment URLs, and architecture: `references/overview.md`
 - Command syntax, flags, and CLI workflows: `references/cli.md`
+- Fine-grained CLI intents:
+  - `references/cli-auth.md` (auth + access + policy)
+  - `references/cli-org-project.md` (init, org/project setup, docs, fs sync)
+  - `references/cli-jobs.md` (jobs and execution controls)
+  - `references/cli-pipelines.md` (builds, releases, pipelines, workflows)
+  - `references/cli-deploy-debug.md` (deploy, recovery, local stack, CLI troubleshooting)
 - Manifest authoring and config structure: `references/manifest.md`
 - Pipelines, workflows, triggers, and event-driven automation: `references/pipelines-workflows.md` + `references/events.md`
 - Job lifecycle, scheduling, and execution debugging: `references/jobs.md`
@@ -66,6 +72,23 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/deploy-debug.md` -- K8s architecture, worker images, deploy polling, ingress/TLS, secrets provisioning, workspace janitor, CLI debugging workflows, real-time debugging, env-specific debugging.
 - `references/harnesses.md` -- Harness selection, profiles, auth priority, sandbox flags.
 - `references/gateways.md` -- Gateway plugin architecture, Slack + Nostr providers, thread keys.
+- `references/cli-auth.md` -- CLI auth, service accounts, access roles, and policy-as-code.
+- `references/cli-org-project.md` -- CLI commands for org/project setup, docs, FS sync, and resolver URIs.
+- `references/cli-jobs.md` -- CLI job lifecycle: create/list/update, attempt tracking, result/monitoring/attachments.
+- `references/cli-pipelines.md` -- CLI build/release/pipeline/workflow command reference.
+- `references/cli-deploy-debug.md` -- CLI environment deploy/recover/lifecycle and local k3d stack.
+
+## Intent Coverage Matrix
+
+| Intent | Minimum references | Expected output |
+|---|---|---|
+| Authenticate or inspect permissions | `references/cli-auth.md`, `references/secrets-auth.md` | Session state, token/permission validation result |
+| Bootstrap org/project resources | `references/cli-org-project.md`, `references/manifest.md` | Org/project IDs, members, manifest sync status |
+| Submit and monitor work | `references/cli-jobs.md`, `references/jobs.md` | Job IDs, phase transitions, attempt logs |
+| Build/deploy a version | `references/cli-pipelines.md`, `references/builds-releases.md`, `references/pipelines-workflows.md` | Pipeline run ID, build/release artifacts, deployment trace |
+| Recover from runtime issues | `references/cli-deploy-debug.md`, `references/deploy-debug.md`, `references/cli-jobs.md` | Diagnose output, recovery target, mitigation command plan |
+| Inspect platform behavior or events | `references/events.md`, `references/agents-teams.md` | Canonical event stream view, routing path |
+| Install/update skills for agents | `references/skills-system.md`, `references/overview.md` | Installed pack/skill set and resolution order |
 
 ## Hard Rules
 

@@ -1,5 +1,20 @@
 # Pipelines + Workflows (Current)
 
+## Use When
+- You need to define, run, inspect, or debug pipeline and workflow automation.
+- You need trigger wiring for environment deploy and event-based job orchestration.
+- You need guidance on build-release-deploy and promotion patterns.
+
+## Load Next
+- `references/events.md` if the trigger source is webhook or scheduled.
+- `references/builds-releases.md` for image/release semantics and diagnostics.
+- `references/cli.md` for pipeline/workflow execution commands.
+
+## Ask If Missing
+- Confirm pipeline/workflow name, target env, and repo ref/hash.
+- Confirm whether you want standard pipeline execution or direct deploy mode.
+- Confirm which inputs/outputs are required before creating or re-running steps.
+
 ## Pipelines (Manifest)
 
 Pipelines are ordered steps that expand into a job graph. Define them in `.eve/manifest.yaml`.
@@ -38,6 +53,28 @@ steps:
     depends_on: [release]
     action: { type: deploy, env_name: staging }
 ```
+
+When a project includes persistent DB state, the deploy pipeline must run migrations before deploy:
+
+```yaml
+steps:
+  - name: build
+    action: { type: build }
+  - name: release
+    depends_on: [build]
+    action: { type: release }
+  - name: migrate
+    depends_on: [release]
+    action:
+      type: job
+      service: migrate
+  - name: deploy
+    depends_on: [migrate]
+    action: { type: deploy, env_name: sandbox }
+```
+
+Place a `migrate` service in `services` with `x-eve.role: job`, and make `deploy` depend on it.
+That ensures `presence/projects/other-schema` tables are created before pods start serving traffic.
 
 ### Step Output Linking
 

@@ -1,5 +1,20 @@
 # Chat Gateway
 
+## Use When
+- You need to configure Slack/Nostr message ingestion and outbound responses.
+- You need to map external chat identities and events into Eve workflows.
+- You need to validate webhook behavior or provider-specific security checks.
+
+## Load Next
+- `references/events.md` for inbound event types and payload expectations.
+- `references/agents-teams.md` for target agent/team routing after normalization.
+- `references/cli.md` for integration management commands.
+
+## Ask If Missing
+- Confirm provider (`slack` or `nostr`) and deployment environment.
+- Confirm signing secret / signing key inputs are available.
+- Confirm thread/client mappings (`team_id`, integration ids) before editing mappings.
+
 ## Overview
 
 The Gateway service normalizes external chat events into Eve events using a pluggable provider architecture. Providers implement the `GatewayProvider` interface and register via factories at startup. Two transport models exist: webhook (HTTP push) and subscription (persistent connection).

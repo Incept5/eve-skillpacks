@@ -1,5 +1,20 @@
 # Manifest (Current)
 
+## Use When
+- You need to author, validate, or review `.eve/manifest.yaml`.
+- You need to configure services, environments, pipelines, or harness defaults.
+- You need to prepare manifest changes for deployable, reproducible builds.
+
+## Load Next
+- `references/pipelines-workflows.md` for pipeline/job wiring in manifests.
+- `references/secrets-auth.md` for secret declaration and resolution order.
+- `references/overview.md` for core platform concepts before editing complex files.
+
+## Ask If Missing
+- Confirm target manifest path and environment names.
+- Confirm whether managed DBs, external services, or custom ingress are required.
+- Confirm any required repository path, branch, or org/project identifiers.
+
 The manifest (`.eve/manifest.yaml`) is the single source of truth for builds, deploys, pipelines, and workflows.
 Schema is Compose-like with Eve extensions under `x-eve`.
 

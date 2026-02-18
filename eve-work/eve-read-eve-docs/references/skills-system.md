@@ -1,5 +1,20 @@
 # Skills System
 
+## Use When
+- You need to install, update, or reason about skill availability and resolution order.
+- You need pack structure or SKILL discovery conventions across org projects.
+- You need to control which skills are loaded for agents, CI, or repo clones.
+
+## Load Next
+- `references/agents-teams.md` for team/agent workflows that consume skills.
+- `references/overview.md` for environment context and architecture assumptions.
+- `references/cli.md` for install and resolve commands.
+
+## Ask If Missing
+- Confirm whether installation is local, repository-scoped, or organization-scoped.
+- Confirm preferred source (`skills.txt` local path vs remote URL).
+- Confirm whether you are using pack lockfile mode via `x-eve.packs`.
+
 Eve Horizon installs skills via the `skills` CLI. Skills follow the OpenSkills
 SKILL.md format: YAML frontmatter for metadata, imperative instructions in the
 body, and optional bundled resources. Install happens at clone time from a

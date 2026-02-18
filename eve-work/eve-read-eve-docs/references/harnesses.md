@@ -1,5 +1,20 @@
 # Harness Execution Reference
 
+## Use When
+- You need to choose or compare available harnesses and profiles.
+- You need workspace, permission, or sandbox guidance for job execution.
+- You need to trace how Eve invokes harness binaries during execution.
+
+## Load Next
+- `references/jobs.md` for execution lifecycle and attempt scheduling.
+- `references/cli.md` for harness-specific profile commands.
+- `references/secrets-auth.md` for credentials and secret injection.
+
+## Ask If Missing
+- Confirm target harness and repo path for execution.
+- Confirm permission policy and sandbox mode requirements (`inline` vs `runner`).
+- Confirm available secrets/toolchain constraints for command execution.
+
 Eve executes AI work through **harnesses** -- thin adapters that wrap AI coding CLIs
 (Claude Code, Gemini CLI, Codex, etc.) behind a uniform invocation contract. This
 reference covers the full lifecycle: invocation, workspace setup, authentication,

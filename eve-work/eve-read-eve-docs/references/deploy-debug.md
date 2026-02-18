@@ -1,5 +1,20 @@
 # Deployment + Debugging (Current)
 
+## Use When
+- You need to troubleshoot deploy, ingress, namespace, or runtime worker issues.
+- You need environment-specific diagnostics or service status during incident response.
+- You need K8s architecture behavior for local or staging deployments.
+
+## Load Next
+- `references/cli.md` for command-based diagnostics.
+- `references/pipelines-workflows.md` if the issue is pipeline-triggered.
+- `references/builds-releases.md` for build/release failure context.
+
+## Ask If Missing
+- Confirm runtime mode (`k8s` vs `docker`) and `EVE_API_URL`.
+- Confirm environment name, namespace, and whether this is staging or local.
+- Confirm which command already ran and what exact output/error was returned.
+
 ## Default Environment
 
 Default to **staging** for user guidance. Use local/docker only when explicitly asked for local development.

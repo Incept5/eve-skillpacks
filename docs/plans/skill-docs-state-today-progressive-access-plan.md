@@ -1,7 +1,7 @@
 # Skill Docs State-Today and Progressive Access Plan
 
-> **Status**: In Progress  
-> **Last Updated**: 2026-02-16  
+> **Status**: Completed  
+> **Last Updated**: 2026-02-18  
 > **Intent**: Keep eve-skillpacks documentation aligned to shipped Eve Horizon behavior only, and make skill docs easier for agents to load progressively by intent.
 
 ## Why This Exists
@@ -60,17 +60,55 @@ At the same time, `eve-read-eve-docs` should be a task router, not a large monol
 3. **Cleaned remaining explicit planned wording in active skills**
    - Removed planned section from:
      - `eve-se/eve-pipelines-workflows/SKILL.md`
-   - Adjusted checklist wording:
-     - `eve-design/eve-fullstack-app-design/SKILL.md` (`planned` -> `defined`).
+  - Adjusted checklist wording:
+    - `eve-design/eve-fullstack-app-design/SKILL.md` (`planned` -> `defined`).
 
-4. **Hardened future sync behavior**
+4. **Phase 1 implemented: normalize progressive-intent reference entry points**
+   - Added `Use When`, `Load Next`, and `Ask If Missing` sections to all `eve-work/eve-read-eve-docs/references/*.md` files:
+     - `agents-teams.md`
+     - `builds-releases.md`
+     - `cli.md`
+     - `deploy-debug.md`
+     - `events.md`
+     - `gateways.md`
+     - `harnesses.md`
+     - `jobs.md`
+     - `manifest.md`
+     - `overview.md`
+     - `pipelines-workflows.md`
+     - `secrets-auth.md`
+     - `skills-system.md`
+
+5. **Hardened future sync behavior**
    - Updated `private-skills/sync-horizon/SKILL.md` with:
      - Output standards for state-today + progressive access
      - Worker rules to exclude planned/roadmap content
      - Mandatory compliance scan commands
      - Report sections for compliance and progressive-access updates
+ 
+6. **Phase 2 implemented: split `cli.md` into task modules**
+   - Added:
+     - `eve-work/eve-read-eve-docs/references/cli-auth.md`
+     - `eve-work/eve-read-eve-docs/references/cli-org-project.md`
+     - `eve-work/eve-read-eve-docs/references/cli-jobs.md`
+     - `eve-work/eve-read-eve-docs/references/cli-pipelines.md`
+     - `eve-work/eve-read-eve-docs/references/cli-deploy-debug.md`
+   - Updated `eve-work/eve-read-eve-docs/references/cli.md` to route intent-first to these modules.
 
-## Next Phases
+7. **Phase 3 implemented: intent coverage matrix**
+   - Added `## Intent Coverage Matrix` to `eve-work/eve-read-eve-docs/SKILL.md`.
+   - Added minimum-reference mapping for auth, setup, jobs, build/deploy, recovery, and installs.
+
+8. **Phase 4 implemented: automated compliance guard**
+   - Added `private-skills/sync-horizon/scripts/check-state-today.sh`.
+   - Updated `private-skills/sync-horizon/SKILL.md` to run the script in Phase 4 post-checks.
+
+9. **Phase 5 implementation checkpoint**
+  - Ran `private-skills/sync-horizon/scripts/check-state-today.sh` and confirmed compliance checks pass.
+  - Executed full `/sync-horizon` checkpoint through commit `4fc1b70f` → `401d370` (12 commits, CLI + local stack runtime updates).
+  - Updated `.sync-state.json` to `401d370cb35f1ec44b81a56358b9638e5e8de02b` and applied `eve-work/eve-read-eve-docs` updates.
+
+## Completed Phases
 
 ### Phase 1: Normalize Reference Entry Points
 
@@ -78,8 +116,10 @@ Add consistent top sections to each `eve-read-eve-docs/references/*.md`:
 - `Use When`
 - `Load Next`
 - `Ask If Missing`
-
+ 
 **Goal**: Improve agent navigation so references can be loaded in minimal slices.
+
+**Status**: Completed in this implementation pass.
 
 ### Phase 2: Split Large References by Task
 
@@ -87,11 +127,15 @@ Break high-volume references (starting with `references/cli.md`) into task modul
 
 **Goal**: Reduce overloading and improve precision for agent retrieval.
 
+**Status**: Completed in this implementation pass.
+
 ### Phase 3: Intent Coverage Matrix
 
 Add a matrix mapping common agent intents to minimum required references and expected outputs.
 
 **Goal**: Make retrieval deterministic and reduce unnecessary doc reads.
+
+**Status**: Completed in this implementation pass.
 
 ### Phase 4: Automated Compliance Guard
 
@@ -101,6 +145,8 @@ Add lightweight automation (script or CI check) to fail when:
 
 **Goal**: Prevent drift between manual cleanup efforts.
 
+**Status**: Completed in this implementation pass.
+
 ### Phase 5: Validate Through Full Sync Run
 
 Run a full `/sync-horizon` execution using updated private skill instructions and confirm:
@@ -108,11 +154,12 @@ Run a full `/sync-horizon` execution using updated private skill instructions an
 - progressive-access checks pass
 - sync report includes compliance status
 
+**Status**: Compliance checks implemented and passing; full `/sync-horizon` checkpoint completed.
+
 ## Compliance Commands
 
 ```bash
-rg -n "Planned \\(Not Implemented\\)|## Planned|What's next|current vs planned|Planned vs Current" eve-work/eve-read-eve-docs -g '*.md'
-rg -n "^## Planned|Planned \\(Not Implemented\\)" eve-work eve-se eve-design -g 'SKILL.md'
+./private-skills/sync-horizon/scripts/check-state-today.sh
 rg -n "^## Task Router \\(Progressive Access\\)" eve-work/eve-read-eve-docs/SKILL.md
 ```
 

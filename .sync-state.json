@@ -1,7 +1,7 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "4fc1b70f2dd66d3dcbe29d714c695bd4e92d0463",
-  "last_synced_at": "2026-02-16T09:30:00Z",
+  "last_synced_commit": "401d370cb35f1ec44b81a56358b9638e5e8de02b",
+  "last_synced_at": "2026-02-18T09:27:18Z",
   "sync_log": [
     {
       "commit": "2f203512c9a8c8a1fa303764a1d7ae38b7272d21",
@@ -23,6 +23,13 @@
       "synced_at": "2026-02-16T09:30:00Z",
       "type": "incremental",
       "summary": "21-commit incremental sync — local k3d stack CLI (eve local up/down/status/health/reset/logs), ingress aliases (vanity URLs, admin reclaim), access bind --project required, staging kubeconfig safety, OpenAPI spec regen"
+    },
+    {
+      "commit": "401d370cb35f1ec44b81a56358b9638e5e8de02b",
+      "commit_short": "401d370",
+      "synced_at": "2026-02-18T09:27:18Z",
+      "type": "incremental",
+      "summary": "CLI sync: +26 source docs/CLI changes (ollama wake command, local stack registry override, CLI local-stack ownership checks); distilled into eve-work/eve-read-eve-docs references"
     }
   ]
 }

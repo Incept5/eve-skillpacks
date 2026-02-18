@@ -1,5 +1,20 @@
 # Events + Triggers (Current)
 
+## Use When
+- You need to configure, inspect, or reason about event sources and payloads.
+- You need trigger wiring for webhook, webhook replacement, or automation hooks.
+- You need to map events to pipeline/jobs and automation workflows.
+
+## Load Next
+- `references/pipelines-workflows.md` for trigger-to-run mapping and dependencies.
+- `references/gateways.md` for chat-originated events and provider signatures.
+- `references/cli.md` for live event/pipeline inspection commands.
+
+## Ask If Missing
+- Confirm event source (`github`, `slack`, `cron`, etc.) and target project.
+- Confirm required webhook signatures or integration credentials are available.
+- Confirm whether you need one-time replay or persistent subscription behavior.
+
 ## Event Model
 
 Events are stored in Postgres and routed by the orchestrator.

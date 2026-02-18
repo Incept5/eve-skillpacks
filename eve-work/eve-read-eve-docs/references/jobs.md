@@ -1,5 +1,20 @@
 # Jobs Reference
 
+## Use When
+- You need to inspect job lifecycle phases, attempts, and dependencies.
+- You need to tune scheduling, review, or retry behavior.
+- You need to follow, stream, or debug running/failed jobs.
+
+## Load Next
+- `references/cli.md` for job list/show/follow/result commands.
+- `references/pipelines-workflows.md` when jobs are part of pipeline execution.
+- `references/deploy-debug.md` for infrastructure-side runtime symptoms.
+
+## Ask If Missing
+- Confirm whether you are working with a root job or child attempt.
+- Confirm target job ID, org/project scope, and desired action (`list`/`show`/`follow`).
+- Confirm whether you need to review dependency graph or submission state.
+
 ## Entity Model
 
 ```
