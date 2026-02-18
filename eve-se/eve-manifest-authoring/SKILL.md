@@ -13,18 +13,13 @@ Keep the manifest as the single source of truth for build and deploy behavior.
 schema: eve/compose/v2
 project: my-project
 
-registry:
-  host: ghcr.io
-  namespace: myorg
-  auth:
-    username_secret: GHCR_USERNAME
-    token_secret: GHCR_TOKEN
+registry: "eve"  # Use managed registry by default for Eve apps
 services:
   api:
     build:
       context: ./apps/api           # Build context directory
       dockerfile: Dockerfile        # Optional, defaults to context/Dockerfile
-    image: ghcr.io/myorg/my-api     # Target image (no tag needed - managed by Eve)
+    # image omitted by default; when build is present, Eve derives image name from service key
     ports: [3000]
     environment:
       NODE_ENV: production
@@ -55,16 +50,17 @@ pipelines:
           type: deploy
 ```
 
-## OCI Image Labels (GHCR Auto-Linking)
+## Registry Image Labels
 
-GHCR requires packages to be linked to a repository for proper permission inheritance. Add these labels to your Dockerfiles to enable automatic linking:
+Some registries require package metadata for permission and ownership inheritance.
+Add these labels to your Dockerfiles when supported by your registry:
 
 ```dockerfile
 LABEL org.opencontainers.image.source="https://github.com/YOUR_ORG/YOUR_REPO"
 LABEL org.opencontainers.image.description="Service description"
 ```
 
-**Why this matters**: Without this label, GHCR creates "orphaned" packages that only org admins can push to. The Eve builder injects this label automatically at build time, but including it in your Dockerfile is recommended as defense-in-depth.
+**Why this matters**: Metadata helps preserve repository ownership and improves traceability. The Eve builder injects these labels automatically, but including them in your Dockerfile is still recommended.
 
 For multi-stage Dockerfiles, add the labels to the **final** stage (the production image).
 
@@ -73,10 +69,21 @@ For multi-stage Dockerfiles, add the labels to the **final** stage (the producti
 ```yaml
 registry: "eve"     # Eve-native registry (internal JWT auth)
 registry: "none"    # Disable registry handling (public images)
-registry:           # BYO registry (full object — see skeleton above)
-  host: ghcr.io
+registry:           # BYO registry (full object — see section below)
+  host: public.ecr.aws/w7c4v0w3
   namespace: myorg
-  auth: { username_secret: GHCR_USERNAME, token_secret: GHCR_TOKEN }
+  auth: { username_secret: REGISTRY_USERNAME, token_secret: REGISTRY_PASSWORD }
+```
+
+For BYO/private registries, provide:
+
+```yaml
+registry:
+  host: public.ecr.aws/w7c4v0w3
+  namespace: myorg
+  auth:
+    username_secret: REGISTRY_USERNAME
+    token_secret: REGISTRY_PASSWORD
 ```
 
 ## Managed Databases
@@ -119,7 +126,7 @@ services:
     build:
       context: ./apps/api           # Build context directory
       dockerfile: Dockerfile        # Optional, defaults to context/Dockerfile
-    image: ghcr.io/org/my-api       # Target image (no tag needed - managed by Eve)
+    # image: api      # optional if using build; managed registry derives this
     ports: [3000]
 ```
 

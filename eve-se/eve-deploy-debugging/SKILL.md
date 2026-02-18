@@ -102,7 +102,7 @@ eve system logs
 | `401 Unauthorized` | Token expired | `eve auth login` |
 | `git clone failed` | Missing credentials | Set `github_token` or `ssh_key` secret |
 | `service not provisioned` | Environment not created | `eve env create <env>` |
-| `image pull backoff` | Registry auth failed | Verify `GHCR_USERNAME` + `GHCR_TOKEN` secrets, or use `registry: "eve"` for internal registry |
+| `image pull backoff` | Registry auth failed | If using BYO/custom registry, verify `REGISTRY_USERNAME` + `REGISTRY_PASSWORD`; for managed apps use `registry: "eve"` |
 | `healthcheck timeout` | App not starting | Check app logs, verify ports in manifest |
 
 ## Build Failures
@@ -113,18 +113,18 @@ If a deploy pipeline fails at the build step:
 eve build list --project <project_id>
 eve build diagnose <build_id>
 eve build logs <build_id>
-eve secrets list --project <project_id>     # Required: GHCR_USERNAME, GHCR_TOKEN
+eve secrets list --project <project_id>     # Required for BYO/custom registry: REGISTRY_USERNAME, REGISTRY_PASSWORD
 ```
 
 Common build failures:
-- **Registry auth**: Missing GHCR_USERNAME or GHCR_TOKEN secrets
+- **Registry auth**: For BYO/custom registry, verify `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` secrets
 - **Dockerfile not found**: Check `build.context` path in manifest
 - **Multi-stage build failure**: BuildKit handles these correctly; Kaniko may have issues
 - **Workspace errors**: Build context not available — check `eve build diagnose`
 
 ## Worker Image Registry
 
-Eve publishes worker images to GHCR with these variants:
+Eve publishes worker images to the configured private registry with these variants:
 
 | Variant | Contents |
 |---------|----------|

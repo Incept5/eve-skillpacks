@@ -1,7 +1,7 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "401d370cb35f1ec44b81a56358b9638e5e8de02b",
-  "last_synced_at": "2026-02-18T09:27:18Z",
+  "last_synced_commit": "c77df4e58aa49c06a9f87e42675c9eb2b2a3a0b0",
+  "last_synced_at": "2026-02-18T17:22:10Z",
   "sync_log": [
     {
       "commit": "2f203512c9a8c8a1fa303764a1d7ae38b7272d21",
@@ -30,6 +30,13 @@
       "synced_at": "2026-02-18T09:27:18Z",
       "type": "incremental",
       "summary": "CLI sync: +26 source docs/CLI changes (ollama wake command, local stack registry override, CLI local-stack ownership checks); distilled into eve-work/eve-read-eve-docs references"
+    },
+    {
+      "commit": "c77df4e58aa49c06a9f87e42675c9eb2b2a3a0b0",
+      "commit_short": "c77df4e",
+      "synced_at": "2026-02-18T17:22:10Z",
+      "type": "incremental",
+      "summary": "13-commit incremental sync — ECR migration updates, managed inference catalog/model workflow updates, and CLI managed inference + registry updates"
     }
   ]
 }

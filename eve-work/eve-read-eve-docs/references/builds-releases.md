@@ -60,7 +60,7 @@ Output images from a successful build.
 | Field | Type | Description |
 |-------|------|-------------|
 | `service_name` | string | Which service was built |
-| `image_ref` | string | Full image reference (e.g., `ghcr.io/org/api`) |
+| `image_ref` | string | Full image reference (e.g., `registry.eh1.incept5.dev/org/api`) |
 | `digest` | string | `sha256:...` content digest |
 | `platforms` | string[]? | e.g., `["linux/amd64", "linux/arm64"]` |
 | `size_bytes` | number? | Image size |
@@ -85,7 +85,7 @@ Builds happen automatically in pipeline `build` steps. Use `eve build diagnose` 
 
 | Error Code | Cause | Fix |
 |-----------|-------|-----|
-| `auth_error` | Registry or git authentication failure | Check GHCR_USERNAME + GHCR_TOKEN secrets |
+| `auth_error` | Registry or git authentication failure | Check registry credentials |
 | `clone_error` | Git clone failure | Verify repo URL and GITHUB_TOKEN |
 | `build_error` | Dockerfile build step failure | Check build logs for failing stage |
 | `timeout_error` | Execution timeout | Increase timeout or optimize build |
@@ -112,21 +112,29 @@ Error: buildctl failed with exit code 1 at [build 3/5] RUN pnpm install
 
 ### Manifest Registry Configuration
 
-Configure the registry in `.eve/manifest.yaml`:
+For most Eve apps, configure the managed default in `.eve/manifest.yaml`:
+
+```yaml
+registry: "eve"
+```
+
+Use `registry: "eve"` for standard managed images and built-in auth.
+
+For BYO/private registries, use full object config:
 
 ```yaml
 registry:
-  host: ghcr.io
+  host: public.ecr.aws/w7c4v0w3
   namespace: myorg
   auth:
-    username_secret: GHCR_USERNAME    # Secret key for registry username
-    token_secret: GHCR_TOKEN          # Secret key for registry token/password
+    username_secret: REGISTRY_USERNAME    # Secret key for registry username
+    token_secret: REGISTRY_PASSWORD       # Secret key for registry token/password
 ```
 
-- `host`: container registry hostname (e.g., `ghcr.io`, `docker.io`)
+- `host`: container registry hostname (for example, `public.ecr.aws/w7c4v0w3`, `docker.io`)
 - `namespace`: registry namespace/organization
-- `auth.username_secret`: name of the secret containing the registry username (defaults to `GHCR_USERNAME`)
-- `auth.token_secret`: name of the secret containing the registry token (defaults to `GITHUB_TOKEN`)
+- `auth.username_secret`: name of the secret containing the registry username (defaults to `REGISTRY_USERNAME`)
+- `auth.token_secret`: name of the secret containing the registry token/password (defaults to `REGISTRY_PASSWORD`)
 
 ### String Modes
 
@@ -136,36 +144,35 @@ registry: "none"  # Skip registry handling (public images or external auth)
 ```
 
 When `registry: "eve"`, the worker requests a short-lived JWT from the internal
-API (`POST /internal/registry/token`) using `EVE_INTERNAL_API_KEY`. When
-`registry: "none"`, no imagePullSecret is created.
+API (`POST /internal/registry/token`) using `EVE_INTERNAL_API_KEY`.  
+When using a BYO registry object, credentials are read from secrets and used to build image push/pull auth.
 
 BuildKit registry transport controls:
 - `EVE_BUILDKIT_INSECURE_REGISTRIES` (optional): comma-separated hosts that must use insecure/plain-HTTP registry transport.
 - `EVE_BUILDKIT_INSECURE_ALL=true` (optional, local troubleshooting only): force insecure registry transport for all BuildKit registry ops.
 
-### Required Secrets (BYO Registry)
+### Required Secrets (BYO Registry only)
 
-For GHCR (GitHub Container Registry), set these secrets:
+For private BYO registries, set these secrets:
 
 ```bash
-eve secrets set GHCR_USERNAME your-github-username
-eve secrets set GHCR_TOKEN ghp_xxxxxxxxxxxxxxxxxxxx
+eve secrets set REGISTRY_USERNAME your-registry-username
+eve secrets set REGISTRY_PASSWORD your-registry-token
 ```
 
 Token requirements:
-- GitHub PAT (classic) with `write:packages` scope for pushing
-- `read:packages` scope for pulling
+Use credentials required by your registry provider for image push/pull workflows.
 
 ### Deployer ImagePullSecret
 
-When deploying to Kubernetes, the deployer automatically creates an `imagePullSecret` if the manifest has a `registry.host`:
+When deploying to Kubernetes, the deployer automatically creates an `imagePullSecret` for BYO registries with a `registry.host`:
 
 1. Resolves `username_secret` and `token_secret` from the secrets system.
 2. Creates a Docker config JSON with registry auth.
 3. Creates/updates a Kubernetes Secret of type `kubernetes.io/dockerconfigjson`.
 4. Attaches the secret to the deployment's `imagePullSecrets`.
 
-If `registry.host` is not set (or `registry: "none"`), no imagePullSecret is created (assumes public images or pre-configured cluster auth).
+If `registry` is `"eve"` or `"none"`, no imagePullSecret is needed/created (the managed registry uses platform auth; `"none"` assumes public images or pre-configured cluster auth).
 
 ### Image Name Auto-Derivation
 
@@ -197,7 +204,7 @@ Services can specify their full image path without a tag:
 ```yaml
 services:
   api:
-    image: ghcr.io/myorg/my-project-api
+    image: registry.eh1.incept5.dev/myorg/my-project-api
     build:
       context: ./apps/api
 ```
@@ -212,16 +219,16 @@ For fast iteration without pushing to a remote registry:
 
 ```bash
 # Build with :local tag
-docker build -t ghcr.io/myorg/my-project-api:local ./apps/api
+docker build -t registry.eh1.incept5.dev/myorg/my-project-api:local ./apps/api
 
 # Import directly into k3d cluster (no push/pull roundtrip)
-k3d image import ghcr.io/myorg/my-project-api:local -c eve-local
+k3d image import registry.eh1.incept5.dev/myorg/my-project-api:local -c eve-local
 
 # Deploy
 eve env deploy test --ref main --repo-dir .
 ```
 
-This avoids the push/pull roundtrip to GHCR, making local iteration much faster. Use this pattern when developing and testing deployment configuration before committing to a full pipeline run.
+This avoids the push/pull roundtrip to the registry, making local iteration much faster. Use this pattern when developing and testing deployment configuration before committing to a full pipeline run.
 
 ### Build Reuse Fast Path
 

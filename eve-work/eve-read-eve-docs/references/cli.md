@@ -241,7 +241,7 @@ eve skills install [source] [--skip-installed]          # Install skill packs
 
 ```bash
 # Models
-eve models list [--managed] [--json]                    # List available LLM models
+eve models list [--json]                    # List available LLM models
 
 # Harnesses
 eve harness list [--capabilities] [--org <id>] [--project <id>]
@@ -249,9 +249,16 @@ eve harness get <name> [--org <id>] [--project <id>]
 ```
 
 Notes:
-- `--managed` filters to platform-managed models (vs. BYOK).
 - `--capabilities` shows model support, reasoning levels, streaming, and tool use.
 - `harness get` shows variants, auth status, and capability matrix.
+
+### Managed model availability (inference only)
+
+- Use `eve ollama managed list|publish|unpublish` to inspect and curate platform-managed availability.
+- `managed` models are consumed as `managed/<canonical>`.
+- When managed inference returns `404` or `503`, check for platform catalog/runtime codes:
+  - `MODEL_NOT_PUBLISHED` → publish via `eve ollama managed publish`
+  - `NO_PLATFORM_TARGET` / `TARGET_NOT_AVAILABLE` / `INSTALL_IN_PROGRESS` → admin target/install remediation
 
 ## Database (Environment DBs)
 
@@ -522,7 +529,7 @@ eve ollama target add --name <name> --base-url <url>
   [--transport-profile ollama_api|openai_compat]
   [--api-key-ref <secret_ref>]
 eve ollama target rm <target_id>
-eve ollama target test <target_id> [--org-id <id>] [--project-id <id>]
+eve ollama target test <target_id>
 eve ollama target wake <target_id> [--wait=true|false] [--timeout-ms <ms>]
 
 eve ollama models
@@ -544,6 +551,11 @@ eve ollama route-policy set --scope-kind <kind> [--scope-id <id>]
   --preferred-target-id <target_id>
   [--fallback-to-alias-target true|false]
 eve ollama route-policy rm --scope-kind <kind> [--scope-id <id>]
+
+eve ollama managed list [--json]
+eve ollama managed publish --canonical <canonical_model_id> --provider <provider> --slug <provider_model_slug> --target-id <target_id>
+  [--requires-warm-start true|false] [--enabled true|false]
+eve ollama managed unpublish --canonical <canonical_model_id>
 ```
 
 Notes:

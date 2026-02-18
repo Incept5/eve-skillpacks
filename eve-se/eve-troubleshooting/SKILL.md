@@ -46,16 +46,16 @@ eve job result <job-id>
 
 Check for registry auth errors, missing secrets, or healthcheck failures.
 
-### GHCR Push Fails with UNAUTHORIZED
+### Registry Push Fails with UNAUTHORIZED
 
-If build jobs fail with `UNAUTHORIZED: authentication required` when pushing to GHCR:
+If build jobs fail with `UNAUTHORIZED: authentication required` when pushing:
 
 1. Verify secrets are set: `eve secrets list --project proj_xxx`
-2. Confirm token scopes include `read:packages` + `write:packages`
-3. Check if the package is linked to the repo in GitHub Packages settings
+2. If using a custom BYO registry, verify credentials map to `registry.host`
+3. Confirm the imagePull metadata in your manifest is correct
 4. Add OCI source label to Dockerfile: `LABEL org.opencontainers.image.source="https://github.com/ORG/REPO"`
 
-Unlinked packages in GHCR only allow pushes from the package owner. Linking to a repo inherits repository collaborator permissions.
+Some registries require repository-linked package metadata or workspace-level auth alignment.
 
 ### Build Failures
 
@@ -73,8 +73,8 @@ eve build logs <build_id>              # Raw build output
 #### Common Causes
 
 **Registry authentication:**
-- Verify GHCR_USERNAME and GHCR_TOKEN (or GITHUB_TOKEN) secrets are set
-- Token needs `write:packages` scope for GHCR pushes
+- If using custom registry mode, verify `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` secrets are set (or provider-equivalent registry credentials). With managed registry (`registry: "eve"`), this step is usually not required.
+- Ensure credentials can access the configured registry account and namespace
 - Check: `eve secrets list --project <id>`
 
 **Dockerfile issues:**
@@ -88,7 +88,7 @@ eve build logs <build_id>              # Raw build output
 
 **Image push failures:**
 - OCI labels help link packages to repos: add `LABEL org.opencontainers.image.source="https://github.com/OWNER/REPO"` to Dockerfile
-- Ensure registry host matches manifest `registry.host`
+- Ensure registry host and auth match manifest `registry.host` when using BYO/custom registry
 
 ### Job Stuck or Blocked
 

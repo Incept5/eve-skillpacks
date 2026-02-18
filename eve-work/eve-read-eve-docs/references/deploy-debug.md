@@ -76,16 +76,16 @@ Use cert-manager for automatic TLS on app ingresses. Set `EVE_DEFAULT_TLS_CLUSTE
 
 ## Worker Image Registry
 
-Pre-built images on GHCR eliminate local builds and ensure consistent toolchains.
+Pre-built images on public ECR eliminate local builds and ensure consistent toolchains.
 
-| Image | GHCR Path | Contents |
+| Image | Public ECR Path | Contents |
 |-------|-----------|----------|
-| base | `ghcr.io/eve-horizon/worker-base:<ver>` | Node.js, worker harness, base utilities |
-| python | `ghcr.io/eve-horizon/worker-python:<ver>-py3.11` | Python 3.11, pip, uv |
-| rust | `ghcr.io/eve-horizon/worker-rust:<ver>-rust1.75` | Rust 1.75, cargo |
-| java | `ghcr.io/eve-horizon/worker-java:<ver>-jdk21` | OpenJDK 21 |
-| kotlin | `ghcr.io/eve-horizon/worker-kotlin:<ver>-kotlin2.0-jdk21` | Kotlin 2.0 + JDK 21 |
-| full | `ghcr.io/eve-horizon/worker-full:<ver>` | All toolchains (default) |
+| base | `public.ecr.aws/w7c4v0w3/eve-horizon/worker-base:<ver>` | Node.js, worker harness, base utilities |
+| python | `public.ecr.aws/w7c4v0w3/eve-horizon/worker-python:<ver>-py3.11` | Python 3.11, pip, uv |
+| rust | `public.ecr.aws/w7c4v0w3/eve-horizon/worker-rust:<ver>-rust1.75` | Rust 1.75, cargo |
+| java | `public.ecr.aws/w7c4v0w3/eve-horizon/worker-java:<ver>-jdk21` | OpenJDK 21 |
+| kotlin | `public.ecr.aws/w7c4v0w3/eve-horizon/worker-kotlin:<ver>-kotlin2.0-jdk21` | Kotlin 2.0 + JDK 21 |
+| full | `public.ecr.aws/w7c4v0w3/eve-horizon/worker-full:<ver>` | All toolchains (default) |
 
 ### Versioning + Pinning
 
@@ -353,7 +353,7 @@ eve build diagnose <build_id>       # Spec + runs + artifacts + logs
 eve build logs <build_id>           # Raw build output
 ```
 
-Common issues: registry auth (check GHCR_USERNAME + GHCR_TOKEN), Dockerfile path (`build.context`), build backend (BuildKit on K8s, Buildx locally).
+Common issues: registry auth (`registry: "eve"` for managed apps; `REGISTRY_USERNAME` + `REGISTRY_PASSWORD` only for BYO/custom registry), Dockerfile path (`build.context`), build backend (BuildKit on K8s, Buildx locally).
 
 ## Real-time Debugging
 

@@ -42,7 +42,7 @@ Check and fix `.eve/manifest.yaml`:
 - Confirm `${secret.KEY}` usage for secrets.
 - Deploy pipelines should include a `build` step before `release`.
 - Services with Docker images should have `build.context` defined.
-- Registry auth secrets (GHCR_USERNAME, GHCR_TOKEN or GITHUB_TOKEN) should be configured.
+- Registry auth secrets (`REGISTRY_USERNAME` + `REGISTRY_PASSWORD`) are required only for custom BYO registries.
 
 ### Worker: Skills File
 
@@ -72,7 +72,7 @@ Search the codebase for deprecated patterns and fix or flag them:
 - Dockerfiles missing `org.opencontainers.image.source` label pointing to the repo URL
 - Pipelines missing `build` step before `release`
 - Services with Docker images but no `build.context` configuration
-- Missing registry authentication secrets (GHCR_USERNAME, GHCR_TOKEN/GITHUB_TOKEN)
+- Missing registry authentication secrets for custom registries (`REGISTRY_USERNAME`, `REGISTRY_PASSWORD` or provider-equivalent names)
 
 ## Phase 3: Verify
 

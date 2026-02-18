@@ -128,19 +128,14 @@ If `.eve/manifest.yaml` doesn't exist, create a minimal one:
 schema: eve/compose/v2
 project: myapp
 
-registry:
-  host: ghcr.io
-  namespace: myorg
-  auth:
-    username_secret: GHCR_USERNAME
-    token_secret: GHCR_TOKEN
+registry: "eve"
 
 services:
   web:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/myorg/myapp
+    # image is optional; Eve derives it from the service name when managed registry is used
     ports: [3000]
     x-eve:
       ingress:

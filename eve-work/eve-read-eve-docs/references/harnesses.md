@@ -227,20 +227,18 @@ If a `variants/<variant>` directory exists, it overlays the base config.
 
 ---
 
-## Managed Models (Platform/Org/Project)
+## Managed Models (Platform-Only Catalog)
 
 Managed models are referenced via `managed/<name>` in `harness_options.model` and
-resolved at worker execution time. The registry merges across scopes:
+resolved from the platform-managed catalog only.
 
-```
-platform (system settings) <- org <- project
-```
+Inference catalog endpoints:
+- `GET /inference/managed-models`
+- `POST /inference/managed-models`
+- `DELETE /inference/managed-models/{canonical_model_id}`
 
-API endpoints:
-- `GET /models?managed=true` -- list managed models
-- `GET /models?org_id=<org_id>&project_id=<project_id>` -- scoped model list
-- `PUT /orgs/:org_id/models/:name` -- set org-level managed model
-- `PUT /projects/:project_id/models/:name` -- set project-level managed model
+`GET /models` exposes managed entries as `managed/<name>` for clients.
+Model availability for managed inference now comes from the catalog and API-side managed inference path; workers do not resolve managed model registries.
 
 Workers inject provider-specific env vars based on the model's harness (e.g.
 Claude, Codex, Gemini, Z.ai) and discard the secrets after execution.

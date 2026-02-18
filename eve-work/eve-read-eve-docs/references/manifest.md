@@ -63,18 +63,13 @@ eve env deploy sandbox --ref main
 
 ## Full Example
 
-A more complete manifest showing registry auth, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline:
+A more complete manifest showing registry auto-derivation, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline:
 
 ```yaml
 schema: eve/compose/v2
 project: my-project
 
-registry:
-  host: ghcr.io
-  namespace: myorg
-  auth:
-    username_secret: GHCR_USERNAME
-    token_secret: GHCR_TOKEN
+registry: "eve"
 
 services:
   db:
@@ -156,21 +151,29 @@ Unknown fields are allowed for forward compatibility.
 ## Registry
 
 ```yaml
-registry:
-  host: ghcr.io
-  namespace: myorg
-  auth:
-    username_secret: GHCR_USERNAME
-    token_secret: GHCR_TOKEN
+registry: "eve"   # Default Eve-managed registry
 ```
 
-The deployer uses these secrets to create Kubernetes `imagePullSecrets` for pulling private images. See the container registry reference for setup details.
+Use `registry: "eve"` unless your app must publish to a BYO registry.
 
-String modes:
+For a private custom registry, switch to full object form:
 
 ```yaml
-registry: "eve"   # Use Eve-native registry (internal)
+registry:
+  host: public.ecr.aws/w7c4v0w3
+  namespace: myorg
+  auth:
+    username_secret: REGISTRY_USERNAME
+    token_secret: REGISTRY_PASSWORD
+```
+
+The deployer uses these secrets to create Kubernetes `imagePullSecrets` for private BYO registries. See container registry reference for setup details.
+
+String modes:
+```yaml
+registry: "eve"   # Use Eve-managed registry (default)
 registry: "none"  # Disable registry handling
+registry:           # BYO registry (full object; see above)
 ```
 
 ## Services (Compose-Style)
@@ -180,7 +183,7 @@ services:
   api:
     build:
       context: ./apps/api
-    image: ghcr.io/org/api       # optional if build is provided
+    # image omitted (auto-derived as "api" when build is present)
     ports: [3000]
     environment:
       NODE_ENV: production
@@ -198,7 +201,7 @@ services:
 
 Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`, `healthcheck`, `volumes`.
 
-**Image auto-derivation**: When a service has `build` config and a `registry` is configured (`"eve"` or `{ host: ... }`), the `image` field is optional. The platform derives the image name from the service key (e.g., a service named `app` gets `image: app`, which is then prefixed with the registry host at build time). This means the minimal buildable service only needs `build` and `ports`.
+**Image auto-derivation**: When a service has `build` config and a `registry` is configured, the `image` field is optional. With Eve-managed default (`registry: "eve"`), platform derives the image name from the service key (for example, service `app` becomes `image: app`) and prefixes it at build time with the managed registry host.
 
 ### Eve Service Extensions (`x-eve`)
 
