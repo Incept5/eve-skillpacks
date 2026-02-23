@@ -388,6 +388,14 @@ eve auth sync --project proj_xxx  # Sync to project-level
 eve auth sync --dry-run       # Preview without syncing
 ```
 
+`eve auth sync` warns when syncing a short-lived Claude OAuth token (`sk-ant-oat01-*`, ~15h lifetime). Use a setup-token (`sk-ant-sat01-*`) for automation and long-running jobs. Check token type before syncing:
+
+```bash
+eve auth creds                # Shows token type (setup-token vs oauth) and Codex expiry
+```
+
+**Codex/Code token write-back:** After each harness invocation, Eve automatically detects if the Codex/Code CLI refreshed its OAuth token and writes it back to the originating secret (user/org/project scope). This keeps tokens fresh across jobs without manual re-sync.
+
 ### Token Types
 
 **User Tokens** -- Issued on successful login. Used for API access.
