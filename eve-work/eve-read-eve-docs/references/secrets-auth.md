@@ -388,7 +388,7 @@ eve auth sync --project proj_xxx  # Sync to project-level
 eve auth sync --dry-run       # Preview without syncing
 ```
 
-`eve auth sync` warns when syncing a short-lived Claude OAuth token (`sk-ant-oat01-*`, ~15h lifetime). Use a setup-token (`sk-ant-sat01-*`) for automation and long-running jobs. Check token type before syncing:
+`eve auth sync` warns when syncing a short-lived Claude OAuth token (any token that does NOT start with `sk-ant-oat01-`). Tokens prefixed `sk-ant-oat01-` are long-lived setup-tokens (generated via `claude setup-token`) — these are preferred for automation and long-running jobs. Check token type before syncing:
 
 ```bash
 eve auth creds                # Shows token type (setup-token vs oauth) and Codex expiry
