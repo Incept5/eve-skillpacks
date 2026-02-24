@@ -75,6 +75,8 @@ eve auth creds                                          # Show Claude + Codex cr
 eve auth creds --claude                                 # Only check Claude
 eve auth creds --codex                                  # Only check Codex
 eve auth creds --json                                   # Machine-readable
+# creds now shows Claude token type: "setup-token (long-lived)" vs "oauth (short-lived, ~15h)"
+# For Codex, picks the freshest token across ~/.codex/auth.json and ~/.code/auth.json
 
 # OAuth token sync to Eve
 eve auth sync                                           # Sync to user-level (default)
@@ -83,6 +85,8 @@ eve auth sync --project proj_xxx                        # Sync to project-level
 eve auth sync --dry-run                                 # Preview without syncing
 eve auth sync --claude                                  # Only sync Claude tokens
 eve auth sync --codex                                   # Only sync Codex tokens
+# sync warns if Claude token is short-lived OAuth (not sk-ant-oat01- prefix).
+# Fix: run `claude setup-token` then re-run `eve auth sync`.
 
 # Service accounts (machine identity)
 eve auth create-service-account --name "pm-backend" --org org_xxx \
@@ -95,9 +99,11 @@ Notes:
 - SSH is the default CLI login method. CLI auto-fetches SSH keys from GitHub when none are registered.
 - Nostr auth uses NIP-98 request headers or kind-22242 challenge-response.
 - `auth token` outputs the raw Bearer token for scripting and curl.
+- `auth status` now resolves the displayed role from the active profile's org membership and lists all org memberships with `(active)` marker.
 - `auth mint` is admin-only; creates tokens scoped to specific orgs/projects/roles.
 - Service accounts create machine identities with scoped tokens for app backends.
 - On local/non-production stacks, `auth bootstrap` attempts server-side recovery even after bootstrap is marked complete.
+- `request-access --wait` tip: include `--wait` to auto-poll and log in on approval instead of manually polling with `--status`.
 
 ## Access (Roles, Bindings, Policy-as-Code)
 

@@ -388,13 +388,31 @@ eve auth sync --project proj_xxx  # Sync to project-level
 eve auth sync --dry-run       # Preview without syncing
 ```
 
-`eve auth sync` warns when syncing a short-lived Claude OAuth token (any token that does NOT start with `sk-ant-oat01-`). Tokens prefixed `sk-ant-oat01-` are long-lived setup-tokens (generated via `claude setup-token`) — these are preferred for automation and long-running jobs. Check token type before syncing:
+This sets `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_OAUTH_REFRESH_TOKEN` (Claude) and `CODEX_AUTH_JSON_B64` (Codex/Code) at the requested scope.
+
+#### Token Types and Lifetimes
+
+| Token prefix | Type | Lifetime | Recommendation |
+|---|---|---|---|
+| `sk-ant-oat01-*` | `setup-token` (long-lived) | Long-lived | Preferred for jobs and automation |
+| Other `sk-ant-*` | `oauth` (short-lived) | ~15h | Use for interactive dev; regenerate with `claude setup-token` |
+
+`eve auth sync` warns when syncing a short-lived OAuth token. Use `eve auth creds` to inspect token type before syncing:
 
 ```bash
 eve auth creds                # Shows token type (setup-token vs oauth) and Codex expiry
 ```
 
-**Codex/Code token write-back:** After each harness invocation, Eve automatically detects if the Codex/Code CLI refreshed its OAuth token and writes it back to the originating secret (user/org/project scope). This keeps tokens fresh across jobs without manual re-sync.
+#### Automatic Codex/Code Token Write-Back
+
+After each harness invocation, the worker checks if the Codex/Code CLI refreshed `auth.json` during the session. If the token changed, it is automatically written back to the originating secret scope (user/org/project) so the next job starts with a fresh token. This is transparent and non-fatal -- a write-back failure logs a warning but does not affect the job result.
+
+#### Internal Secret Update Endpoint
+
+The platform exposes `PATCH /internal/secrets/:scope_type/:scope_id/:key` for worker-to-API token write-back:
+- Requires `x-eve-internal-token` header (same `EVE_INTERNAL_API_KEY` used by secret resolution)
+- **Update-only** -- returns 404 if the secret does not already exist (no create semantics)
+- Accepts `{ "value": "..." }` body
 
 ### Token Types
 

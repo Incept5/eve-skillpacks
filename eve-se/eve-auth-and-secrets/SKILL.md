@@ -44,6 +44,8 @@ Eve uses challenge-response authentication. The default provider is `github_ssh`
 
 JWT payloads include `sub` (user ID), `org_id`, `scope`, and `exp`. Verify tokens via the JWKS endpoint: `GET /auth/jwks`.
 
+Role and org membership changes take effect immediately -- the server resolves permissions from live DB memberships, not stale JWT claims. When a request includes a `project_id` but no `org_id`, the permission guard derives the org context from the project's owning org.
+
 ### Permissions
 
 Check what the current token can do:
@@ -76,16 +78,27 @@ Two paths:
 
 ## Org Invites
 
-Invite external users by identity hint:
+Invite external users via the CLI or API:
 
 ```bash
-# Admin creates invite targeting a Nostr pubkey
+# Invite with SSH key registration (registers key so the user can log in immediately)
+eve admin invite --email user@example.com --ssh-key ~/.ssh/id_ed25519.pub --org org_xxx
+
+# Invite with GitHub identity
+eve admin invite --email user@example.com --github ghuser --org org_xxx
+
+# Invite with web-based auth (Supabase)
+eve admin invite --email user@example.com --web --org org_xxx
+
+# API: invite targeting a Nostr pubkey
 curl -X POST "$EVE_API_URL/auth/invites" -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"org_id": "org_xxx", "role": "member", "provider_hint": "nostr", "identity_hint": "<pubkey>"}'
 ```
 
-When the pubkey authenticates, Eve auto-provisions their account and org membership.
+If no auth method is specified (`--github`, `--ssh-key`, or `--web`), the CLI warns that the user will not be able to log in. The user can self-register later via `eve auth request-access --org "Org Name" --ssh-key ~/.ssh/id_ed25519.pub --wait`.
+
+When the identity authenticates, Eve auto-provisions their account and org membership.
 
 ## Token Minting (Admin)
 
@@ -140,16 +153,35 @@ eve auth creds --claude       # Only Claude
 eve auth creds --codex        # Only Codex
 ```
 
+Output includes token type (`setup-token` or `oauth`), preview, and expiry. Use this to confirm token health before syncing.
+
 ## OAuth Token Sync
 
-Sync local OAuth tokens into Eve secrets (scope: project > org > user):
+Sync local Claude/Codex OAuth tokens into Eve secrets so agents can use them. Scope precedence: project > org > user.
 
 ```bash
-eve auth sync                       # Sync to user-level
-eve auth sync --org org_xxx         # Sync to org-level
-eve auth sync --project proj_xxx    # Sync to project-level
+eve auth sync                       # Sync to user-level (default)
+eve auth sync --org org_xxx         # Sync to org-level (shared across org projects)
+eve auth sync --project proj_xxx    # Sync to project-level (scoped to one project)
 eve auth sync --dry-run             # Preview without syncing
 ```
+
+This sets `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_OAUTH_REFRESH_TOKEN` (Claude) and `CODEX_AUTH_JSON_B64` (Codex/Code) at the requested scope.
+
+### Claude Token Types
+
+| Token Prefix | Type | Lifetime | Recommendation |
+|---|---|---|---|
+| `sk-ant-oat01-*` | `setup-token` (long-lived) | Long-lived | Preferred for jobs and automation |
+| Other `sk-ant-*` | `oauth` (short-lived) | ~15 hours | Use for interactive dev; regenerate with `claude setup-token` |
+
+`eve auth sync` warns when syncing a short-lived OAuth token. Run `eve auth creds` to inspect token type before syncing.
+
+### Automatic Codex/Code Token Write-Back
+
+After each harness invocation, the worker checks if the Codex/Code CLI refreshed `auth.json` during the session. If the token changed, it is automatically written back to the originating secret scope (user/org/project) so the next job starts with a fresh token. This is transparent and non-fatal -- a write-back failure logs a warning but does not affect the job result.
+
+For Codex/Code credentials, the sync picks the freshest token across `~/.codex/auth.json` and `~/.code/auth.json` by comparing `tokens.expires_at`.
 
 ## Access Groups + Scoped Access
 
@@ -337,6 +369,9 @@ The worker uses secrets for repository access:
 | Git clone failed | Check `github_token` or `ssh_key` secret is set |
 | Service can't reach API | Verify `EVE_API_URL` is injected (check `eve env show`) |
 | Scoped access denied | Run `eve access explain <permission> <resource> --org <org>` to see scope match details. Check that the binding's scope constraints include the target path/schema |
+| Wrong role shown | Role is resolved from live DB memberships. Run `eve auth permissions` to see effective role. If multi-org, check `eve auth status` for per-org membership listing |
+| Short-lived Claude token in jobs | Run `eve auth creds` to check token type. If `oauth` (not `setup-token`), regenerate with `claude setup-token` then re-sync with `eve auth sync` |
+| Codex token expired between jobs | Automatic write-back should refresh it. If not, re-run `eve auth sync`. Check that `~/.codex/auth.json` or `~/.code/auth.json` has a fresh token |
 
 ### Incident Response (Secret Leak)
 

@@ -204,8 +204,45 @@ Uses `GEMINI_API_KEY` or `GOOGLE_API_KEY`. No special credential setup.
 Docker entrypoint writes OpenAI OAuth to `~/.code/auth.json` and `~/.codex/auth.json`.
 Format: `{ "tokens": { "access_token": "...", "refresh_token": "...", "id_token": "...", "account_id": "..." } }`
 
-Eve does **not** auto-refresh Code/Codex tokens. Re-auth with `codex auth` / `code auth`,
-then run `./bin/eh auth extract --save` to update secrets.
+Eve automatically writes back refreshed Code/Codex tokens after each invocation. If the
+`auth.json` changed during the session, the new value is patched to the originating secret
+scope (user/org/project). Write-back failures are non-fatal (logged as warning).
+
+To initially register tokens, re-auth with `codex auth` / `code auth`, then run `eve auth sync`.
+
+---
+
+## Token Lifecycle Management
+
+### Claude OAuth Tokens
+
+Claude OAuth tokens (`sk-ant-oat01-*`) are short-lived (~15h) and cannot be refreshed by the
+worker -- the Claude harness handles refresh internally during a session. For jobs that may
+exceed the token's remaining lifetime, prefer `ANTHROPIC_API_KEY` (a long-lived setup-token).
+
+Token types detected by `eve auth creds` and `eve auth sync`:
+
+| Token prefix | Type | Lifetime |
+|---|---|---|
+| `sk-ant-oat01-` | `setup-token` | Long-lived (preferred) |
+| Other `sk-ant-*` | `oauth` | ~15h (short-lived) |
+
+`eve auth sync` warns when syncing a short-lived OAuth token (any Claude token not starting
+with `sk-ant-oat01-`), recommending a setup-token for long-running jobs.
+
+### Codex/Code OAuth Tokens
+
+Codex and Code CLI store OAuth tokens in `auth.json` under `~/.codex/` or `~/.code/`. The
+CLI may refresh these tokens automatically during a session.
+
+**Write-back flow:**
+
+1. Before invocation: worker captures the base64-encoded `auth.json` and its originating secret scope.
+2. After invocation: worker reads `auth.json` from disk (picks freshest across `~/.code` and `~/.codex`).
+3. If the base64 differs (token was refreshed), the new value is written back to the originating secret via `PATCH /internal/secrets/:scope_type/:scope_id/CODEX_AUTH_JSON_B64`.
+4. Write-back failures are non-fatal (logged as `warn`).
+
+This keeps tokens fresh across jobs without manual re-sync.
 
 ---
 

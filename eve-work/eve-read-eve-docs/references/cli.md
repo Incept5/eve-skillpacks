@@ -235,6 +235,7 @@ eve skills install [source] [--skip-installed]          # Install skill packs
 - Without source: reads `skills.txt` and installs all entries.
 - With source: installs directly from URL, GitHub repo, or local path and persists to `skills.txt`.
 - Supports: `https://github.com/org/repo`, `org/repo` (GitHub shorthand), `./local/path`.
+- Glob patterns in `skills.txt` (e.g. `../**`) automatically exclude `private-skills/` directories unless the path explicitly targets them (e.g. `../private-skills/my-skill`).
 - Installs for all supported agents: claude-code, codex, gemini-cli.
 
 ## Models + Harnesses
@@ -452,7 +453,9 @@ Administrative commands (require elevated permissions).
 
 ```bash
 # User invitation
-eve admin invite --email user@example.com --github user
+eve admin invite --email user@example.com
+  [--github <username>] [--ssh-key <path>]              # Auth methods (at least one recommended)
+  [--role <role>] [--org <org_id>]
   [--web] [--redirect-to <url>]                         # --web sends Supabase invite email
 
 # Access request management
@@ -494,6 +497,8 @@ eve admin ingress-aliases reclaim <alias> --reason "..."  # Reclaim an alias
 ```
 
 Notes:
+- `invite --ssh-key` registers an SSH public key file (e.g. `~/.ssh/id_ed25519.pub`) as an auth identity. If no auth method is given (`--github`, `--ssh-key`, or `--web`), the CLI warns that the user won't be able to log in.
+- Users can self-register via `eve auth request-access --org "Org Name" --ssh-key ~/.ssh/id_ed25519.pub --wait`.
 - Access-request approval is retry-safe (`approve` returns the existing approved record on repeat calls).
 - Duplicate identity fingerprints are attached to the existing identity owner.
 - `ingress-aliases reclaim` forcibly releases an alias from its current project/environment. Requires a `--reason`.
@@ -554,7 +559,7 @@ eve ollama route-policy rm --scope-kind <kind> [--scope-id <id>]
 
 eve ollama managed list [--json]
 eve ollama managed publish --canonical <canonical_model_id> --provider <provider> --slug <provider_model_slug> --target-id <target_id>
-  [--requires-warm-start true|false] [--enabled true|false]
+  [--requires-warm-start true|false] [--enabled true|false]   # Warns if openai_compat target base_url includes a /v1 gateway path
 eve ollama managed unpublish --canonical <canonical_model_id>
 ```
 
