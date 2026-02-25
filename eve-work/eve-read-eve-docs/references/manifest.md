@@ -217,6 +217,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | `files` | array | Mount source files into container |
 | `storage` | object | Persistent volume configuration |
 | `managed` | object | Managed DB config (requires `role: managed_db`) |
+| `object_store` | object | App object store bucket declarations |
 
 Notes:
 - `x-eve.role: job` makes a service runnable as a one-off job (migrations, seeds).
@@ -237,6 +238,37 @@ services:
         engine: postgres
         engine_version: "16"
 ```
+
+### App Object Store Buckets (`x-eve.object_store`)
+
+Declare S3-compatible buckets for a service. Eve provisions each bucket at deploy time and injects credentials as env vars.
+
+```yaml
+services:
+  api:
+    x-eve:
+      object_store:
+        buckets:
+          - name: uploads          # logical name → env var suffix
+            visibility: private    # private (default) | public
+            cors:
+              origins: ["https://app.example.com"]
+              methods: [GET, PUT, HEAD, DELETE]
+              max_age_seconds: 3600
+            lifecycle:
+              abort_incomplete_uploads_days: 7
+          - name: assets
+            visibility: public
+```
+
+Injected env vars (per bucket, uppercased name):
+- `STORAGE_ENDPOINT` — MinIO/S3 endpoint
+- `STORAGE_REGION`
+- `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` — per-deployment scoped credentials
+- `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads`)
+- `STORAGE_FORCE_PATH_STYLE` — `true` for MinIO, omitted for AWS S3
+
+Visibility `public` sets the bucket ACL for anonymous GET access (suitable for static assets).
 
 ### API Spec Schema
 

@@ -159,6 +159,41 @@ Notes:
 - `logs --follow` streams SSE events (`fs_event`, `fs_checkpoint`) and resumes with `--after`.
 - If `--link` is omitted for lifecycle commands, CLI targets the most recently updated link in the org.
 
+### FS Share Tokens
+
+Create time-limited, revocable share URLs for any org filesystem file. The URL redirects (302) to a presigned MinIO/S3 download URL — no Eve auth required on access.
+
+```bash
+# Create a share token (7d TTL by default)
+eve fs share /docs/report.md --org org_xxx [--expires 24h] [--label "Q1 report"]
+# → Share URL: http://api.../orgs/mto/fs/public/docs/report.md?token=share_xxx
+
+# List active (non-revoked, non-expired) shares
+eve fs shares --org org_xxx [--json]
+
+# Revoke a share token
+eve fs revoke share_xxx --org org_xxx
+```
+
+Expiry formats: `7d`, `24h`, `30m`, `3600s`.
+
+### FS Public Paths
+
+Register path prefixes for permanent, tokenless public access. All files under the prefix are accessible without any authentication.
+
+```bash
+# Register a prefix as public
+eve fs publish /assets/ --org org_xxx [--label "Static assets"]
+
+# List registered public path prefixes
+eve fs public-paths --org org_xxx [--json]
+
+# Remove a public path registration
+# (use the API: DELETE /orgs/{org}/fs/public-paths/{id})
+```
+
+Public path access URL pattern: `GET /orgs/{slug}/fs/public/{path}` — no token or auth header required.
+
 ## Resources (Resolver)
 
 Resource URIs unify org docs and job attachments.
