@@ -51,6 +51,8 @@ Core fields:
 
 Delivered via webhook: `POST /integrations/github/events/{project_id}`. Signature verified with `X-Hub-Signature-256`.
 
+**Quick setup:** `eve github setup --project proj_xxx` provisions the webhook secret and auto-creates the GitHub webhook via `gh` CLI (or prints manual instructions). Use `eve github test` to fire a synthetic push event and verify triggers.
+
 ### Slack Events
 
 | Type | Trigger | Payload |

@@ -407,6 +407,31 @@ Slack commands (run inside Slack):
 
 Nostr relay subscriptions provide a non-webhook transport. See `references/gateways.md`.
 
+## GitHub Integration
+
+One-command webhook setup for connecting a project's GitHub repo to Eve event triggers.
+
+```bash
+# Set up webhook (auto-creates via gh CLI if available, otherwise prints instructions)
+eve github setup [--project proj_xxx]
+  [--regenerate]                                       # Regenerate webhook secret
+  [--json]
+
+# Check webhook status
+eve github status [--project proj_xxx] [--json]
+
+# Fire a synthetic github.push test event
+eve github test [--project proj_xxx] [--json]
+```
+
+Notes:
+- `setup` ensures `GITHUB_WEBHOOK_SECRET` exists in project secrets and returns the webhook URL + secret.
+- If the `gh` CLI is installed and authenticated, `setup` auto-creates or updates the webhook on the repo. Otherwise it prints the URL, secret, and manual instructions (including a ready-to-paste `gh api` command).
+- `--regenerate` deletes the existing secret and creates a new one (useful for rotation).
+- `test` creates a synthetic `github.push` event on the project's default branch. Use it to verify pipeline triggers fire correctly.
+- Webhook URL format: `${EVE_PUBLIC_API_URL}/integrations/github/events/${project_id}`.
+- Required permissions: `secrets:write` (setup), `secrets:read` (status), `events:write` (test).
+
 ## Events (Triggers)
 
 ```bash
@@ -747,6 +772,7 @@ Quick reference:
 | **Analytics** | `summary`, `jobs`, `pipelines`, `env-health` |
 | **Webhooks** | `create`, `list`, `show`, `delete`, `replay` |
 | **API** | `list`, `show`, `spec`, `refresh`, `examples`, `call`, `generate`, `diff` |
+| **GitHub** | `setup`, `status`, `test` |
 | **Events** | `list`, `show`, `emit` |
 | **Chat** | `simulate` |
 | **Integrations** | `list`, `slack connect`, `test` |
