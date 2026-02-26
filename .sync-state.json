@@ -1,15 +1,8 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "790a9e1b662efa270a44046c2c3b5271ae2afd52",
-  "last_synced_at": "2026-02-24T12:00:00Z",
+  "last_synced_commit": "332486cbe7bb9b73bdcf33e538f36625f90c9834",
+  "last_synced_at": "2026-02-26T10:00:00Z",
   "sync_log": [
-    {
-      "commit": "3bb245e615c96b3df224a5500ae57a968e803fed",
-      "commit_short": "3bb245e",
-      "synced_at": "2026-02-15T17:00:00Z",
-      "type": "incremental",
-      "summary": "5-commit incremental sync — agent memory platform (kv, memory, search, thread distillation, context hydration), deploy recovery (env rollback/reset/recover, db reset/wipe), docs lifecycle metadata, k3d context guard"
-    },
     {
       "commit": "4fc1b70f2dd66d3dcbe29d714c695bd4e92d0463",
       "commit_short": "4fc1b70",
@@ -37,6 +30,13 @@
       "synced_at": "2026-02-24T12:00:00Z",
       "type": "incremental",
       "summary": "45-commit incremental sync — auth token sync refactor (Claude token type detection, Codex write-back), SSH key invite, RBAC multi-org fixes, harness git policy fixes, shared package extraction, private-skills glob exclusion"
+    },
+    {
+      "commit": "332486cbe7bb9b73bdcf33e538f36625f90c9834",
+      "commit_short": "332486c",
+      "synced_at": "2026-02-26T10:00:00Z",
+      "type": "incremental",
+      "summary": "32-commit incremental sync — object store + org filesystem (presigned URLs, share tokens, public paths, app object stores), Codex harness fixes (auth, sandbox, streaming), CLI improvements (admin users, --version, first-experience auth, log normalization), worker image tooling (gh, jq)"
     }
   ]
 }

@@ -17,6 +17,8 @@
 
 Complete reference for the Eve Horizon CLI (`eve`). Every command supports `--json` for machine-readable output unless noted otherwise.
 
+**Version:** `eve --version` (or `eve -v`, `eve version`) prints the CLI version and, when the API is reachable, the platform version and git SHA. Use `--json` for structured output.
+
 **Data envelope:** All list endpoints return `{ "data": [...] }` in JSON mode. The CLI handles both wrapped and unwrapped responses transparently, so agents should always expect the `data` wrapper when parsing `--json` output from list commands.
 
 ## Environment Setup
@@ -70,17 +72,50 @@ Notes:
 - `--clear` on `use` resets all fields to defaults.
 - Set `--org` and `--project` to avoid passing them on every command.
 
+## Auth (First Experience)
+
+`eve auth login` now auto-discovers SSH keys from `~/.ssh/` when no `--ssh-key` is provided. It scans for private keys with matching `.pub` files and tries them in preference order (ed25519 > ecdsa > rsa). On success it prints which key was used. This eliminates the most common new-user friction point -- not knowing which flag to pass. Explicit `--ssh-key`, `EVE_AUTH_SSH_KEY`, or profile `default_ssh_key` still take priority when set.
+
+See `references/cli-auth.md` for full auth command reference.
+
 ## Task Modules
 
 Load the module that matches the current question before opening full command blocks:
 
 - `references/cli-auth.md` -- login, bootstrap, service accounts, roles, bindings, policy-as-code.
-- `references/cli-org-project.md` -- init, org/project lifecycle, docs, FS sync, resource resolver.
+- `references/cli-org-project.md` -- init, org/project lifecycle, docs, FS sync, FS sharing, resource resolver.
 - `references/cli-jobs.md` -- job create/list/show/join/follow, attachments, and batch workflows.
 - `references/cli-pipelines.md` -- builds, releases, pipelines, and workflow commands.
 - `references/cli-deploy-debug.md` -- environment deploy/recover/rollback, local k3d stack, and CLI-first debugging.
 
 For any topic, open only the matching module to keep load minimal.
+
+## FS Sharing
+
+Share files from the org filesystem via time-limited tokens, or publish path prefixes for unauthenticated public access.
+
+```bash
+# Share a file (returns a URL with an embedded token)
+eve fs share <path> --org org_xxx
+  [--expires 7d] [--label "release notes"]
+
+# List active shares
+eve fs shares --org org_xxx
+
+# Revoke a share token
+eve fs revoke <token> --org org_xxx
+
+# Publish a path prefix for public (unauthenticated) access
+eve fs publish <path-prefix> --org org_xxx [--label "docs"]
+
+# List public paths
+eve fs public-paths --org org_xxx
+```
+
+Notes:
+- `share` creates a short-lived token-based URL for a single file. Default expiry is server-controlled; override with `--expires` (e.g. `7d`, `24h`).
+- `publish` makes an entire path prefix publicly accessible without tokens. Use for assets, docs, or anything meant to be world-readable.
+- Both commands support `--json` for structured output.
 
 ## Secrets
 
@@ -452,6 +487,9 @@ Notes:
 Administrative commands (require elevated permissions).
 
 ```bash
+# List all platform users (shows email, org memberships, roles)
+eve admin users [--json]
+
 # User invitation
 eve admin invite --email user@example.com
   [--github <username>] [--ssh-key <path>]              # Auth methods (at least one recommended)
@@ -497,6 +535,7 @@ eve admin ingress-aliases reclaim <alias> --reason "..."  # Reclaim an alias
 ```
 
 Notes:
+- `users` lists every registered user with their email, display name, admin status, org memberships, and roles. One row per user-org pair. Useful for auditing access.
 - `invite --ssh-key` registers an SSH public key file (e.g. `~/.ssh/id_ed25519.pub`) as an auth identity. If no auth method is given (`--github`, `--ssh-key`, or `--web`), the CLI warns that the user won't be able to log in.
 - Users can self-register via `eve auth request-access --org "Org Name" --ssh-key ~/.ssh/id_ed25519.pub --wait`.
 - Access-request approval is retry-safe (`approve` returns the existing approved record on repeat calls).
@@ -645,6 +684,22 @@ Notes:
 - The cluster binds ports 80/443 on localhost via k3d's load balancer.
 - Kube context is set to `k3d-eve-local` automatically.
 
+## Job Execution Runtime
+
+Platform behaviors that affect how jobs and harnesses execute. These are not CLI commands but are important context for understanding job output.
+
+**Type auto-resolve:** If a pipeline step declares `type: run` with a `service` reference but no `command`, the platform auto-resolves it to `type: job` and logs a warning. This catches a common manifest mistake. Update your manifest to use `type: job` directly to silence the warning.
+
+**Secret forwarding:** All resolved project secrets (project, org, and user scope) are now forwarded to the harness process environment. This means secrets like `GITHUB_TOKEN`, custom API keys, and other credentials set via `eve secrets set` are available to the agent without additional configuration. Worker-internal variables (`DATABASE_URL`, etc.) remain excluded by the sanitization allowlist.
+
+**Worker image tooling:** The worker image now includes `gh` (GitHub CLI) and `jq`. When `GITHUB_TOKEN` or `GH_TOKEN` is set in project secrets, `gh` authenticates automatically inside jobs.
+
+**Log normalization:** The platform stream API now includes a pre-computed `text` field on every log event, providing human-readable output without harness-specific parsing. Both `eve job logs` and `eve job follow` use a shared normalization layer (`normalizeLogLine` from `@eve/shared`) that handles Codex, Claude, and other harness event formats uniformly.
+
+**Codex harness improvements:**
+- Streaming logs render cleanly: tool use shows the tool name with a truncated input preview, status messages are prefixed with `>`, and result text is extracted properly.
+- Final result text and token usage are extracted from Codex job logs for display in `eve job show` and `eve job result`.
+
 ## Debugging (CLI-first)
 
 See `references/deploy-debug.md` for the debugging ladder and system health workflows.
@@ -673,7 +728,7 @@ Quick reference:
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |
 | **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
 | **Environments** | `create`, `deploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
-| **FS Sync** | `init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor` |
+| **FS** | `sync` (`init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor`), `share`, `shares`, `revoke`, `publish`, `public-paths` |
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |
 | **Agents** | `sync`, `config`, `runtime-status` |
 | **Teams** | `list` |
@@ -698,5 +753,5 @@ Quick reference:
 | **Supervision** | `supervise` |
 | **Migrate** | `skills-to-packs` |
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |
-| **Admin** | `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models`, `ingress-aliases` |
+| **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models`, `ingress-aliases` |
 | **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |
