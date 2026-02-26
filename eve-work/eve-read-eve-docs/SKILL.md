@@ -56,6 +56,9 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Secrets, auth, access control, and identity providers: `references/secrets-auth.md`
 - Skills installation, packs, and resolution order: `references/skills-system.md`
 - Harness selection and sandbox policy: `references/harnesses.md`
+- Observability, cost tracking, receipts, and analytics: `references/observability.md`
+- Database provisioning, migrations, SQL, and managed DB operations: `references/database-ops.md`
+- Symptom-first troubleshooting across auth, secrets, deploy, jobs, and builds: `references/troubleshooting.md`
 
 ## Index
 
@@ -77,6 +80,9 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/cli-jobs.md` -- CLI job lifecycle: create/list/update, attempt tracking, result/monitoring/attachments.
 - `references/cli-pipelines.md` -- CLI build/release/pipeline/workflow command reference.
 - `references/cli-deploy-debug.md` -- CLI environment deploy/recover/lifecycle and local k3d stack.
+- `references/observability.md` -- Correlation IDs, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
+- `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy.
+- `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues.
 
 ## Intent Coverage Matrix
 
@@ -89,6 +95,9 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Recover from runtime issues | `references/cli-deploy-debug.md`, `references/deploy-debug.md`, `references/cli-jobs.md` | Diagnose output, recovery target, mitigation command plan |
 | Inspect platform behavior or events | `references/events.md`, `references/agents-teams.md` | Canonical event stream view, routing path |
 | Install/update skills for agents | `references/skills-system.md`, `references/overview.md` | Installed pack/skill set and resolution order |
+| Monitor costs, receipts, or analytics | `references/observability.md`, `references/cli.md` | Receipt breakdown, analytics counters, cost totals |
+| Provision or operate environment databases | `references/database-ops.md`, `references/manifest.md` | Migration status, query results, managed DB state |
+| Diagnose a failure from symptoms | `references/troubleshooting.md`, `references/deploy-debug.md` | Root cause, fix command, recovery path |
 
 ## Hard Rules
 

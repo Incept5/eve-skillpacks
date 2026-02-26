@@ -374,3 +374,8 @@ See `references/skills-system.md`.
 | Deploy + debug | `references/deploy-debug.md` |
 | Harnesses | `references/harnesses.md` |
 | Gateway plugins | `references/gateways.md` |
+| Observability + cost | `references/observability.md` |
+| Database operations | `references/database-ops.md` |
+| Troubleshooting | `references/troubleshooting.md` |
+
+**Note:** These references are distilled from the Eve Horizon system docs. For narrative walkthroughs and tutorials, see the [eve-horizon](https://github.com/incept5/eve-horizon) repository docs.
