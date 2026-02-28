@@ -17,6 +17,10 @@ eve profile create staging --api-url https://api.eh1.incept5.dev
 eve profile use staging
 ```
 
+## Infrastructure Change Policy
+
+Never run `kubectl apply`, `helm install`, or any direct Kubernetes resource creation against shared infrastructure. All infrastructure changes go through Terraform. Use the Eve CLI (`eve env`, `eve env deploy`) to manage application deployments — the platform handles the underlying k8s resources.
+
 ## Deploy Flow (Staging)
 
 ```bash
@@ -139,13 +143,18 @@ Eve publishes worker images to the configured private registry with these varian
 
 ## Platform Environment Variables
 
-Eve injects these into every deployed service container:
+Eve automatically injects these into every deployed service container:
 
-- `EVE_API_URL` — internal cluster URL for server-to-server calls
-- `EVE_PUBLIC_API_URL` — public ingress URL for browser-facing apps
-- `EVE_PROJECT_ID`, `EVE_ORG_ID`, `EVE_ENV_NAME`
+| Variable | Purpose |
+|----------|---------|
+| `EVE_API_URL` | Internal cluster URL for server-to-server calls |
+| `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps (when configured) |
+| `EVE_SSO_URL` | SSO broker URL for user authentication (when configured) |
+| `EVE_PROJECT_ID` | Current project ID |
+| `EVE_ORG_ID` | Current organization ID |
+| `EVE_ENV_NAME` | Current environment name |
 
-Use `EVE_API_URL` for backend calls. Use `EVE_PUBLIC_API_URL` for browser clients.
+Use `EVE_API_URL` for backend calls. Use `EVE_PUBLIC_API_URL` for browser/client-side code. Services can override any of these by defining them explicitly in their manifest `environment` section.
 
 ## Access URLs
 

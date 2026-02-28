@@ -1,15 +1,8 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "332486cbe7bb9b73bdcf33e538f36625f90c9834",
-  "last_synced_at": "2026-02-26T10:00:00Z",
+  "last_synced_commit": "e95a226bd3f13a2c4b2ecfc4c5e6fd5e9d61dd05",
+  "last_synced_at": "2026-02-28T12:00:00Z",
   "sync_log": [
-    {
-      "commit": "4fc1b70f2dd66d3dcbe29d714c695bd4e92d0463",
-      "commit_short": "4fc1b70",
-      "synced_at": "2026-02-16T09:30:00Z",
-      "type": "incremental",
-      "summary": "21-commit incremental sync — local k3d stack CLI (eve local up/down/status/health/reset/logs), ingress aliases (vanity URLs, admin reclaim), access bind --project required, staging kubeconfig safety, OpenAPI spec regen"
-    },
     {
       "commit": "401d370cb35f1ec44b81a56358b9638e5e8de02b",
       "commit_short": "401d370",
@@ -37,6 +30,13 @@
       "synced_at": "2026-02-26T10:00:00Z",
       "type": "incremental",
       "summary": "32-commit incremental sync — object store + org filesystem (presigned URLs, share tokens, public paths, app object stores), Codex harness fixes (auth, sandbox, streaming), CLI improvements (admin users, --version, first-experience auth, log normalization), worker image tooling (gh, jq)"
+    },
+    {
+      "commit": "e95a226bd3f13a2c4b2ecfc4c5e6fd5e9d61dd05",
+      "commit_short": "e95a226",
+      "synced_at": "2026-02-28T12:00:00Z",
+      "type": "incremental",
+      "summary": "33-commit incremental sync — Slack integration (gateway simulate, provider bootstrap, OAuth install, Block Kit, identity resolution, rate limiting), app SSO (@eve/auth + @eve/auth-react, eveUserAuth middleware), GitHub webhook setup, terraform-only infra policy, CLI (chat simulate gateway routing, identity link, integrations expansion, ollama pull/models)"
     }
   ]
 }

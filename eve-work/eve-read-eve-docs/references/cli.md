@@ -271,6 +271,7 @@ eve skills install [source] [--skip-installed]          # Install skill packs
 - With source: installs directly from URL, GitHub repo, or local path and persists to `skills.txt`.
 - Supports: `https://github.com/org/repo`, `org/repo` (GitHub shorthand), `./local/path`.
 - Glob patterns in `skills.txt` (e.g. `../**`) automatically exclude `private-skills/` directories unless the path explicitly targets them (e.g. `../private-skills/my-skill`).
+- Local directory paths in `skills.txt` (e.g. `./my-skills`) are expanded at parse time into individual skill subdirectories, so `./path` behaves identically to `./path/*`. This ensures correct `--skip-installed` checks and consistent enumeration.
 - Installs for all supported agents: claude-code, codex, gemini-cli.
 
 ## Models + Harnesses
@@ -384,16 +385,36 @@ Notes:
 eve integrations list --org org_xxx
 eve integrations slack connect --org org_xxx --team-id T123
   --token xoxb-test [--tokens-json '{}'] [--status]
+eve integrations slack install-url --org org_xxx             # Generate Slack install URL for workspace admins
 eve integrations test <integration_id> --org org_xxx
+eve integrations update <integration_id> --org org_xxx       # Update integration settings
+  --setting key=value                                        # e.g. admin_channel_id=C12345
 
 # Default agent slug (org-wide fallback)
 eve org update org_xxx --default-agent mission-control
 
-# Chat simulation (project-scoped)
+# Chat simulation (gateway-routed, default)
+eve chat simulate --team-id T123 --text "hello"
+  [--channel-id C123] [--user-id U123]
+  [--provider slack] [--thread-id <id>]
+  [--external-email user@example.com]
+  [--event-type <type>] [--dedupe-key <key>]
+  [--metadata '{}'] [--json]
+
+# Chat simulation (legacy project-scoped path)
 eve chat simulate --project proj_xxx
-  --team-id T123 --channel-id C123 --user-id U123 --text "hello"
+  --team-id T123 --text "hello"
+  [--channel-id C123] [--user-id U123]
   [--provider slack] [--thread-key <key>] [--metadata '{}']
 ```
+
+Notes:
+- `chat simulate` defaults to the gateway path (`/gateway/providers/simulate`) which routes by agent slug. Omit `--project` to use this path.
+- Pass `--project` to force the legacy per-project simulate path. The CLI warns when this fallback is used.
+- `--thread-id` replaces `--thread-key` on the gateway path (both are accepted for backward compat).
+- `--external-email` can also be passed inside `--metadata` as `external_email` for backward compat.
+- `integrations update` patches individual settings on an existing integration (e.g. changing `admin_channel_id`).
+- `integrations slack install-url` generates the OAuth authorize URL for sharing with workspace admins.
 
 Slack commands (run inside Slack):
 
@@ -431,6 +452,19 @@ Notes:
 - `test` creates a synthetic `github.push` event on the project's default branch. Use it to verify pipeline triggers fire correctly.
 - Webhook URL format: `${EVE_PUBLIC_API_URL}/integrations/github/events/${project_id}`.
 - Required permissions: `secrets:write` (setup), `secrets:read` (status), `events:write` (test).
+
+## Identity
+
+Link external provider identities (e.g. Slack user) to the current Eve user.
+
+```bash
+eve identity link <provider> --org org_xxx                   # Generate a link token for a provider
+```
+
+Notes:
+- Supported providers: `slack`.
+- Returns a token with instructions for completing the identity link (e.g. sending a DM to the Eve bot in Slack).
+- Org scope is required; falls back to profile default.
 
 ## Events (Triggers)
 
@@ -600,6 +634,8 @@ eve ollama target add --name <name> --base-url <url>
 eve ollama target rm <target_id>
 eve ollama target test <target_id>
 eve ollama target wake <target_id> [--wait=true|false] [--timeout-ms <ms>]
+eve ollama target pull <target_id> --model-id <id>           # Pull a model onto a target
+eve ollama target models <target_id>                         # List models on a remote target
 
 eve ollama models
 eve ollama model add --canonical <model_id> --provider <provider> --slug <provider_model_slug>
@@ -638,6 +674,8 @@ Notes:
   - `EVE_INFERENCE_ORG_TOKENS_PER_HOUR`
   - `EVE_INFERENCE_PROJECT_TOKENS_PER_HOUR`
 - `eve ollama target wake` is used for scale-to-zero target pools and supports `--wait` plus `--timeout-ms`.
+- `eve ollama target pull` triggers a model pull on a specific target (useful for pre-warming).
+- `eve ollama target models` lists models currently loaded on a remote target with size and modification time.
 
 ## Local Stack (k3d)
 
@@ -744,7 +782,7 @@ Quick reference:
 | **Profile** | `list`, `show`, `use`, `create`, `set`, `remove` |
 | **Auth** | `login`, `logout`, `status`, `token`, `permissions`, `bootstrap`, `mint`, `creds`, `sync`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `groups create/list/show/update/delete`, `groups members list/add/remove`, `memberships`, `validate`, `plan`, `sync` |
-| **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members` |
+| **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members`, `membership-requests` |
 | **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap`, `status` |
 | **Docs** | `write`/`create`, `read`, `show`, `list`, `search`, `stale`, `review`, `versions`, `query`, `delete` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
@@ -764,7 +802,7 @@ Quick reference:
 | **Packs** | `status`, `resolve` |
 | **Skills** | `install` |
 | **Models** | `list` |
-| **Ollama** | `targets`, `target add/rm/test/wake`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
+| **Ollama** | `targets`, `target add/rm/test/wake/pull/models`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
 | **Harnesses** | `list`, `get` |
 | **Database** | `schema`, `rls`, `rls init --with-groups`, `sql`, `migrate`, `migrations`, `new`, `reset`, `wipe`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
@@ -775,7 +813,8 @@ Quick reference:
 | **GitHub** | `setup`, `status`, `test` |
 | **Events** | `list`, `show`, `emit` |
 | **Chat** | `simulate` |
-| **Integrations** | `list`, `slack connect`, `test` |
+| **Identity** | `link` |
+| **Integrations** | `list`, `slack connect`, `slack install-url`, `test`, `update` |
 | **Supervision** | `supervise` |
 | **Migrate** | `skills-to-packs` |
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |

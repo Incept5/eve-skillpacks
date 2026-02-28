@@ -301,6 +301,15 @@ Policies for production disk management:
 
 K8s: per-attempt PVCs are deleted after completion. Session-scoped PVCs require TTL cleanup and storage quotas.
 
+## Infrastructure Change Policy
+
+All AWS infrastructure changes must go through Terraform in the `incept5-eve-infra` repo. No exceptions.
+
+- **Never** mutate AWS resources (security groups, IAM, DNS, EKS, ASGs) via CLI or console -- Terraform will silently revert them on the next apply, which has caused production outages.
+- **Read-only** AWS CLI commands (`describe`, `list`, `get`) are fine for diagnosis.
+- If staging infra is broken, fix it in `incept5-eve-infra/terraform/aws/`, run `terraform plan` then `terraform apply`, and verify the plan shows no changes after apply.
+- If you lack access to the infra repo, escalate to the user -- do not apply ad-hoc fixes.
+
 ## CLI-First Debugging Ladder
 
 1. **CLI first** -- `eve system health`, `eve job diagnose <id>`, `eve job follow <id>`.

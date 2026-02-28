@@ -78,19 +78,23 @@ POST /gateway/providers/:provider/webhook
 
 ### Endpoints
 
-- **Generic**: `POST /gateway/providers/slack/webhook`
-- **Legacy**: `POST /integrations/slack/events` (preserved for existing installations)
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /gateway/providers/slack/webhook` | All Slack Events API payloads (mentions, messages, URL verification) |
+| `POST /gateway/providers/slack/interactive` | Slack interactive payloads (button clicks, e.g., membership approval) |
 
 ### Signature Validation
 
-Slack requests are validated using the signing secret (`EVE_SLACK_SIGNING_SECRET`). The provider computes `HMAC-SHA256(signing_secret, v0:timestamp:body)` and compares against the `X-Slack-Signature` header. Invalid signatures are rejected before parsing.
+Slack requests are validated using the signing secret (`EVE_SLACK_SIGNING_SECRET`). The provider computes `HMAC-SHA256(signing_secret, v0:timestamp:body)` and compares against the `X-Slack-Signature` header. Invalid signatures are rejected before parsing. Both the webhook and interactive endpoints use the same signing secret.
 
 ### Event Parsing Flow
 
 1. Event arrives at webhook endpoint.
 2. Signature validated with signing secret.
-3. Integration resolved: `team_id -> org_id`.
-4. Event type determines dispatch path:
+3. Duplicate check: `event_id` from the Slack envelope checked against in-memory cache (see [Deduplication](#deduplication)).
+4. Integration resolved: `team_id -> org_id`.
+5. Identity interception: Slack user resolved to Eve identity before agent routing (see [Identity Interception](#identity-interception)).
+6. Event type determines dispatch path:
 
 ### Message vs app_mention Events
 
@@ -129,6 +133,20 @@ For `message` (no mention):
 ### Outbound
 
 Responses delivered via Slack Web API (`chat.postMessage`), threaded to the originating message.
+
+### Interactive Endpoint
+
+`POST /gateway/providers/slack/interactive` handles Slack interactive components (buttons, modals, menus).
+
+- Content-Type: `application/x-www-form-urlencoded` with a `payload` field containing a JSON string.
+- Signature validated using the same signing secret as the webhook endpoint.
+- Routes by `action_id` to the appropriate handler.
+
+Supported actions:
+- `membership_approve` -- approve a pending org membership request.
+- `membership_deny` -- deny a pending org membership request.
+
+Returns `200 OK` with an optional message update to replace the interactive message in Slack.
 
 ## Nostr Provider (Subscription)
 
@@ -172,6 +190,35 @@ If no slug matches, the org default agent is used.
 ### Cross-Relay Deduplication
 
 Event IDs are tracked in a bounded set (10k entries). Duplicate events from multiple relays are dropped.
+
+## Deduplication
+
+Slack may deliver the same event more than once (retries on slow response, network glitches). The gateway tracks `event_id` values in a short-lived in-memory cache:
+
+- On receipt, the `event_id` from the Slack event envelope is checked against the cache.
+- If already seen, return `200 OK` immediately with no further processing.
+- If new, store the `event_id` and continue normal processing.
+- Cache entries expire after a short TTL (order of minutes) -- long enough to cover Slack's retry window.
+
+## Timeout Handling
+
+Slack retries webhook deliveries if no response within **3 seconds**. To avoid duplicate deliveries:
+
+- The webhook handler acknowledges (`200`) as quickly as possible.
+- Slow work (identity resolution, agent routing, job creation) runs asynchronously after the HTTP response.
+- This ensures the 3-second deadline is met even under load.
+
+## Identity Interception
+
+Before agent routing, the gateway resolves the Slack user to an Eve identity. This happens after integration lookup (`team_id -> org_id`) but before agent slug parsing:
+
+1. Sender's Slack user ID checked against known identity links for the org.
+2. If resolved, processing continues to agent routing.
+3. If unresolved, the user receives a helpful error explaining how to link their Slack account.
+
+### Reserved Commands
+
+The `link` command is reserved and checked before agent slug resolution. `@eve link` initiates the identity linking flow regardless of whether a `link` agent exists. This ensures new users can always link their accounts, even before any agents are configured.
 
 ## Multi-Tenant Mapping
 
@@ -254,14 +301,14 @@ Returns `thread_id` and `job_ids` showing the dispatch result.
 ## API Endpoints
 
 ```
-POST /gateway/providers/:provider/webhook   # generic webhook ingress
-POST /integrations/slack/events             # legacy Slack endpoint
+POST /gateway/providers/:provider/webhook       # generic webhook ingress
+POST /gateway/providers/slack/interactive        # Slack interactive components
 
-GET  /internal/orgs/{org_id}/agents         # agent directory (filtered by policy)
-POST /internal/orgs/{org_id}/chat/route     # slug-based routing
+GET  /internal/orgs/{org_id}/agents             # agent directory (filtered by policy)
+POST /internal/orgs/{org_id}/chat/route         # slug-based routing
 
-POST /chat/simulate                         # simulate chat message
-POST /chat/listen                           # subscribe agent to channel/thread
-POST /chat/unlisten                         # unsubscribe agent
-GET  /chat/listeners                        # list active listeners
+POST /chat/simulate                             # simulate chat message
+POST /chat/listen                               # subscribe agent to channel/thread
+POST /chat/unlisten                             # unsubscribe agent
+GET  /chat/listeners                            # list active listeners
 ```

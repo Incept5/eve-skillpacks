@@ -46,6 +46,19 @@ This shows what environments are running, the correct `EVE_API_URL` for each, po
 
 No port-forwarding required for K8s -- all services are accessible via Ingress.
 
+### No Direct AWS Infrastructure Changes
+
+All AWS infrastructure changes must go through Terraform in the `incept5-eve-infra` repo. Never run AWS CLI commands that mutate infrastructure (security groups, IAM, DNS, EKS, ASGs, etc.). Terraform is authoritative -- out-of-band changes are silently reverted on the next `terraform apply`.
+
+If staging infra is broken (API unreachable, SG rules wrong, DNS misconfigured):
+
+1. Diagnose with read-only commands (curl, dig, AWS CLI reads are fine).
+2. Fix in `../incept5-eve-infra/terraform/aws/`.
+3. Run `terraform plan` then `terraform apply` from that repo.
+4. Verify the plan shows "No changes" after apply.
+
+If you lack access to the infra repo, escalate to the user -- do not apply a quick fix via AWS CLI.
+
 ### Staging Kubeconfig Safety
 
 When operating the Incept5 staging EKS cluster:

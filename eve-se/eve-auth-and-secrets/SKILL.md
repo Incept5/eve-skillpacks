@@ -1,6 +1,6 @@
 ---
 name: eve-auth-and-secrets
-description: Authenticate with Eve and manage project secrets for deployments and workflows.
+description: Authenticate with Eve, manage project secrets, and add SSO login to Eve-deployed apps.
 ---
 
 # Eve Auth and Secrets
@@ -14,6 +14,7 @@ Use this workflow to log in to Eve and manage secrets for your app.
 - Adding or rotating secrets
 - Secret interpolation errors during deploys
 - Setting up identity providers or org invites
+- Adding SSO login to an Eve-deployed app
 - Setting up access groups and scoped data-plane authorization
 - Configuring group-aware RLS for environment databases
 
@@ -298,6 +299,38 @@ Rotate the JWT signing key:
 3. After grace period (`EVE_AUTH_KEY_ROTATION_GRACE_HOURS`), remove the old secret
 4. Emergency rotation: set only the new key (immediately invalidates all existing tokens)
 
+## App SSO Integration
+
+Add Eve SSO login to any Eve-deployed app using shared auth packages. The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` into deployed services.
+
+**Backend** -- install `@eve/auth` and wire Express middleware:
+
+```typescript
+import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve/auth';
+
+app.use(eveUserAuth());                          // parse tokens, check org membership
+app.get('/auth/config', eveAuthConfig());         // serve SSO discovery config
+app.use('/api', eveAuthGuard());                  // protect API routes (401 if unauthenticated)
+```
+
+`eveUserAuth()` is non-blocking -- unauthenticated requests pass through. Use `eveAuthGuard()` on routes that require login. Authenticated requests get `req.eveUser: { id, email, orgId, role }`.
+
+**Frontend** -- install `@eve/auth-react` and wrap the app:
+
+```tsx
+import { EveAuthProvider, EveLoginGate } from '@eve/auth-react';
+
+<EveAuthProvider apiUrl="/api">
+  <EveLoginGate>
+    <ProtectedApp />
+  </EveLoginGate>
+</EveAuthProvider>
+```
+
+`EveLoginGate` renders children when authenticated, a login form otherwise. The provider auto-probes the SSO broker session and caches tokens in `sessionStorage`.
+
+For API reference, advanced patterns (SSE auth, token paste mode, token staleness), and the full list of auto-injected environment variables, see [references/app-sso-integration.md](references/app-sso-integration.md).
+
 ## Project Secrets
 
 ```bash
@@ -372,6 +405,8 @@ The worker uses secrets for repository access:
 | Wrong role shown | Role is resolved from live DB memberships. Run `eve auth permissions` to see effective role. If multi-org, check `eve auth status` for per-org membership listing |
 | Short-lived Claude token in jobs | Run `eve auth creds` to check token type. If `oauth` (not `setup-token`), regenerate with `claude setup-token` then re-sync with `eve auth sync` |
 | Codex token expired between jobs | Automatic write-back should refresh it. If not, re-run `eve auth sync`. Check that `~/.codex/auth.json` or `~/.code/auth.json` has a fresh token |
+| App SSO not working | Verify `EVE_SSO_URL` is injected (`eve env show`). For local dev, set `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` manually |
+| Stale org membership in app tokens | Default 1-day TTL. Use `strategy: 'remote'` in `eveUserAuth()` for immediate membership checks |
 
 ### Incident Response (Secret Leak)
 

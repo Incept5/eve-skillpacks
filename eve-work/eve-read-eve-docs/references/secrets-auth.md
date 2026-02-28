@@ -578,10 +578,37 @@ curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 
 For adding Eve SSO login to deployed apps, use the shared auth packages:
 
-- **`@eve/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions.
-- **`@eve/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper.
+- **`@eve/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
+- **`@eve/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access.
 
-Apps deployed to Eve receive `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` as auto-injected env vars. The backend middleware reads these automatically. The frontend provider discovers auth config via the backend's `/auth/config` endpoint.
+### Auto-Injected Environment Variables
+
+Apps deployed to Eve receive these env vars automatically from the platform deployer:
+
+| Variable | Description |
+|----------|-------------|
+| `EVE_API_URL` | Internal API URL (server-to-server) |
+| `EVE_PUBLIC_API_URL` | Public-facing API URL (optional) |
+| `EVE_SSO_URL` | SSO broker URL |
+| `EVE_ORG_ID` | Organization ID |
+| `EVE_PROJECT_ID` | Project ID |
+| `EVE_ENV_NAME` | Environment name |
+
+The backend middleware reads these automatically. The frontend provider discovers auth config via the backend's `/auth/config` endpoint. Use `${SSO_URL}` in manifest `environment:` blocks for interpolation.
+
+### Token Flow
+
+1. `EveAuthProvider` checks `sessionStorage` for a cached token.
+2. If none, probes the SSO broker `/session` endpoint (root-domain cookie).
+3. If an SSO session exists, gets a fresh RS256 token and caches it.
+4. If no SSO session, shows the login form (SSO redirect or token paste).
+5. All API requests include `Authorization: Bearer <token>`.
+
+For SSE endpoints, the middleware also accepts `?token=` query parameter.
+
+For development or headless environments, use `eve auth token` to obtain a token for pasting.
+
+**Token staleness**: The `orgs` claim reflects membership at token mint time. With the default 1-day TTL, membership changes can take up to 24h to reflect. Use `strategy: 'remote'` for immediate membership checks.
 
 ---
 
