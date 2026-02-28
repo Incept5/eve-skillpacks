@@ -342,6 +342,7 @@ Eve automatically injects these variables into all deployed services:
 |----------|-------------|
 | `EVE_API_URL` | Internal cluster URL for server-to-server calls (e.g., `http://eve-api:4701`) |
 | `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps (e.g., `https://api.eh1.incept5.dev`) |
+| `EVE_SSO_URL` | SSO broker URL for user authentication (e.g., `https://sso.eh1.incept5.dev`) |
 | `EVE_PROJECT_ID` | The project ID (e.g., `proj_01abc123...`) |
 | `EVE_ORG_ID` | The organization ID (e.g., `org_01xyz789...`) |
 | `EVE_ENV_NAME` | The environment name (e.g., `staging`, `production`) |
@@ -512,7 +513,7 @@ environment:
   DATABASE_URL: postgres://user:${secret.DB_PASSWORD}@db:5432/app
 ```
 
-Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`, `${secret.KEY}`, `${managed.<service>.<field>}`.
+Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`, `${SSO_URL}`, `${secret.KEY}`, `${managed.<service>.<field>}`.
 
 ## Manifest Defaults (`x-eve.defaults`)
 

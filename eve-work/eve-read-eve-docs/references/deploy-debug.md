@@ -251,6 +251,7 @@ Manifest environment values support these interpolation variables:
 | `${ORG_ID}` | Organization ID | `org_01xyz...` |
 | `${ORG_SLUG}` | Organization slug | `acme` |
 | `${COMPONENT_NAME}` | Current service name | `api`, `web` |
+| `${SSO_URL}` | Platform SSO broker URL | `https://sso.eh1.incept5.dev` |
 | `${secret.KEY}` | Secret value | `${secret.DB_PASSWORD}` |
 | `${managed.<service>.<field>}` | Managed DB value (when provisioned) | `${managed.db.url}` |
 
@@ -260,6 +261,7 @@ Manifest environment values support these interpolation variables:
 |----------|---------|
 | `EVE_API_URL` | Internal cluster URL for server-to-server calls |
 | `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps |
+| `EVE_SSO_URL` | SSO broker URL for user authentication |
 | `EVE_PROJECT_ID` | Current project ID |
 | `EVE_ORG_ID` | Current org ID |
 | `EVE_ENV_NAME` | Current environment name |

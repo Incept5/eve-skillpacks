@@ -574,6 +574,17 @@ curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 
 ---
 
+## App Auth SDKs
+
+For adding Eve SSO login to deployed apps, use the shared auth packages:
+
+- **`@eve/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions.
+- **`@eve/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper.
+
+Apps deployed to Eve receive `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` as auto-injected env vars. The backend middleware reads these automatically. The frontend provider discovers auth config via the backend's `/auth/config` endpoint.
+
+---
+
 ## Harness Credentials
 
 Preferred secrets for agent harnesses: `ANTHROPIC_API_KEY` (Claude/mclaude/zai), `OPENAI_API_KEY` or `CODEX_AUTH_JSON_B64` (Codex/Code), `GEMINI_API_KEY` or `GOOGLE_API_KEY` (Gemini), `Z_AI_API_KEY` (Z.ai). For private repos: `GITHUB_TOKEN` (HTTPS) or `ssh_key` (SSH via `GIT_SSH_COMMAND`).
