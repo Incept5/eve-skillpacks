@@ -82,6 +82,12 @@ Child agents derive the key from `$EVE_PARENT_JOB_ID`. End-of-attempt summaries 
 | `question` | Member-to-lead question |
 | `update` | Progress update from member |
 
+### Distillation
+```bash
+# Distill thread into knowledge
+eve thread distill <thread-id> --org <org-id> [--to <path>] [--agent <slug>] [--category <name>] [--key <key>]
+```
+
 ### Listener Subscriptions
 ```
 @eve agents listen <agent-slug>    # subscribe agent to channel/thread
@@ -117,9 +123,8 @@ Versioned, searchable document store scoped to the organization.
 
 ```bash
 # CRUD
-eve docs create --org <org-id> --path /path/to/doc.md --file ./content.md
-eve docs get --org <org-id> --path /path/to/doc.md
-eve docs update --org <org-id> --path /path/to/doc.md --file ./updated.md
+eve docs write --org <org-id> --path /path/to/doc.md --file ./content.md
+eve docs read --org <org-id> --path /path/to/doc.md
 eve docs delete --org <org-id> --path /path/to/doc.md
 
 # List and search
@@ -128,6 +133,10 @@ eve docs search --org <org-id> --query "keyword"
 
 # Version history
 eve docs versions --org <org-id> --path /path/to/doc.md
+
+# Lifecycle
+eve docs stale --org <org-id> [--overdue-by 7d] [--prefix /agents/]
+eve docs review --org <org-id> --path <path> --next-review 30d
 ```
 
 Events emitted: `system.doc.created`, `system.doc.updated`, `system.doc.deleted`.
@@ -170,6 +179,15 @@ eve fs sync resolve --org <org-id> --conflict <id> --strategy pick-remote
 
 # Diagnostics
 eve fs sync doctor --org <org-id>
+
+# Share tokens
+eve fs share <path> --org <org-id> [--expires 7d] [--label "description"]
+eve fs shares --org <org-id>
+eve fs revoke <token> --org <org-id>
+
+# Public paths
+eve fs publish <path-prefix> --org <org-id> [--label "description"]
+eve fs public-paths --org <org-id>
 ```
 
 Event types: `file.created`, `file.updated`, `file.deleted`, `file.renamed`, `conflict.detected`, `conflict.resolved`.
@@ -275,6 +293,107 @@ eve registry images
 eve registry tags <image>
 ```
 
+## 12. Agent KV Store
+
+**Scope**: Org (agent-scoped, namespace-partitioned)
+**Lifetime**: Until TTL expires or explicitly deleted
+**Access**: Agent (via `--agent` flag)
+
+Lightweight key-value storage for operational state. Each key is scoped to an agent slug and namespace. Values are JSONB. Optional TTL for automatic expiration.
+
+```bash
+# Set
+eve kv set --org <org-id> --agent <slug> --key <key> --value <json-or-string> [--namespace <ns>] [--ttl <seconds>]
+
+# Get
+eve kv get --org <org-id> --agent <slug> --key <key> [--namespace <ns>]
+
+# List keys in namespace
+eve kv list --org <org-id> --agent <slug> [--namespace <ns>] [--limit <n>]
+
+# Batch get
+eve kv mget --org <org-id> --agent <slug> --keys a,b,c [--namespace <ns>]
+
+# Delete
+eve kv delete --org <org-id> --agent <slug> --key <key> [--namespace <ns>]
+```
+
+API:
+```
+PUT    /orgs/:org_id/agents/:slug/kv/:namespace/:key
+GET    /orgs/:org_id/agents/:slug/kv/:namespace/:key
+GET    /orgs/:org_id/agents/:slug/kv/:namespace
+POST   /orgs/:org_id/agents/:slug/kv/:namespace/mget
+DELETE /orgs/:org_id/agents/:slug/kv/:namespace/:key
+```
+
+Database table: `agent_kv` (id, org_id, agent_slug, namespace, key, value JSONB, ttl_seconds, expires_at).
+
+Use for: feature flags, rate counters, workflow state machines, deduplication keys. Namespace `default` is used when `--namespace` is omitted.
+
+## 13. Agent Memory Namespaces
+
+**Scope**: Org (agent-scoped or shared)
+**Lifetime**: Permanent (with optional review dates and expiration)
+**Access**: Agent (via `--agent` flag or `--shared`)
+
+Curated knowledge entries stored under agent-scoped paths. Each entry has a category, key, content body, and optional metadata (confidence, tags, lifecycle fields).
+
+```bash
+# Set (create or update)
+eve memory set --org <org-id> (--agent <slug>|--shared) --category <category> --key <key> \
+  (--file <path>|--stdin|--content <text>) \
+  [--confidence <0-1>] [--tags a,b] [--review-in <duration>] [--expires-in <duration>]
+
+# Get
+eve memory get --org <org-id> (--agent <slug>|--shared) --key <key> [--category <cat>]
+
+# List
+eve memory list --org <org-id> (--agent <slug>|--shared) [--category <cat>] [--tags a,b] [--limit <n>]
+
+# Delete
+eve memory delete --org <org-id> (--agent <slug>|--shared) --category <cat> --key <key>
+
+# Search across memory
+eve memory search --org <org-id> --query <text> [--agent <slug>] [--limit <n>]
+```
+
+API:
+```
+POST   /orgs/:org_id/agents/:slug/memory          (set)
+GET    /orgs/:org_id/agents/:slug/memory/:key      (get)
+GET    /orgs/:org_id/agents/:slug/memory            (list)
+DELETE /orgs/:org_id/agents/:slug/memory/:key       (delete)
+GET    /orgs/:org_id/memory/search?q=<query>        (cross-agent search)
+```
+
+Categories: `learnings`, `decisions`, `runbooks`, `context`, `conventions`.
+
+Namespace convention: `/agents/{slug}/memory/{category}/{key}.md` or `/agents/shared/memory/...`
+
+Use for: accumulated expertise, decision logs with confidence scores, operational runbooks, context that should persist across sessions.
+
+## 14. Unified Search
+
+**Scope**: Org
+**Lifetime**: N/A (read-only query)
+**Access**: Org membership
+
+Single query across multiple storage systems.
+
+```bash
+eve search --org <org-id> --query <text> [--sources memory,docs,threads,attachments,events] [--limit <n>] [--agent <slug>]
+```
+
+API:
+```
+GET /orgs/:org_id/search?q=<query>&sources=<csv>&limit=<n>&agent=<slug>
+```
+
+Sources: `memory`, `docs`, `threads`, `attachments`, `events`.
+
+Use for: finding relevant prior knowledge before starting work. Combines results from multiple storage systems into a single ranked response.
+
 ## Comparison Matrix
 
 | Primitive | Scope | Searchable | Versioned | Structured | Event-Driven |
@@ -289,5 +408,8 @@ eve registry tags <image>
 | Secrets | Multi-scope | By key | No | Key-value | No |
 | Event Spine | Project/Org | By type/time | No | JSON | Yes (core) |
 | Skills | Global | No | Via git | Markdown | No |
+| KV Store | Org (agent) | By key | No | Key-value | No |
+| Memory | Org (agent) | Yes (text) | No | Categories | No |
+| Unified Search | Org | Yes (cross-source) | N/A | Mixed | No |
 
 *Org Filesystem search requires local tooling or combining with org docs.

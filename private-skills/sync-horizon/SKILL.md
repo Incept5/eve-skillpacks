@@ -43,6 +43,28 @@ This sync follows an orchestrator pattern. You (the orchestrator) stay lightweig
 
 **STOP.** Do NOT read individual file diffs. You only need the `--stat` output to know which files changed. Reading diffs is the workers' job.
 
+### Phase 1.5: Coverage Audit (orchestrator — lightweight)
+
+Check for two kinds of structural gaps that incremental change propagation misses.
+
+#### 1. Unmapped source docs
+
+List all system docs in eve-horizon and compare against `.sync-map.json`:
+
+```bash
+cd ../eve-horizon && ls docs/system/*.md | sort
+```
+
+Cross-reference each file against the `reference_docs` keys in `.sync-map.json`. Any `docs/system/*.md` file that doesn't appear in any key is an **unmapped source**. Collect these for the sync report — they represent platform capabilities with no skillpack distillation.
+
+Do NOT read the unmapped files. Just note them by name and approximate size (from `wc -l` if helpful). The report will flag them for human review.
+
+#### 2. Composite trigger check
+
+Read the `composite_triggers` section of `.sync-map.json`. For each entry, check if any of its `watch_sources` appear in the `--stat` output from Phase 1.
+
+If a composite trigger fires, add a **staleness check work item** for the target skill in Phase 2. This is different from a normal update — the worker validates the skill's own claims against current platform state, not just the diff.
+
 ### Phase 2: Plan Work Items (orchestrator)
 
 Read `.sync-map.json` and cross-reference the changed files against the `reference_docs` and `skill_triggers` mappings.
@@ -65,6 +87,12 @@ If any work item touches `eve-work/eve-read-eve-docs`, also add:
 - `Run state-today compliance scan for eve-read-eve-docs`
 - `Validate progressive-access routing in eve-read-eve-docs/SKILL.md`
 - `Run CLI module progression check for cli task file coverage`
+
+#### Composite trigger work items
+
+For each `composite_triggers` entry that fired in Phase 1.5, add a work item:
+- **Title**: `Staleness check: <skill-path>`
+- **Description**: Include the skill path, which source files changed (from `--stat`), and the staleness check worker instructions below. The worker reads the skill and its references, checks for stale claims, and updates if needed.
 
 ### Phase 3: Dispatch Workers (parallel)
 
@@ -104,6 +132,30 @@ Spawn one background worker per work item. Launch them all at once so they run i
 > Add a `references/` subdirectory if the skill needs detailed reference material.
 > Keep all content state-today only; avoid planned/roadmap sections.
 > Follow the conventions of existing skills in the same pack.
+
+#### Worker Instructions: Staleness Check (composite triggers)
+
+> This is a cross-cutting skill that spans multiple platform primitives.
+> Your job is to validate that the skill's claims match current platform reality.
+>
+> 1. Read the SKILL.md and all files in its `references/` directory.
+> 2. List current CLI command modules to see what capabilities exist:
+>    ```bash
+>    cd ../eve-horizon && ls packages/cli/src/commands/*.ts
+>    ```
+> 3. Scan the skill for stale claims:
+>    - "No dedicated X" / "X not available" / "not yet supported" — check if X now exists as a CLI command or system doc.
+>    - "Current Gaps" or "Workarounds" sections — verify each listed gap is still actually a gap.
+>    - Decision tables or comparison matrices — check for missing rows (new primitives not listed).
+> 4. If stale claims are found, update the skill:
+>    - Remove or correct false "gap" claims.
+>    - Add new primitives to decision tables and comparison matrices.
+>    - Add brief descriptions of new capabilities with CLI examples.
+>    - If a new primitive needs detailed coverage, add it to `references/` too.
+> 5. Keep the skill state-today only. Maintain imperative voice and conciseness.
+> 6. Edit existing files; do not rewrite from scratch.
+>
+> Report what was stale and what you corrected.
 
 #### Example Worker Prompt
 
@@ -182,11 +234,19 @@ Output a sync report summarizing all work:
 ### Progressive Access Updates
 - <routing or reference-structure improvements made>
 
+### Coverage Gaps (unmapped sources)
+- <list of docs/system/*.md files with no sync-map entry, with line counts>
+- <recommendation per gap: create reference doc / add to existing mapping / ignore>
+
+### Staleness Findings (composite triggers)
+- <which composite triggers fired>
+- <stale claims found and corrected, or "no staleness detected">
+
 ### Optional Automated Guard
 - `private-skills/sync-horizon/scripts/check-state-today.sh` run status
 
 ### Next Steps
-- <any manual follow-up needed>
+- <any manual follow-up needed, including unmapped docs that need new reference docs>
 ```
 
 ## Key Constraints

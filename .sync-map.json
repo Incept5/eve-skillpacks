@@ -12,7 +12,10 @@
     "docs/system/harness-execution.md + docs/system/harness-adapters.md + docs/system/harness-policy.md": "eve-work/eve-read-eve-docs/references/harnesses.md",
     "docs/system/chat-gateway.md": "eve-work/eve-read-eve-docs/references/gateways.md",
     "AGENTS.md": "eve-work/eve-read-eve-docs/references/overview.md",
-    "packages/cli/src/commands/": "eve-work/eve-read-eve-docs/references/cli.md"
+    "packages/cli/src/commands/": "eve-work/eve-read-eve-docs/references/cli.md",
+    "docs/system/object-store-and-org-filesystem.md": "eve-work/eve-read-eve-docs/references/object-store-filesystem.md",
+    "docs/system/eve-auth-sdk.md": "eve-work/eve-read-eve-docs/references/auth-sdk.md",
+    "docs/system/integrations.md + docs/system/app-sso-integration.md": "eve-work/eve-read-eve-docs/references/integrations.md"
   },
   "skill_triggers": {
     "docs/system/agents.md": ["eve-se/eve-bootstrap", "eve-work/eve-read-eve-docs"],
@@ -26,6 +29,47 @@
     "docs/system/cli-debugging.md": ["eve-se/eve-deploy-debugging"],
     "docs/ideas/agent-native-design.md": ["eve-design/eve-agent-native-design"],
     "docs/ideas/platform-primitives-for-agentic-apps.md": ["eve-design/eve-agent-native-design"]
+  },
+  "composite_triggers": {
+    "eve-work/eve-agent-memory": {
+      "description": "Cross-cutting: all storage and memory primitives",
+      "watch_sources": [
+        "docs/system/",
+        "packages/cli/src/commands/"
+      ]
+    },
+    "eve-se/eve-auth-and-secrets": {
+      "description": "Cross-cutting: auth, identity, SSO, and credential patterns",
+      "watch_sources": [
+        "docs/system/auth.md",
+        "docs/system/secrets.md",
+        "docs/system/identity-providers.md",
+        "docs/system/app-sso-integration.md",
+        "docs/system/eve-auth-sdk.md",
+        "docs/system/agent-secret-isolation.md",
+        "packages/cli/src/commands/auth.ts",
+        "packages/cli/src/commands/identity.ts",
+        "packages/cli/src/commands/secrets.ts"
+      ]
+    },
+    "eve-se/eve-manifest-authoring": {
+      "description": "Cross-cutting: manifest shape changes including new x-eve extensions",
+      "watch_sources": [
+        "docs/system/manifest.md",
+        "docs/system/object-store-and-org-filesystem.md",
+        "packages/cli/src/commands/manifest.ts"
+      ]
+    },
+    "eve-design/eve-fullstack-app-design": {
+      "description": "Cross-cutting: app design patterns including auth, storage, and integrations",
+      "watch_sources": [
+        "docs/system/app-sso-integration.md",
+        "docs/system/eve-auth-sdk.md",
+        "docs/system/object-store-and-org-filesystem.md",
+        "docs/system/integrations.md",
+        "docs/system/manifest.md"
+      ]
+    }
   },
   "watch_paths": [
     "docs/system/",

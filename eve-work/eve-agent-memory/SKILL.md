@@ -40,6 +40,25 @@ Use for: scratch notes, intermediate results, coordination inbox files. Ephemera
 
 **Coordination inbox** — `.eve/coordination-inbox.md` is auto-generated from coordination thread messages at job start. Read it for sibling status without API calls.
 
+**Agent KV Store** — lightweight operational state with optional TTL. Use for: feature flags, rate counters, agent state machines, deduplication keys. Namespace-partitioned.
+
+```bash
+# Set a KV value with TTL
+eve kv set --org $ORG_ID --agent $AGENT_SLUG --key "pr-123-status" --value '{"phase":"review"}' --namespace workflow --ttl 86400
+
+# Get a KV value
+eve kv get --org $ORG_ID --agent $AGENT_SLUG --key "pr-123-status" --namespace workflow
+
+# List keys in a namespace
+eve kv list --org $ORG_ID --agent $AGENT_SLUG --namespace workflow
+
+# Batch get multiple keys
+eve kv mget --org $ORG_ID --agent $AGENT_SLUG --keys "pr-123-status,pr-456-status" --namespace workflow
+
+# Delete a key
+eve kv delete --org $ORG_ID --agent $AGENT_SLUG --key "pr-123-status" --namespace workflow
+```
+
 ### Medium-Term (across jobs within a project)
 
 **Job attachments** — named key-value pairs attached to any job. Survive after job completion.
@@ -69,6 +88,12 @@ eve thread follow $COORD_THREAD_ID  # poll for sibling updates
 
 Use for: inter-agent communication, rolling context, coordination. Thread summaries provide compressed history. Coordination threads (`coord:job:{parent_job_id}`) are auto-created for team dispatches.
 
+**Thread Distillation** — convert thread conversations into memory docs or org docs. Use for: preserving valuable discussion outcomes as searchable knowledge.
+
+```bash
+eve thread distill $THREAD_ID --org $ORG_ID --agent reviewer --category learnings --key "auth-discussion-findings"
+```
+
 **Resource refs** — versioned pointers to org documents, mounted into job workspaces.
 
 ```bash
@@ -85,11 +110,10 @@ Use for: pinning specific document versions as job inputs. The referenced docume
 
 ```bash
 # Store knowledge
-eve docs create --org $ORG_ID --path /agents/learnings/auth-patterns.md --file ./auth-patterns.md
-eve docs update --org $ORG_ID --path /agents/learnings/auth-patterns.md --file ./updated.md
+eve docs write --org $ORG_ID --path /agents/learnings/auth-patterns.md --file ./auth-patterns.md
 
 # Retrieve
-eve docs get --org $ORG_ID --path /agents/learnings/auth-patterns.md
+eve docs read --org $ORG_ID --path /agents/learnings/auth-patterns.md
 eve docs list --org $ORG_ID --prefix /agents/learnings/
 
 # Search
@@ -97,6 +121,28 @@ eve docs search --org $ORG_ID --query "authentication retry"
 ```
 
 Use for: curated knowledge, decision logs, learned patterns. Versioned (every update creates a new version). Emits `system.doc.created/updated/deleted` events on the event spine. Best for knowledge that is reviewed, refined, and shared.
+
+**Agent Memory Namespaces** — curated knowledge stored as org docs with agent-scoped path conventions. Categories: `learnings`, `decisions`, `runbooks`, `context`, `conventions`. Supports confidence scores, tags, review dates, and expiration. Use for: accumulated expertise, decision logs, operational runbooks.
+
+```bash
+# Store a memory entry
+eve memory set --org $ORG_ID --agent reviewer --category learnings --key "auth-retry-patterns" \
+  --content "Always use exponential backoff..." --confidence 0.9 --tags "auth,reliability" --review-in 30d
+
+# Get a memory entry
+eve memory get --org $ORG_ID --agent reviewer --key "auth-retry-patterns" --category learnings
+
+# List entries
+eve memory list --org $ORG_ID --agent reviewer --category learnings --limit 20
+
+# Delete an entry
+eve memory delete --org $ORG_ID --agent reviewer --category learnings --key "auth-retry-patterns"
+
+# Search across memory (all agents or specific)
+eve memory search --org $ORG_ID --query "auth retry patterns" --agent reviewer --limit 10
+```
+
+Namespace convention: `/agents/{slug}/memory/{category}/{key}.md` or `/agents/shared/memory/...`
 
 **Org Filesystem (sync)** — bidirectional file sync between local machines and org storage.
 
@@ -142,6 +188,12 @@ eve event list --type agent.memory.*
 
 Use for: broadcasting knowledge updates, triggering reactive workflows when memory changes.
 
+**Unified Search** — single query across memory, docs, threads, attachments, events. Use for: finding relevant prior knowledge before starting work.
+
+```bash
+eve search --org $ORG_ID --query "auth retry patterns" --sources memory,docs,threads --limit 10 --agent reviewer
+```
+
 ## Memory Patterns
 
 ### Pattern 1: Job-Scoped Scratch
@@ -184,8 +236,8 @@ Build persistent, searchable knowledge that survives across projects and time.
 ```
 Agent discovers pattern →
 Check if existing doc covers it (eve docs search) →
-  If yes: update with new information (eve docs update)
-  If no: create new document (eve docs create) →
+  If yes: update with new information (eve docs write)
+  If no: create new document (eve docs write) →
 Emit event for other agents (eve event emit)
 ```
 
@@ -221,18 +273,55 @@ eve job attachments $PARENT_JOB_ID  # parent context
 
 When to use: any agent that benefits from remembering what happened before.
 
+### Pattern 5: Search-Before-Write
+
+Search existing knowledge before creating new docs.
+
+```
+eve search --org $ORG_ID --query "auth retry patterns" --sources memory,docs →
+  If relevant result exists: read and update it
+  If no result: create new memory doc
+```
+
+When to use: any agent that creates knowledge documents. Prevents duplication.
+
+### Pattern 6: KV State Machine
+
+Use KV store to track multi-step agent workflows.
+
+```
+eve kv set --org $ORG_ID --agent reviewer --namespace workflow --key "pr-123" --value '{"phase":"review","started":"..."}' --ttl 86400
+```
+
+When to use: tracking step-by-step progress in multi-phase jobs where state must survive brief interruptions but not forever.
+
+### Pattern 7: Thread-to-Knowledge Pipeline
+
+Distill valuable thread conversations into searchable memory.
+
+```
+eve thread distill $THREAD_ID --org $ORG_ID --agent reviewer --category learnings --key "auth-discussion-findings"
+```
+
+When to use: after a thread produces knowledge worth preserving beyond the conversation.
+
 ## Choosing the Right Primitive
 
 | Question | Answer → Primitive |
 |---|---|
 | Need it only during this job? | Workspace files |
+| Need lightweight state with TTL? | Agent KV Store |
 | Need to pass data to parent/children? | Job attachments |
 | Need rolling conversation context? | Threads |
+| Need to distill a conversation into knowledge? | Thread distillation → Agent Memory |
+| Need curated, categorized agent knowledge? | Agent Memory Namespaces |
 | Need versioned, searchable documents? | Org Document Store |
 | Need file-tree sync with local editing? | Org Filesystem |
+| Need app-scoped binary/object storage? | Object Store (manifest) |
 | Need structured queries (SQL)? | Managed database |
 | Need to encode a reusable workflow? | Skills |
 | Need reactive notifications? | Event spine |
+| Need to search across everything? | Unified Search |
 
 ## Access Control
 
@@ -262,7 +351,6 @@ eve access memberships --org $ORG_ID
 
 Some memory patterns require manual assembly today:
 
-- **No dedicated KV store** — use managed DB with a simple `key/value/ttl` table, or org docs with path-based keys.
-- **No vector search** — use keyword search via `eve docs search` for now. Structure documents with clear headings and terms to improve retrieval.
-- **No automatic context carryover** — build startup sequences manually (see Pattern 4). Consider encoding these as job templates or skill instructions.
-- **No document lifecycle automation** — set TTLs manually or build periodic cleanup jobs. Tag documents with creation dates and review dates.
+- **No automatic context carryover at job start** — build startup sequences manually (see Pattern 4). The platform does not auto-hydrate prior knowledge on job launch.
+- **No automatic thread-to-knowledge distillation** — manual `eve thread distill` exists, but no cron or trigger-based automation yet.
+- **No document lifecycle automation** — set review dates and expiration via `--review-in` and `--expires-in` flags. Use `eve docs stale` to find overdue documents. Automated cleanup is not yet available.

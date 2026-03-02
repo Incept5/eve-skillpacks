@@ -194,3 +194,44 @@ x-eve:
   packs:
     - source: ./skillpacks/my-pack
 ```
+
+## App Object Store
+
+> **Status: Schema exists, provisioning logic pending.** The database schema (`storage_buckets` table) and bucket naming convention are implemented. Automatic provisioning from the manifest is not yet wired.
+
+Declare app-scoped object storage buckets in the manifest. Each bucket is provisioned per environment with credentials injected as environment variables.
+
+```yaml
+services:
+  api:
+    x-eve:
+      object_store:
+        buckets:
+          - name: uploads
+            visibility: private
+          - name: avatars
+            visibility: public
+            cors:
+              allowed_origins: ["*"]
+```
+
+### Auto-Injected Storage Environment Variables
+
+When object store buckets are provisioned, these env vars are injected into the service container:
+
+| Variable | Description |
+|----------|-------------|
+| `STORAGE_ENDPOINT` | S3-compatible endpoint URL |
+| `STORAGE_ACCESS_KEY` | Access key for the bucket |
+| `STORAGE_SECRET_KEY` | Secret key for the bucket |
+| `STORAGE_BUCKET` | Physical bucket name |
+| `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO (local dev), `false` for cloud |
+
+### Design Rules
+
+- **One bucket per concern.** Separate `uploads` from `avatars` from `exports`.
+- **Set visibility intentionally.** Only buckets serving public assets should be `visibility: public`.
+- **Use CORS for browser uploads.** Set `cors.allowed_origins` when the frontend uploads directly via presigned URLs.
+- **Bucket names must be unique** within a service. The platform derives the physical bucket name from the project, environment, and logical name.
+
+For detailed storage layer documentation, see the `eve-read-eve-docs` skill: `references/object-store-filesystem.md`.
