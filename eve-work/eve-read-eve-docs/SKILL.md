@@ -22,6 +22,7 @@ triggers:
   - eve filesystem
   - eve fs sync
   - eve object store
+  - eve sdk
   - eve auth sdk
   - eve sso
   - eve integrations
@@ -66,7 +67,8 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Skills installation, packs, and resolution order: `references/skills-system.md`
 - Harness selection and sandbox policy: `references/harnesses.md`
 - Object store, org filesystem sync, share tokens, and public paths: `references/object-store-filesystem.md`
-- Auth SDK, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification: `references/auth-sdk.md`
+- Eve SDK overview, install, quick-start, token flow, exports: `references/eve-sdk.md`
+- Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification: `references/auth-sdk.md`
 - Integrations, Slack connect, GitHub setup, identity linking, membership requests: `references/integrations.md`
 - Observability, cost tracking, receipts, and analytics: `references/observability.md`
 - Database provisioning, migrations, SQL, and managed DB operations: `references/database-ops.md`
@@ -93,7 +95,8 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/cli-pipelines.md` -- CLI build/release/pipeline/workflow command reference.
 - `references/cli-deploy-debug.md` -- CLI environment deploy/recover/lifecycle and local k3d stack.
 - `references/object-store-filesystem.md` -- Object store, org filesystem sync protocol, share tokens, public paths, app buckets, access control.
-- `references/auth-sdk.md` -- Eve Auth SDK: `@eve-horizon/auth` backend middleware, `@eve-horizon/auth-react` frontend, token types, SSO session bootstrap, migration guide.
+- `references/eve-sdk.md` -- Eve SDK overview: packages, install, quick-start patterns, token flow, backend/frontend exports, environment variables.
+- `references/auth-sdk.md` -- Eve Auth SDK deep-dive: middleware behavior, verification strategies, token types, SSO session bootstrap, NestJS patterns, migration guide.
 - `references/integrations.md` -- External integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
 - `references/observability.md` -- Correlation IDs, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
 - `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy.
@@ -113,7 +116,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Monitor costs, receipts, or analytics | `references/observability.md`, `references/cli.md` | Receipt breakdown, analytics counters, cost totals |
 | Provision or operate environment databases | `references/database-ops.md`, `references/manifest.md` | Migration status, query results, managed DB state |
 | Sync files, share links, or configure org filesystem | `references/object-store-filesystem.md`, `references/cli-org-project.md` | Sync status, share tokens, public path URLs |
-| Add SSO auth to an app or verify tokens | `references/auth-sdk.md`, `references/secrets-auth.md` | SDK setup code, token verification, SSO flow |
+| Add SSO auth to an app or verify tokens | `references/eve-sdk.md`, `references/auth-sdk.md`, `references/secrets-auth.md` | SDK setup code, token verification, SSO flow |
 | Connect Slack/GitHub or resolve external identities | `references/integrations.md`, `references/agents-teams.md` | Integration status, identity binding, membership requests |
 | Diagnose a failure from symptoms | `references/troubleshooting.md`, `references/deploy-debug.md` | Root cause, fix command, recovery path |
 

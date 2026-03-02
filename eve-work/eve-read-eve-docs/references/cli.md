@@ -541,12 +541,24 @@ Notes:
 - Webhook subscriptions support HMAC signature verification and retry logic.
 - Filters scope events to specific patterns. Project-scoped webhooks are optional.
 
+## User
+
+Inspect user details and memberships.
+
+```bash
+eve user show [user_id|me] [--json]                    # Show user profile, org + project memberships
+```
+
+Notes:
+- Defaults to `me` (the authenticated user) when no user ID is given.
+- Output includes email, display name, admin status, org memberships (slug + role), and project memberships (`org_slug/project_slug` + role).
+
 ## Admin
 
 Administrative commands (require elevated permissions).
 
 ```bash
-# List all platform users (shows email, org memberships, roles)
+# List all platform users (shows email, org + project memberships, roles)
 eve admin users [--json]
 
 # User invitation
@@ -594,7 +606,7 @@ eve admin ingress-aliases reclaim <alias> --reason "..."  # Reclaim an alias
 ```
 
 Notes:
-- `users` lists every registered user with their email, display name, admin status, org memberships, and roles. One row per user-org pair. Useful for auditing access.
+- `users` lists every registered user with their email, display name, admin status, memberships, and roles. One row per user-membership pair (org or project). Columns: Email, Name, Admin, Scope (`org`/`project`), Target (org slug or `org_slug/project_slug`), Role, Created. Useful for auditing access.
 - `invite --ssh-key` registers an SSH public key file (e.g. `~/.ssh/id_ed25519.pub`) as an auth identity. If no auth method is given (`--github`, `--ssh-key`, or `--web`), the CLI warns that the user won't be able to log in.
 - Users can self-register via `eve auth request-access --org "Org Name" --ssh-key ~/.ssh/id_ed25519.pub --wait`.
 - Access-request approval is retry-safe (`approve` returns the existing approved record on repeat calls).
@@ -605,7 +617,7 @@ Notes:
 
 ```bash
 eve system status                                       # Platform status overview
-eve system health [--json]                              # Health check
+eve system health [--json]                              # Health check (reports Degraded on DB failure)
 eve system config                                       # Show system configuration
 eve system settings                                     # List all settings
 eve system settings get <key>                           # Get setting value
@@ -818,5 +830,6 @@ Quick reference:
 | **Supervision** | `supervise` |
 | **Migrate** | `skills-to-packs` |
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |
+| **User** | `show` |
 | **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models`, `ingress-aliases` |
 | **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |

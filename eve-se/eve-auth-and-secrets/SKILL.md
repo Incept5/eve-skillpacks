@@ -301,21 +301,91 @@ Rotate the JWT signing key:
 
 ## App SSO Integration
 
-Add Eve SSO login to any Eve-deployed app using shared auth packages. The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` into deployed services.
+Add Eve SSO login to any Eve-deployed app using two shared packages: `@eve-horizon/auth` (backend) and `@eve-horizon/auth-react` (frontend). The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` into deployed services.
 
-**Backend** -- install `@eve-horizon/auth` and wire Express middleware:
+### Backend (`@eve-horizon/auth`)
+
+Install: `npm install @eve-horizon/auth`
+
+Three exports handle the full backend auth surface:
+
+| Export | Behavior |
+|--------|----------|
+| `eveUserAuth()` | Non-blocking middleware. Verifies RS256 token via JWKS, checks org membership, attaches `req.eveUser: { id, email, orgId, role }`. Passes through silently on missing/invalid tokens. |
+| `eveAuthGuard()` | Returns 401 if `req.eveUser` not set. Place on protected routes. |
+| `eveAuthConfig()` | Handler returning `{ sso_url, eve_api_url, ... }` from auto-injected env vars. Frontend fetches this to discover SSO. |
+
+Additional exports for agent/service scenarios:
+
+| Export | Behavior |
+|--------|----------|
+| `eveAuthMiddleware()` | Blocking middleware for agent/job tokens. Attaches `req.agent` with full `EveTokenClaims`. Returns 401 on failure. |
+| `verifyEveToken(token)` | JWKS-based local verification (15-min cache). Returns `EveTokenClaims`. |
+| `verifyEveTokenRemote(token)` | HTTP verification via `/auth/token/verify`. Always current. |
+
+**Express setup** (~3 lines):
 
 ```typescript
 import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
 
-app.use(eveUserAuth());                          // parse tokens, check org membership
-app.get('/auth/config', eveAuthConfig());         // serve SSO discovery config
-app.use('/api', eveAuthGuard());                  // protect API routes (401 if unauthenticated)
+app.use(eveUserAuth());
+app.get('/auth/config', eveAuthConfig());
+app.get('/auth/me', eveAuthGuard(), (req, res) => res.json(req.eveUser));
 ```
 
-`eveUserAuth()` is non-blocking -- unauthenticated requests pass through. Use `eveAuthGuard()` on routes that require login. Authenticated requests get `req.eveUser: { id, email, orgId, role }`.
+**NestJS setup** -- apply `eveUserAuth()` globally in `main.ts`, then use a thin guard wrapper:
 
-**Frontend** -- install `@eve-horizon/auth-react` and wrap the app:
+```typescript
+// main.ts
+import { eveUserAuth } from '@eve-horizon/auth';
+app.use(eveUserAuth());
+
+// auth.guard.ts -- thin NestJS adapter
+@Injectable()
+export class EveGuard implements CanActivate {
+  canActivate(ctx: ExecutionContext): boolean {
+    const req = ctx.switchToHttp().getRequest();
+    if (!req.eveUser) throw new UnauthorizedException();
+    return true;
+  }
+}
+
+// auth-config.controller.ts
+@Controller()
+export class AuthConfigController {
+  private handler = eveAuthConfig();
+
+  @Get('auth/config')
+  getConfig(@Req() req, @Res() res) { this.handler(req, res); }
+}
+```
+
+**Verification strategies**: `eveUserAuth()` defaults to `'local'` (JWKS, cached 15 min). Use `strategy: 'remote'` for immediate membership freshness at ~50ms latency per request.
+
+**Custom role mapping**: If your app needs roles beyond Eve's `owner/admin/member`, bridge after `eveUserAuth()`:
+
+```typescript
+app.use((req, _res, next) => {
+  if (req.eveUser) {
+    req.user = { ...req.eveUser, appRole: req.eveUser.role === 'member' ? 'viewer' : 'admin' };
+  }
+  next();
+});
+```
+
+### Frontend (`@eve-horizon/auth-react`)
+
+Install: `npm install @eve-horizon/auth-react`
+
+| Export | Purpose |
+|--------|---------|
+| `EveAuthProvider` | Context provider. Bootstraps session: checks sessionStorage, probes SSO `/session`, caches tokens. |
+| `useEveAuth()` | Hook: `{ user, loading, error, config, loginWithSso, loginWithToken, logout }` |
+| `EveLoginGate` | Renders children when authenticated, login form otherwise. |
+| `EveLoginForm` | Built-in SSO + token-paste login UI. |
+| `createEveClient(baseUrl?)` | Fetch wrapper with automatic Bearer injection. |
+
+**Simple setup** -- `EveLoginGate` handles the loading/login/authenticated states:
 
 ```tsx
 import { EveAuthProvider, EveLoginGate } from '@eve-horizon/auth-react';
@@ -327,9 +397,38 @@ import { EveAuthProvider, EveLoginGate } from '@eve-horizon/auth-react';
 </EveAuthProvider>
 ```
 
-`EveLoginGate` renders children when authenticated, a login form otherwise. The provider auto-probes the SSO broker session and caches tokens in `sessionStorage`.
+**Custom auth gate** -- use `useEveAuth()` for full control over loading, login, and error states:
 
-For API reference, advanced patterns (SSE auth, token paste mode, token staleness), and the full list of auto-injected environment variables, see [references/app-sso-integration.md](references/app-sso-integration.md).
+```tsx
+import { EveAuthProvider, useEveAuth } from '@eve-horizon/auth-react';
+
+function AuthGate() {
+  const { user, loading, loginWithToken, loginWithSso, logout } = useEveAuth();
+  if (loading) return <Spinner />;
+  if (!user) return <LoginPage onSso={loginWithSso} onToken={loginWithToken} />;
+  return <App user={user} onLogout={logout} />;
+}
+
+export default () => (
+  <EveAuthProvider apiUrl="/api">
+    <AuthGate />
+  </EveAuthProvider>
+);
+```
+
+**API calls with auth**: Use `createEveClient()` for automatic Bearer token injection:
+
+```typescript
+import { createEveClient } from '@eve-horizon/auth-react';
+const client = createEveClient('/api');
+const res = await client.fetch('/data');
+```
+
+### Migration from Custom Auth
+
+The SDK replaces ~700-800 lines of hand-rolled auth with ~50 lines. Delete custom JWKS/token verification, Bearer extraction middleware, SSO URL discovery, session probe logic, token storage helpers, and login form. Keep app-specific role mapping and local password auth.
+
+For the full migration checklist, types reference, token lifecycle, and advanced patterns (SSE auth, token paste mode, token staleness), see [references/app-sso-integration.md](references/app-sso-integration.md).
 
 ## Project Secrets
 

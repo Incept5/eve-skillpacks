@@ -15,7 +15,8 @@
     "packages/cli/src/commands/": "eve-work/eve-read-eve-docs/references/cli.md",
     "docs/system/object-store-and-org-filesystem.md": "eve-work/eve-read-eve-docs/references/object-store-filesystem.md",
     "docs/system/eve-auth-sdk.md": "eve-work/eve-read-eve-docs/references/auth-sdk.md",
-    "docs/system/integrations.md + docs/system/app-sso-integration.md": "eve-work/eve-read-eve-docs/references/integrations.md"
+    "docs/system/integrations.md + docs/system/app-sso-integration.md": "eve-work/eve-read-eve-docs/references/integrations.md",
+    "docs/system/eve-sdk.md": "eve-work/eve-read-eve-docs/references/eve-sdk.md"
   },
   "skill_triggers": {
     "docs/system/agents.md": ["eve-se/eve-bootstrap", "eve-work/eve-read-eve-docs"],

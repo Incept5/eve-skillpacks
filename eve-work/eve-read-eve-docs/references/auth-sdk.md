@@ -1,11 +1,42 @@
 # Eve Auth SDK Reference
 
+## Use When
+- You need to add SSO login or token verification to an Eve-deployed app.
+- You need to protect backend routes with Eve org membership checks.
+- You need to migrate from custom auth to the `@eve-horizon/auth` SDK.
+
+## Load Next
+- `references/secrets-auth.md` for token types, scopes, and identity providers.
+- `references/integrations.md` for external identity resolution and Slack/GitHub connect.
+- `references/cli-auth.md` for CLI-level auth commands and service accounts.
+
+## Ask If Missing
+- Confirm whether the app is backend-only (Express/NestJS) or includes a React frontend.
+- Confirm whether the app needs user auth (`eveUserAuth`) or agent/job auth (`eveAuthMiddleware`).
+- Confirm the target org ID and whether `EVE_SSO_URL` / `EVE_API_URL` are already injected.
+
 Two shared packages that eliminate auth boilerplate in Eve-compatible apps.
 
 | Package | Scope | Purpose |
 |---------|-------|---------|
 | `@eve-horizon/auth` | Backend (Express/NestJS) | Token verification, org check, route protection |
 | `@eve-horizon/auth-react` | Frontend (React) | SSO session bootstrap, login gate, token cache |
+
+## Architecture
+
+```
+Browser                               Backend (Express)                      Eve Platform
+-------                               -----------------                      ------------
+EveAuthProvider                        eveUserAuth()                          Eve API
+  |-- sessionStorage check             |-- Extract Bearer token               |-- /.well-known/jwks.json
+  |-- GET /auth/config ------------>   |   eveAuthConfig()                    |-- /auth/token/verify
+  |-- GET {sso_url}/session ------->   |   -> { sso_url, eve_api_url, ... }   \-- /auth/config
+  |   (root-domain cookie)             |-- Verify RS256 (JWKS, 15-min cache)
+  |-- Store token in sessionStorage    |-- Check orgs claim for org membership
+  \-- GET /auth/me ---------------->   |-- Attach req.eveUser
+      (Authorization: Bearer)          |   eveAuthGuard()
+                                       \-- 401 if no req.eveUser
+```
 
 ## Backend: `@eve-horizon/auth`
 
@@ -39,9 +70,15 @@ app.use('/api', eveAuthGuard());                            // Protect all API r
 
 ### Middleware Behavior
 
-**`eveUserAuth()`** is non-blocking — unauthenticated requests pass through. Pair with `eveAuthGuard()` to enforce authentication on specific routes.
+**`eveUserAuth()`** is non-blocking. It passes through without setting `req.eveUser` when:
+- No token present
+- Token is invalid or expired
+- Token type is not `user`
+- `orgs` claim missing or target org not found
 
-**`eveAuthMiddleware()`** is blocking — returns 401 immediately on any verification failure. Use for agent-facing APIs.
+This lets you mix public and protected routes on the same app — apply `eveUserAuth()` globally, then add `eveAuthGuard()` only on routes that require authentication.
+
+**`eveAuthMiddleware()`** is blocking — returns 401 immediately on any verification failure. Use for agent-facing APIs where every request must be authenticated.
 
 ### Verification Strategies
 
@@ -120,10 +157,13 @@ function App() {
 
 ### Token Lifecycle
 
-| Token | Storage | TTL |
-|-------|---------|-----|
-| Eve RS256 access token | `sessionStorage` | 1 day |
-| SSO refresh cookie | httpOnly cookie (root domain) | 30 days |
+| Token | Storage | TTL | Refresh Path |
+|-------|---------|-----|--------------|
+| Eve RS256 access token | `sessionStorage` | 1 day | Re-probe SSO `/session` |
+| SSO refresh cookie | httpOnly cookie (root domain) | 30 days | GoTrue refresh |
+| GoTrue refresh token | httpOnly cookie (SSO broker) | 30 days | Re-login |
+
+When the cached access token expires, the bootstrap re-probes the SSO session. If the SSO refresh token is also expired, the user sees the login form. No manual token refresh logic is needed in apps.
 
 ## Auto-Injected Environment Variables
 
@@ -136,7 +176,31 @@ The platform deployer injects these into every deployed app:
 | `EVE_SSO_URL` | SSO broker URL (`eveAuthConfig()` response) |
 | `EVE_ORG_ID` | Org membership check |
 
-Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URL.
+Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URL:
+
+```yaml
+services:
+  web:
+    environment:
+      NEXT_PUBLIC_SSO_URL: "${SSO_URL}"
+```
+
+## JWT `orgs` Claim
+
+User tokens include an `orgs` array populated at mint time:
+
+```json
+{
+  "sub": "user_xxx",
+  "type": "user",
+  "orgs": [
+    { "id": "org_ManualTestOrg", "role": "owner" },
+    { "id": "org_Incept5", "role": "admin" }
+  ]
+}
+```
+
+Limited to 50 most-recent memberships (`EVE_AUTH_ORGS_CLAIM_LIMIT`). The claim can become stale if membership changes after token mint. With the default 1-day TTL this is acceptable. For immediate revocation, use `strategy: 'remote'`.
 
 ## Migration from Custom Auth
 
@@ -173,3 +237,67 @@ The middleware supports `?token=` query parameter for Server-Sent Events:
 ```
 GET /api/events?token=eyJ...
 ```
+
+## Implementation Pattern (NestJS + React)
+
+Distilled from a real migration (sentinel-mgr: 777 lines of custom auth replaced by ~50 lines of SDK usage).
+
+**Backend — `main.ts`:**
+Apply `eveUserAuth()` as global Express middleware. If the app has existing controllers that expect a different shape on `req.user`, add a thin bridge middleware to map fields:
+
+```typescript
+app.use(eveUserAuth());
+app.use((req, _res, next) => {
+  if (req.eveUser) {
+    req.user = {
+      id: req.eveUser.id,
+      org_id: req.eveUser.orgId,
+      email: req.eveUser.email,
+      role: req.eveUser.role === 'member' ? 'viewer' : 'admin',
+    };
+  }
+  next();
+});
+```
+
+**Backend — Auth config controller:**
+Wrap `eveAuthConfig()` in a NestJS controller. Expose both legacy and canonical paths during migration:
+
+```typescript
+@Controller()
+export class AuthConfigController {
+  private handler = eveAuthConfig();
+
+  @Get('auth/config')
+  getConfig(@Req() req, @Res() res) { this.handler(req, res); }
+}
+```
+
+**Backend — NestJS guard:**
+The existing `AuthGuard` checks `req.user` (or `req.eveUser`) — no SDK import needed in the guard itself, because `eveUserAuth()` already ran as global middleware upstream.
+
+**Frontend — Custom `AuthGate`:**
+Rather than using the built-in `EveLoginGate`, wrap `useEveAuth()` to control loading/login/app rendering with your own UI:
+
+```tsx
+function AuthGate() {
+  const { user, loading, error, loginWithToken, loginWithSso, logout } = useEveAuth();
+  if (loading) return <Spinner />;
+  if (!user) return <LoginPage onLoginWithToken={loginWithToken} onStartSsoLogin={loginWithSso} />;
+  return <AppShell user={user} onLogout={logout}>...</AppShell>;
+}
+
+export default function App() {
+  return (
+    <EveAuthProvider apiUrl={API_BASE}>
+      <AuthGate />
+    </EveAuthProvider>
+  );
+}
+```
+
+**Key takeaways:**
+- `eveUserAuth()` goes in `main.ts` as global middleware — every request gets token parsing
+- Bridge middleware lets you adopt the SDK without rewriting every controller that reads `req.user`
+- `eveAuthConfig()` replaces hand-rolled SSO URL discovery (no more `api. -> sso.` hostname hacks)
+- Frontend uses `useEveAuth()` for full control, or `EveLoginGate` for zero-config login gating

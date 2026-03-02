@@ -1,5 +1,20 @@
 # Integrations Reference
 
+## Use When
+- You need to connect a Slack workspace or GitHub repo to an Eve org.
+- You need to resolve external provider identities to Eve users.
+- You need to manage membership requests from unresolved external users.
+
+## Load Next
+- `references/gateways.md` for chat gateway routing and thread key mechanics.
+- `references/agents-teams.md` for agent slug resolution and chat dispatch modes.
+- `references/secrets-auth.md` for webhook secrets and token configuration.
+
+## Ask If Missing
+- Confirm the target org ID and whether the integration already exists.
+- Confirm the provider type (Slack or GitHub) and available credentials (bot token, signing secret).
+- Confirm whether identity resolution is needed or if users are already bound.
+
 External provider integrations (Slack, GitHub) and identity resolution for Eve orgs.
 
 ## Overview

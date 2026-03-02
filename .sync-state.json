@@ -1,15 +1,8 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "e95a226bd3f13a2c4b2ecfc4c5e6fd5e9d61dd05",
-  "last_synced_at": "2026-02-28T12:00:00Z",
+  "last_synced_commit": "b3ef2d1d4929fc60664d75b7796fc5181295745e",
+  "last_synced_at": "2026-03-02T16:00:00Z",
   "sync_log": [
-    {
-      "commit": "401d370cb35f1ec44b81a56358b9638e5e8de02b",
-      "commit_short": "401d370",
-      "synced_at": "2026-02-18T09:27:18Z",
-      "type": "incremental",
-      "summary": "CLI sync: +26 source docs/CLI changes (ollama wake command, local stack registry override, CLI local-stack ownership checks); distilled into eve-work/eve-read-eve-docs references"
-    },
     {
       "commit": "c77df4e58aa49c06a9f87e42675c9eb2b2a3a0b0",
       "commit_short": "c77df4e",
@@ -37,6 +30,13 @@
       "synced_at": "2026-02-28T12:00:00Z",
       "type": "incremental",
       "summary": "33-commit incremental sync — Slack integration (gateway simulate, provider bootstrap, OAuth install, Block Kit, identity resolution, rate limiting), app SSO (@eve-horizon/auth + @eve-horizon/auth-react, eveUserAuth middleware), GitHub webhook setup, terraform-only infra policy, CLI (chat simulate gateway routing, identity link, integrations expansion, ollama pull/models)"
+    },
+    {
+      "commit": "b3ef2d1d4929fc60664d75b7796fc5181295745e",
+      "commit_short": "b3ef2d1",
+      "synced_at": "2026-03-02T16:00:00Z",
+      "type": "incremental",
+      "summary": "11-commit incremental sync — Eve Auth SDK published to npm (@eve-horizon/auth), full SDK system doc (373 lines), eve-sdk overview doc, enriched user visibility (eve user show), admin membership table improvements, system health degraded-state handling. Sentinel-mgr SSO migration patterns distilled into auth skills."
     }
   ]
 }

@@ -285,6 +285,35 @@ function App() {
 }
 ```
 
+For authenticated API calls from components, use `createEveClient`:
+
+```typescript
+import { createEveClient } from '@eve-horizon/auth-react';
+const client = createEveClient('/api');
+const res = await client.fetch('/data');
+```
+
+**Custom auth gate** — When you need control over loading and login states (custom login page, richer loading UI), use `useEveAuth()` directly instead of `EveLoginGate`:
+
+```tsx
+import { EveAuthProvider, useEveAuth } from '@eve-horizon/auth-react';
+
+function AuthGate() {
+  const { user, loading, loginWithToken, loginWithSso, logout } = useEveAuth();
+  if (loading) return <Spinner />;
+  if (!user) return <LoginPage onSso={loginWithSso} onToken={loginWithToken} />;
+  return <AppShell user={user} onLogout={logout}><Routes /></AppShell>;
+}
+
+export default function App() {
+  return (
+    <EveAuthProvider apiUrl={API_BASE}>
+      <AuthGate />
+    </EveAuthProvider>
+  );
+}
+```
+
 ### How It Works
 
 1. `EveAuthProvider` checks `sessionStorage` for cached token
@@ -292,6 +321,22 @@ function App() {
 3. If SSO session exists, gets fresh Eve RS256 token
 4. If no session, shows login form (SSO redirect or token paste)
 5. All API requests include `Authorization: Bearer <token>`
+
+### NestJS Backend
+
+Apply `eveUserAuth()` as global middleware in `main.ts`. If existing controllers expect `req.user` rather than `req.eveUser`, add a thin bridge that maps Eve roles to app-specific roles in one place:
+
+```typescript
+import { eveUserAuth } from '@eve-horizon/auth';
+
+app.use(eveUserAuth());
+app.use((req, _res, next) => {
+  if (req.eveUser) {
+    req.user = { ...req.eveUser, role: req.eveUser.role === 'member' ? 'viewer' : 'admin' };
+  }
+  next();
+});
+```
 
 ### Auto-Injected Variables
 
@@ -301,7 +346,8 @@ The platform injects `EVE_SSO_URL`, `EVE_API_URL`, and `EVE_ORG_ID` into deploye
 
 1. **Use the SDK, not custom auth.** The SDK replaces ~750 lines of hand-rolled auth with ~50 lines.
 2. **Non-blocking middleware first.** Use `eveUserAuth()` globally, then `eveAuthGuard()` on protected routes. This enables mixed public/private routes.
-3. **Design for token staleness.** The `orgs` JWT claim reflects membership at mint time (1-day TTL). Use `strategy: 'remote'` for immediate revocation if needed.
+3. **The `/auth/config` endpoint is the handshake.** The frontend discovers the SSO URL by calling the backend's `eveAuthConfig()` endpoint. This decouples the frontend from platform env vars and works identically in local dev and deployed environments.
+4. **Design for token staleness.** The `orgs` JWT claim reflects membership at mint time (1-day TTL). Use `strategy: 'remote'` for immediate revocation if needed.
 
 For full SDK reference, see `references/auth-sdk.md` in the `eve-read-eve-docs` skill.
 
@@ -384,8 +430,10 @@ Design services with health endpoints. Eve polls health to determine deployment 
 **Authentication:**
 - [ ] `@eve-horizon/auth` middleware added to backend (`eveUserAuth` + `eveAuthGuard`)
 - [ ] Auth config endpoint serves SSO discovery (`eveAuthConfig`)
-- [ ] `@eve-horizon/auth-react` wraps frontend (`EveAuthProvider` + `EveLoginGate`)
+- [ ] `@eve-horizon/auth-react` wraps frontend (`EveAuthProvider` + `EveLoginGate` or custom `useEveAuth` gate)
+- [ ] `createEveClient` used for authenticated API calls from frontend
 - [ ] Platform-injected auth env vars used (`EVE_SSO_URL`, `EVE_ORG_ID`)
+- [ ] Eve roles mapped to app roles in one place (bridge middleware), not scattered across controllers
 
 **Observability:**
 - [ ] Services expose health endpoints
