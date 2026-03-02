@@ -578,8 +578,8 @@ curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 
 For adding Eve SSO login to deployed apps, use the shared auth packages:
 
-- **`@eve/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
-- **`@eve/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access.
+- **`@eve-horizon/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
+- **`@eve-horizon/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access.
 
 ### Auto-Injected Environment Variables
 

@@ -36,7 +36,7 @@
       "commit_short": "e95a226",
       "synced_at": "2026-02-28T12:00:00Z",
       "type": "incremental",
-      "summary": "33-commit incremental sync — Slack integration (gateway simulate, provider bootstrap, OAuth install, Block Kit, identity resolution, rate limiting), app SSO (@eve/auth + @eve/auth-react, eveUserAuth middleware), GitHub webhook setup, terraform-only infra policy, CLI (chat simulate gateway routing, identity link, integrations expansion, ollama pull/models)"
+      "summary": "33-commit incremental sync — Slack integration (gateway simulate, provider bootstrap, OAuth install, Block Kit, identity resolution, rate limiting), app SSO (@eve-horizon/auth + @eve-horizon/auth-react, eveUserAuth middleware), GitHub webhook setup, terraform-only infra policy, CLI (chat simulate gateway routing, identity link, integrations expansion, ollama pull/models)"
     }
   ]
 }

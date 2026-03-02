@@ -83,6 +83,26 @@ services:
 4. **Use `x-eve.role: job` for one-off tasks.** Migrations, seeds, and data backfills are job services, not persistent processes.
 5. **Expose ingress intentionally.** Only services that need external HTTP access get `x-eve.ingress.public: true`. Internal services communicate via cluster networking.
 
+### App Object Storage
+
+Apps that need to store files (uploads, avatars, exports) can declare object store buckets in the manifest:
+
+```yaml
+services:
+  api:
+    x-eve:
+      object_store:
+        buckets:
+          - name: uploads
+            visibility: private
+          - name: avatars
+            visibility: public
+```
+
+> **Note:** The database schema for app object stores exists, but automatic provisioning from the manifest is not yet wired. See `references/object-store-filesystem.md` for current status.
+
+When wired, the platform injects `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`, and `STORAGE_FORCE_PATH_STYLE` into the service container.
+
 ### Platform-Injected Variables
 
 Every deployed service receives `EVE_API_URL`, `EVE_PUBLIC_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, and `EVE_ENV_NAME`. Use `EVE_API_URL` for server-to-server calls. Use `EVE_PUBLIC_API_URL` for browser-facing code. Design your app to read these rather than hardcoding URLs.
@@ -230,6 +250,61 @@ Secrets resolve with cascading precedence: **project > user > org > system**. A 
 
 Agents need repository access. Set either `github_token` (HTTPS) or `ssh_key` (SSH) as project secrets. The worker injects these automatically during git operations.
 
+## SSO Authentication
+
+### Adding SSO to Your App
+
+Eve provides shared auth packages that eliminate boilerplate. Add Eve SSO login in ~25 lines of code.
+
+**Backend** (`@eve-horizon/auth`):
+
+```typescript
+import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
+
+app.use(eveUserAuth());                                     // Parse tokens (non-blocking)
+app.get('/auth/config', eveAuthConfig());                   // Serve SSO discovery
+app.get('/auth/me', eveAuthGuard(), (req, res) => {
+  res.json(req.eveUser);                                    // { id, email, orgId, role }
+});
+app.use('/api', eveAuthGuard());                            // Protect all API routes
+```
+
+**Frontend** (`@eve-horizon/auth-react`):
+
+```tsx
+import { EveAuthProvider, EveLoginGate } from '@eve-horizon/auth-react';
+
+function App() {
+  return (
+    <EveAuthProvider apiUrl="/api">
+      <EveLoginGate>
+        <ProtectedApp />
+      </EveLoginGate>
+    </EveAuthProvider>
+  );
+}
+```
+
+### How It Works
+
+1. `EveAuthProvider` checks `sessionStorage` for cached token
+2. If no token, probes SSO broker `/session` (root-domain cookie)
+3. If SSO session exists, gets fresh Eve RS256 token
+4. If no session, shows login form (SSO redirect or token paste)
+5. All API requests include `Authorization: Bearer <token>`
+
+### Auto-Injected Variables
+
+The platform injects `EVE_SSO_URL`, `EVE_API_URL`, and `EVE_ORG_ID` into deployed containers. No manual configuration needed. Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URLs.
+
+### Design Rules
+
+1. **Use the SDK, not custom auth.** The SDK replaces ~750 lines of hand-rolled auth with ~50 lines.
+2. **Non-blocking middleware first.** Use `eveUserAuth()` globally, then `eveAuthGuard()` on protected routes. This enables mixed public/private routes.
+3. **Design for token staleness.** The `orgs` JWT claim reflects membership at mint time (1-day TTL). Use `strategy: 'remote'` for immediate revocation if needed.
+
+For full SDK reference, see `references/auth-sdk.md` in the `eve-read-eve-docs` skill.
+
 ## Observability and Debugging
 
 ### The Debugging Ladder
@@ -306,6 +381,12 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - [ ] `.eve/dev-secrets.yaml` exists for local development
 - [ ] Git credentials (`github_token` or `ssh_key`) configured
 
+**Authentication:**
+- [ ] `@eve-horizon/auth` middleware added to backend (`eveUserAuth` + `eveAuthGuard`)
+- [ ] Auth config endpoint serves SSO discovery (`eveAuthConfig`)
+- [ ] `@eve-horizon/auth-react` wraps frontend (`EveAuthProvider` + `EveLoginGate`)
+- [ ] Platform-injected auth env vars used (`EVE_SSO_URL`, `EVE_ORG_ID`)
+
 **Observability:**
 - [ ] Services expose health endpoints
 - [ ] The debugging ladder is understood (status -> diagnose -> logs -> recover)
@@ -319,3 +400,6 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - **Pipeline and workflow definitions**: `eve-pipelines-workflows`
 - **Local development workflow**: `eve-local-dev-loop`
 - **Layering agentic capabilities onto this foundation**: `eve-agentic-app-design`
+- **Auth SDK and SSO integration**: `eve-read-eve-docs` → `references/auth-sdk.md`
+- **Object storage and filesystem**: `eve-read-eve-docs` → `references/object-store-filesystem.md`
+- **External integrations (Slack, GitHub)**: `eve-read-eve-docs` → `references/integrations.md`

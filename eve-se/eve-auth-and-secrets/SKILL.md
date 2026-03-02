@@ -303,10 +303,10 @@ Rotate the JWT signing key:
 
 Add Eve SSO login to any Eve-deployed app using shared auth packages. The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` into deployed services.
 
-**Backend** -- install `@eve/auth` and wire Express middleware:
+**Backend** -- install `@eve-horizon/auth` and wire Express middleware:
 
 ```typescript
-import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve/auth';
+import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
 
 app.use(eveUserAuth());                          // parse tokens, check org membership
 app.get('/auth/config', eveAuthConfig());         // serve SSO discovery config
@@ -315,10 +315,10 @@ app.use('/api', eveAuthGuard());                  // protect API routes (401 if 
 
 `eveUserAuth()` is non-blocking -- unauthenticated requests pass through. Use `eveAuthGuard()` on routes that require login. Authenticated requests get `req.eveUser: { id, email, orgId, role }`.
 
-**Frontend** -- install `@eve/auth-react` and wrap the app:
+**Frontend** -- install `@eve-horizon/auth-react` and wrap the app:
 
 ```tsx
-import { EveAuthProvider, EveLoginGate } from '@eve/auth-react';
+import { EveAuthProvider, EveLoginGate } from '@eve-horizon/auth-react';
 
 <EveAuthProvider apiUrl="/api">
   <EveLoginGate>

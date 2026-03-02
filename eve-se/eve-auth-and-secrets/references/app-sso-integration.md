@@ -7,8 +7,8 @@ Add Eve SSO login to Eve-deployed apps. The platform auto-injects environment va
 ## Contents
 
 - [Auto-Injected Environment Variables](#auto-injected-environment-variables)
-- [Backend API (@eve/auth)](#backend-api-eveauth)
-- [Frontend API (@eve/auth-react)](#frontend-api-eveauth-react)
+- [Backend API (@eve-horizon/auth)](#backend-api-eveauth)
+- [Frontend API (@eve-horizon/auth-react)](#frontend-api-eveauth-react)
 - [Token Flow](#token-flow)
 - [Advanced Patterns](#advanced-patterns)
 
@@ -34,9 +34,9 @@ services:
       MY_SSO_URL: "${SSO_URL}"
 ```
 
-## Backend API (@eve/auth)
+## Backend API (@eve-horizon/auth)
 
-Install: `npm install @eve/auth`
+Install: `npm install @eve-horizon/auth`
 
 ### eveUserAuth(options?)
 
@@ -74,9 +74,9 @@ Verify a token locally using JWKS (fetched and cached from Eve API). Faster for 
 
 Verify a token by calling Eve API `/auth/token/verify` endpoint. Simplest approach -- no key management. Returns `EveTokenClaims`.
 
-## Frontend API (@eve/auth-react)
+## Frontend API (@eve-horizon/auth-react)
 
-Install: `npm install @eve/auth-react`
+Install: `npm install @eve-horizon/auth-react`
 
 ### EveAuthProvider
 
