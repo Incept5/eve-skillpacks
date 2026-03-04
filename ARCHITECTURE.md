@@ -141,7 +141,7 @@ https://github.com/incept5/eve-skillpacks
 This installs every skill in the repo. For selective installs, clone the repo and list only the packs/skills you want in `skills.txt`, then run:
 
 ```bash
-eve-worker skills install
+eve skills install
 # or, from Eve Horizon
 ./bin/eh skills install
 ```
@@ -155,7 +155,7 @@ If you have a local clone and want to install only a subset, you can reference p
 
 The installation process:
 1. `skills.txt` references the repo or local pack paths
-2. `eve-worker skills install` (or `./bin/eh skills install`) installs to `.agents/skills/`
+2. `eve skills install` (or `./bin/eh skills install`) installs to `.agents/skills/`
 3. Workers execute the installer on clone via `.eve/hooks/on-clone.sh`
 
 ## Creating a New Skill Pack
@@ -204,7 +204,7 @@ Each skill needs:
 ### 4. Install and Test
 
 ```bash
-eve-worker skills install
+eve skills install
 ls .agents/skills
 skill read <skill-name>
 ```
