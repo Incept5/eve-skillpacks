@@ -31,7 +31,21 @@ Key tables:
 
 ## Slack Integration
 
-### Connect
+### Connect (OAuth Install Link — Recommended)
+
+Generate a shareable install link. The recipient needs only Slack workspace admin access — no Eve credentials.
+
+```bash
+# Generate install link (24h TTL by default)
+eve integrations slack install-url --org <org_id>
+
+# Custom TTL
+eve integrations slack install-url --org <org_id> --ttl 7d
+```
+
+The link redirects to Slack OAuth. On approval, Eve exchanges the code for a bot token and creates the integration automatically. Gateway hot-loads the new integration within ~30 seconds (no restart needed).
+
+### Connect (Manual — Fallback)
 
 ```bash
 # Connect Slack workspace to org
@@ -149,7 +163,8 @@ Lifecycle:
 |---------|---------|
 | `eve integrations list --org <org>` | List integrations |
 | `eve integrations test <id> --org <org>` | Test integration health |
-| `eve integrations slack connect --org <org> --team-id <id> --token <token>` | Connect Slack |
+| `eve integrations slack install-url --org <org> [--ttl 7d]` | Generate shareable Slack install link |
+| `eve integrations slack connect --org <org> --team-id <id> --token <token>` | Connect Slack (manual fallback) |
 | `eve integrations update <id> --org <org> --setting key=value` | Update settings |
 | `eve identity link slack --org <org>` | Self-service identity link |
 | `eve org membership-requests list --org <org>` | List pending requests |

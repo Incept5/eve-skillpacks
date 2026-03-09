@@ -62,6 +62,10 @@ Every provider implements the `GatewayProvider` contract:
 
 Subscription providers start persistent connections on `initialize()` and tear them down on `shutdown()`. Webhook providers are stateless between requests.
 
+### Hot-Loading New Integrations
+
+The gateway polls the API for active integrations every **30 seconds**. When a new integration is detected (e.g., after a Slack OAuth install completes), it is initialized automatically without requiring a gateway restart. Only new integrations are loaded — existing instances are not re-initialized during polling.
+
 ## WebhookController Dispatch
 
 ```
