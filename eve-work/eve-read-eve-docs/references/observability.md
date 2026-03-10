@@ -111,15 +111,6 @@ eve org spend --org org_xxx                          # Org spend overview
 eve project spend --project proj_xxx                 # Project spend
 ```
 
-### Inference Rate Limits
-
-| Setting | Scope | Purpose |
-|---|---|---|
-| `EVE_INFERENCE_ORG_TOKENS_PER_HOUR` | Org | Hourly token cap for inference |
-| `EVE_INFERENCE_PROJECT_TOKENS_PER_HOUR` | Project | Hourly token cap per project |
-
-Inference requests are gated by `inference:write` (primary) or `jobs:write` (compatibility fallback).
-
 ## Provider + Model Discovery
 
 ```bash
@@ -127,11 +118,7 @@ eve providers list [--json]                         # Registered providers
 eve providers discover <provider> [--json]          # Live model list (cached with TTL)
 eve models list [--json]                            # Available LLM models
 eve harness list [--capabilities]                   # Harness model support matrix
-
-eve ollama managed list [--json]                    # Platform-managed models
 ```
-
-When managed inference returns `404`/`503`, check platform catalog codes: `MODEL_NOT_PUBLISHED`, `NO_PLATFORM_TARGET`, `TARGET_NOT_AVAILABLE`, `INSTALL_IN_PROGRESS`.
 
 ## OpenTelemetry Configuration
 

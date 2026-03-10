@@ -337,9 +337,6 @@ eve job diagnose <id>          # Status, timeline, attempts, errors, recommendat
 eve job logs <id> --attempt N  # Detailed logs for specific attempt
 ```
 
-`eve job diagnose` also shows LLM routing metadata for managed models (direct/bridge,
-bridge ID, protocol pair, effective base URL).
-
 ### Job Stuck Active
 
 Run `eve job diagnose <id>` and look for "running for Xs - may be stuck". Possible causes: harness hanging, worker crashed without marking attempt failed, network issues.
@@ -404,8 +401,6 @@ Check orchestrator/worker logs for `[resolveSecrets]` warnings. Verify `EVE_INTE
 | Error | Meaning | Fix |
 |-------|---------|-----|
 | "OAuth token has expired" | Claude auth stale | `./bin/eh auth extract --save` then redeploy |
-| "No protocol bridge..." | Harness/provider protocol mismatch has no bridge route | Align managed model harness/provider or add a matching bridge |
-| "Bridge ... missing base URL/API key" | Bridge runtime env is not configured | Set `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_URL` and `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_KEY` |
 | "git clone failed" | Repo inaccessible | Check GITHUB_TOKEN secret |
 | "Service X ready check failed" | Service provisioning issue | Check manifest services, container logs |
 | "Orchestrator restarted while attempt was running" | Job orphaned on restart | Auto-retries via recovery |

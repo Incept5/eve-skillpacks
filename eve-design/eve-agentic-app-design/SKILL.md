@@ -1,6 +1,6 @@
 ---
 name: eve-agentic-app-design
-description: Layer agentic capabilities onto a full-stack Eve app — agents, teams, multi-model inference, memory, events, chat, and coordination. Use when designing an app where agents are primary actors, not afterthoughts.
+description: Layer agentic capabilities onto a full-stack Eve app — agents, teams, memory, events, chat, and coordination. Use when designing an app where agents are primary actors, not afterthoughts.
 triggers:
   - agentic app design
   - agent architecture
@@ -22,7 +22,6 @@ Load this skill when:
 - Adding agent capabilities to an existing Eve app
 - Choosing between human-first and agent-first architecture
 - Deciding how agents should coordinate, remember, and communicate
-- Planning multi-model inference strategy
 
 ## Prerequisite: Start with the Foundation
 
@@ -31,7 +30,7 @@ Load this skill when:
 The progression:
 1. **`eve-agent-native-design`** — Principles (parity, granularity, composability, emergent capability)
 2. **`eve-fullstack-app-design`** — PaaS foundation (manifest, services, DB, pipelines, deploys)
-3. **This skill** — Agentic layer (agents, teams, inference, memory, events, chat, coordination)
+3. **This skill** — Agentic layer (agents, teams, memory, events, chat, coordination)
 
 Each layer assumes the previous. Skip none.
 
@@ -102,9 +101,7 @@ teams:
 
 **Design principle**: Most work is `fanout`. Use `council` only when multiple perspectives genuinely improve the outcome. Use `relay` only when each stage's output is the next stage's input.
 
-## Multi-Model Inference
-
-### Harness Profiles
+## Harness Profiles
 
 Define named profiles in the manifest. Agents reference profiles, never specific harnesses.
 
@@ -135,14 +132,6 @@ Profile entries are a fallback chain: if the first harness is unavailable, the n
 | Code review, documentation | Medium-reasoning model (sonnet, gemini) |
 | Triage, routing, classification | Fast model (haiku-equivalent, low reasoning) |
 | Specialized domains | Choose the model with strongest domain performance |
-
-### Managed Models
-
-Use managed models (`managed/<name>`) for org-wide or project-wide model policies. The registry merges across scopes: platform <- org <- project.
-
-### Local Inference
-
-For development and cost-sensitive tasks, configure local inference via Ollama targets. Use route policies to direct specific agent types to local models.
 
 ## Memory Design
 
@@ -371,7 +360,7 @@ Declare all access in `.eve/access.yaml` and sync declaratively. This ensures ac
 - [ ] Gateway policies set intentionally (not everything routable)
 - [ ] Chat routes defined for inbound message handling
 
-**Inference:**
+**Harness Profiles:**
 - [ ] Harness profiles defined in manifest (agents reference profiles, not harnesses)
 - [ ] Fallback chains in profiles for resilience
 - [ ] Model choice matches task complexity

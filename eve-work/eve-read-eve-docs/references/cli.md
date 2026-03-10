@@ -31,22 +31,6 @@ export EVE_API_URL=http://localhost:4801          # local/docker (opt-in)
 export EVE_API_URL=http://api.eve.lvh.me          # k8s ingress (local k3d stack)
 ```
 
-Managed Ollama targets live on the same API host using `/inference/v1`:
-
-```bash
-export EVE_MANAGED_OLLAMA_URL="${EVE_API_URL%/}/inference/v1"
-```
-
-Examples:
-
-```bash
-# staging
-export EVE_MANAGED_OLLAMA_URL=https://api.eh1.incept5.dev/inference/v1
-
-# local/docker
-export EVE_MANAGED_OLLAMA_URL=http://localhost:4801/inference/v1
-```
-
 Use `./bin/eh status` to discover the correct URL for the current instance. For local development, `eve local up` provisions a full k3d stack and prints the correct API URL.
 
 ## Profile
@@ -267,12 +251,15 @@ eve packs resolve [--dry-run] [--repo-dir <path>]       # Preview pack resolutio
 eve skills install [source] [--skip-installed]          # Install skill packs
 ```
 
-- Without source: reads `skills.txt` and installs all entries.
+**Resolution order** (without a source argument):
+1. **Pack-based** -- if `.eve/manifest.yaml` defines `x-eve.packs`, skills are installed from those packs. Requires a matching `.eve/packs.lock.yaml` (run `eve agents sync` to generate it). Per-pack `install_agents` overrides are supported; the global default comes from `x-eve.install_agents`.
+2. **skills.txt** -- falls back to reading `skills.txt` and installing all entries.
+
 - With source: installs directly from URL, GitHub repo, or local path and persists to `skills.txt`.
 - Supports: `https://github.com/org/repo`, `org/repo` (GitHub shorthand), `./local/path`.
 - Glob patterns in `skills.txt` (e.g. `../**`) automatically exclude `private-skills/` directories unless the path explicitly targets them (e.g. `../private-skills/my-skill`).
 - Local directory paths in `skills.txt` (e.g. `./my-skills`) are expanded at parse time into individual skill subdirectories, so `./path` behaves identically to `./path/*`. This ensures correct `--skip-installed` checks and consistent enumeration.
-- Installs for all supported agents: claude-code, codex, gemini-cli.
+- Installs for all supported agents: claude-code, codex, gemini-cli, pi.
 
 ## Models + Harnesses
 
@@ -288,14 +275,6 @@ eve harness get <name> [--org <id>] [--project <id>]
 Notes:
 - `--capabilities` shows model support, reasoning levels, streaming, and tool use.
 - `harness get` shows variants, auth status, and capability matrix.
-
-### Managed model availability (inference only)
-
-- Use `eve ollama managed list|publish|unpublish` to inspect and curate platform-managed availability.
-- `managed` models are consumed as `managed/<canonical>`.
-- When managed inference returns `404` or `503`, check for platform catalog/runtime codes:
-  - `MODEL_NOT_PUBLISHED` → publish via `eve ollama managed publish`
-  - `NO_PLATFORM_TARGET` / `TARGET_NOT_AVAILABLE` / `INSTALL_IN_PROGRESS` → admin target/install remediation
 
 ## Database (Environment DBs)
 
@@ -592,12 +571,6 @@ eve admin receipts recompute                            # Recompute cost receipt
   [--since 2026-01-01] [--project proj_xxx]
   [--dry-run] [--force]
 
-# Model management (org/project scoped)
-eve admin models list --org org_xxx [--project proj_xxx]
-eve admin models set <name> --org org_xxx               # Set managed model
-  [--project proj_xxx] [--harness <harness>] [--model <model>]
-eve admin models delete <name> --org org_xxx [--project proj_xxx]
-
 # Ingress aliases (custom domain aliases for services)
 eve admin ingress-aliases list                          # List all aliases
   [--alias <alias>] [--project <id>] [--environment <id>]
@@ -633,61 +606,6 @@ eve system logs <service> [--tail 50]                   # Service logs
 eve system pods                                         # K8s pod status
 eve system events [--limit 50]                          # Recent platform events
 ```
-
-## Ollama (Inference Targets)
-
-```bash
-eve ollama targets [--scope-kind <platform|org|project>] [--scope-id <id>]
-eve ollama target add --name <name> --base-url <url>
-  [--scope-kind <kind>] [--scope-id <id>]
-  [--target-type external_ollama|internal_pool]
-  [--transport-profile ollama_api|openai_compat]
-  [--api-key-ref <secret_ref>]
-eve ollama target rm <target_id>
-eve ollama target test <target_id>
-eve ollama target wake <target_id> [--wait=true|false] [--timeout-ms <ms>]
-eve ollama target pull <target_id> --model-id <id>           # Pull a model onto a target
-eve ollama target models <target_id>                         # List models on a remote target
-
-eve ollama models
-eve ollama model add --canonical <model_id> --provider <provider> --slug <provider_model_slug>
-
-eve ollama installs [--target-id <id>] [--model-id <id>]
-eve ollama install add --target-id <id> --model-id <id>
-  [--requires-warm-start true|false] [--min-target-capacity <n>]
-eve ollama install rm --target-id <id> --model-id <id>
-
-eve ollama aliases [--scope-kind <kind>] [--scope-id <id>]
-eve ollama alias set --alias <name> --target-id <target_id> --model-id <model_id>
-  [--scope-kind <kind>] [--scope-id <id>]
-eve ollama alias rm --alias <name> [--scope-kind <kind>] [--scope-id <id>]
-
-eve ollama assignments [--scope-kind <kind>] [--scope-id <id>]
-eve ollama route-policies [--scope-kind <kind>] [--scope-id <id>]
-eve ollama route-policy set --scope-kind <kind> [--scope-id <id>]
-  --preferred-target-id <target_id>
-  [--fallback-to-alias-target true|false]
-eve ollama route-policy rm --scope-kind <kind> [--scope-id <id>]
-
-eve ollama managed list [--json]
-eve ollama managed publish --canonical <canonical_model_id> --provider <provider> --slug <provider_model_slug> --target-id <target_id>
-  [--requires-warm-start true|false] [--enabled true|false]   # Warns if openai_compat target base_url includes a /v1 gateway path
-eve ollama managed unpublish --canonical <canonical_model_id>
-```
-
-Notes:
-- Use installs + route policy to switch between local and external Ollama endpoints.
-- `fallback-to-alias-target=true` keeps requests flowing if preferred target is not eligible for the model.
-- Managed inference traffic is served from `.../inference/v1` on the active API URL (for example, `https://api.eh1.incept5.dev/inference/v1` in staging), matching the OpenAPI route `/inference/v1/chat/completions`.
-- Inference requests also accept `OLLAMA_API_KEY` or `x-ollama-api-key` headers as Bearer-token-compatible alternatives to `Authorization: Bearer`.
-- `/inference/v1/chat/completions` usage gates are controlled by:
-  - `inference:write` (primary),
-  - `jobs:write` (compatibility fallback)
-  - `EVE_INFERENCE_ORG_TOKENS_PER_HOUR`
-  - `EVE_INFERENCE_PROJECT_TOKENS_PER_HOUR`
-- `eve ollama target wake` is used for scale-to-zero target pools and supports `--wait` plus `--timeout-ms`.
-- `eve ollama target pull` triggers a model pull on a specific target (useful for pre-warming).
-- `eve ollama target models` lists models currently loaded on a remote target with size and modification time.
 
 ## Local Stack (k3d)
 
@@ -756,6 +674,8 @@ Notes:
 - Version resolution queries the configured registry for the latest common platform tag.
   - Set `ECR_REGISTRY=<registry>` to override the registry host.
   - Set `ECR_NAMESPACE=<namespace>` to override the image namespace (defaults to `eve-horizon`).
+- **ECR auto-auth:** `up` automatically authenticates Docker to ECR Public before pulling platform images. If the AWS CLI is installed and configured, it runs `aws ecr-public get-login-password` to obtain a token and logs Docker in. This avoids ECR Public's anonymous rate limits (1 pull/s, 10 pulls/min per IP). If the AWS CLI is not available, pulls proceed without auth but may fail under rate limits -- the error message includes a manual login command.
+- Image pull retries now handle `403 Forbidden` and `429 Too Many Requests` responses, and HTTP fetches (e.g. registry tag listing) retry with exponential backoff on 429.
 - The cluster binds ports 80/443 on localhost via k3d's load balancer.
 - Kube context is set to `k3d-eve-local` automatically.
 
@@ -814,7 +734,6 @@ Quick reference:
 | **Packs** | `status`, `resolve` |
 | **Skills** | `install` |
 | **Models** | `list` |
-| **Ollama** | `targets`, `target add/rm/test/wake/pull/models`, `models`, `model add`, `installs`, `install add/rm`, `aliases`, `alias set/rm`, `assignments`, `route-policies`, `route-policy set/rm` |
 | **Harnesses** | `list`, `get` |
 | **Database** | `schema`, `rls`, `rls init --with-groups`, `sql`, `migrate`, `migrations`, `new`, `reset`, `wipe`, `status`, `rotate-credentials`, `scale`, `destroy` |
 | **Manifest** | `validate` |
@@ -831,5 +750,5 @@ Quick reference:
 | **Migrate** | `skills-to-packs` |
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |
 | **User** | `show` |
-| **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `models`, `ingress-aliases` |
+| **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `ingress-aliases` |
 | **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |

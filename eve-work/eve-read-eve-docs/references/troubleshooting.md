@@ -71,8 +71,6 @@ If `./bin/eh status` shows services stopped, restart with `./bin/eh start <mode>
 | Job failed immediately | Clone, secret, or workspace error | `eve job diagnose <id>` -- check first attempt's error |
 | Job stuck active ("running for Xs") | Harness hanging or worker crash | `eve job diagnose <id>`; check runner-logs if K8s |
 | Harness logs missing | Startup error, not harness | `eve job runner-logs <id>` for K8s pod logs |
-| Wrong model used | Managed model routing | `eve job diagnose <id>` shows LLM routing metadata (bridge, protocol, base URL) |
-| "No protocol bridge..." | Harness/provider protocol mismatch | Align managed model harness/provider or add matching bridge |
 
 ## Build Issues
 
@@ -91,7 +89,6 @@ If `./bin/eh status` shows services stopped, restart with `./bin/eh start <mode>
 | `ECONNREFUSED` to API | Wrong `EVE_API_URL` or service down | `./bin/eh status` to verify; correct URL for mode |
 | k3d ingress 502 | Service not ready or wrong namespace | `eve system pods` to check; wait for rollout |
 | Can't reach `*.lvh.me` | DNS or k3d not running | `lvh.me` resolves to 127.0.0.1; ensure k3d cluster is up |
-| Inference 404/503 | Model not published or target down | Check `eve ollama managed list`; `eve ollama target test <id>` |
 | Webhook delivery fails | Endpoint unreachable or HMAC mismatch | `eve webhooks deliveries <id>` for delivery logs |
 
 ## Real-Time Debugging (Multi-Terminal)
@@ -147,13 +144,9 @@ If k3d cluster is stale or corrupted, `eve local reset --force` is the fastest r
 | Error Message | Meaning | Fix |
 |---|---|---|
 | "OAuth token has expired" | Claude auth token stale | `./bin/eh auth extract --save` then redeploy |
-| "No protocol bridge..." | No bridge for harness/provider protocol pair | Align model config or add bridge |
-| "Bridge ... missing base URL/API key" | Bridge runtime env not set | Set `EVE_BRIDGE_*_URL` and `EVE_BRIDGE_*_KEY` |
 | "git clone failed" | Repo inaccessible or token wrong | Check `GITHUB_TOKEN` secret scope |
 | "Orchestrator restarted while attempt was running" | Job orphaned on restart | Auto-retries via recovery; no action needed |
 | "secret resolution failed" | Internal API key missing/wrong | Set `EVE_INTERNAL_API_KEY` on API + worker |
-| `MODEL_NOT_PUBLISHED` | Managed model not available | `eve ollama managed publish ...` |
-| `TARGET_NOT_AVAILABLE` | Inference target offline | `eve ollama target test <id>`; wake if needed |
 | "insufficient permissions" | RBAC deny | `eve access explain --org <id> --user <id> --permission <perm>` |
 
 ## Debugging Checklist

@@ -82,7 +82,7 @@ eve org ensure test-org --slug test-org             # 3. Use the CLI
 
 **Phase**: Pre-MVP (K8s runtime + agent runtime + chat gateway + builds/deploy pipeline + auth/RBAC complete).
 
-**What exists**: monorepo with 6 services (API, orchestrator, worker, agent runtime, gateway, SSO). Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Full auth stack (SSH login, web auth via GoTrue + SSO broker, service principals, custom roles, access groups). RBAC with policy-as-code and default-deny data plane. Persistent environment deployment to K8s with manifest variable interpolation and ingress routing. First-class builds (BuildKit), releases, and pipelines (build -> release -> deploy). Job execution with mclaude/claude/zai/gemini/code/codex harnesses via `eve-agent-cli`. Managed models (platform/org/project scoped) with transparent protocol bridge routing. Provider registry + model discovery. Agent/team/thread primitives with repo-first sync and AgentPacks (`x-eve.packs`). Chat gateway with Slack + Nostr integration. Agent runtime (org-scoped warm pods). Org filesystem sync + org docs. Cost tracking (execution receipts, resource classes, budgets, balance ledger). Analytics, webhooks, and supervision primitives. Ollama inference targets (external + internal pools, routing policies). On-demand GPU wake via ASG API. Agent app API access (`--with-apis` flag, `@eve/app-auth` SDK). CLI as npm package (`@eve-horizon/cli`) and local `./bin/eh` helpers. K8s local stack via k3d.
+**What exists**: monorepo with 6 services (API, orchestrator, worker, agent runtime, gateway, SSO). Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Full auth stack (SSH login, web auth via GoTrue + SSO broker, service principals, custom roles, access groups). RBAC with policy-as-code and default-deny data plane. Persistent environment deployment to K8s with manifest variable interpolation and ingress routing. First-class builds (BuildKit), releases, and pipelines (build -> release -> deploy). Job execution with mclaude/claude/zai/gemini/code/codex harnesses via `eve-agent-cli`. Provider registry + model discovery. Agent/team/thread primitives with repo-first sync and AgentPacks (`x-eve.packs`). Chat gateway with Slack + Nostr integration. Agent runtime (org-scoped warm pods). Org filesystem sync + org docs. Cost tracking (execution receipts, resource classes, budgets, balance ledger). Analytics, webhooks, and supervision primitives. Agent app API access (`--with-apis` flag, `@eve/app-auth` SDK). CLI as npm package (`@eve-horizon/cli`) and local `./bin/eh` helpers. K8s local stack via k3d.
 
 ### Pre-Deployment Phase
 
@@ -112,7 +112,6 @@ User -> CLI -> API -> Orchestrator -> Worker -> eve-agent-cli -> Harness -> Agen
          |      |            |              |
 Chat -> Gateway +         Postgres      JobWorkspace (runner pods)
           +-> Agent Runtime (warm pods)
-          +-> Inference (Ollama targets + protocol bridges)
 
 ONLY URL needed: EVE_API_URL
 CLI is a thin wrapper; all control flows through the API.
@@ -120,7 +119,7 @@ CLI is a thin wrapper; all control flows through the API.
 
 **Services** (6 in the monorepo):
 
-- **API**: single gateway for org/project/job CRUD, secrets, events, runs, auth, inference.
+- **API**: single gateway for org/project/job CRUD, secrets, events, runs, auth.
 - **Orchestrator**: polls ready jobs, routes events to pipelines/workflows.
 - **Worker**: clones repo, invokes harness via `eve-agent-cli`, streams JSONL logs.
 - **Gateway**: routes inbound messages from Slack/Nostr to agents.
@@ -154,7 +153,6 @@ CLI is a thin wrapper; all control flows through the API.
 | Repo-first agents sync | Deterministic config via `--ref` |
 | Two-repo deploy model | Source builds images, infra repo applies K8s manifests |
 | BuildKit-first builds | Replaced kaniko; reliable in-cluster container builds |
-| Managed models + protocol bridges | Transparent harness/provider routing without changing upstream identity |
 | GoTrue + SSO broker | Web auth via Supabase-compatible auth, dual-mode API auth |
 | Default-deny data plane | Members/agents/users need explicit group-scoped grants |
 
@@ -252,7 +250,7 @@ eve job show <id> --verbose
 eve job follow <id>               # Stream harness logs
 eve job logs <id>                 # Historical logs
 eve job result <id>               # Exit status + outputs
-eve job diagnose <id>             # Full diagnostic dump (includes managed-model routing metadata)
+eve job diagnose <id>             # Full diagnostic dump
 eve env show <project> <env>      # Deployment health
 ```
 

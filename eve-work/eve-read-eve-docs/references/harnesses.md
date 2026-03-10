@@ -264,37 +264,6 @@ If a `variants/<variant>` directory exists, it overlays the base config.
 
 ---
 
-## Managed Models (Platform-Only Catalog)
-
-Managed models are referenced via `managed/<name>` in `harness_options.model` and
-resolved from the platform-managed catalog only.
-
-Inference catalog endpoints:
-- `GET /inference/managed-models`
-- `POST /inference/managed-models`
-- `DELETE /inference/managed-models/{canonical_model_id}`
-
-`GET /models` exposes managed entries as `managed/<name>` for clients.
-Model availability for managed inference now comes from the catalog and API-side managed inference path; workers do not resolve managed model registries.
-
-Workers inject provider-specific env vars based on the model's harness (e.g.
-Claude, Codex, Gemini, Z.ai) and discard the secrets after execution.
-
-Managed model routing is protocol-aware and transparent:
-- Provider identity stays upstream (`provider` does not change to bridge identity).
-- Worker compares harness transport compatibility vs provider API compatibility.
-- Compatible pair -> direct route.
-- Mismatch -> protocol bridge route (if a bridge exists for that compatibility pair).
-
-Current bridge registry includes:
-- `litellm-anthropic-openai` (`anthropic` -> `openai`)
-
-Runtime bridge config keys:
-- `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_URL`
-- `EVE_BRIDGE_LITELLM_ANTHROPIC_OPENAI_KEY`
-
----
-
 ## Adding a New BYOK Model
 
 1. **Rate card** — `packages/shared/src/pricing/default-rate-card.ts`:
