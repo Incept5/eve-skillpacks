@@ -107,6 +107,178 @@ When wired, the platform injects `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STOR
 
 Every deployed service receives `EVE_API_URL`, `EVE_PUBLIC_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, and `EVE_ENV_NAME`. Use `EVE_API_URL` for server-to-server calls. Use `EVE_PUBLIC_API_URL` for browser-facing code. Design your app to read these rather than hardcoding URLs.
 
+## Reference Architecture: SPA + API + Managed DB
+
+The most common Eve fullstack pattern. A nginx-fronted SPA proxies API calls to an internal backend, with managed Postgres and eve-migrate for schema management.
+
+### Service Layout
+
+```
+services:
+  web:        # nginx SPA (public ingress, proxies /api/ → api service)
+  api:        # NestJS/Express backend (internal, no public ingress)
+  db:         # managed Postgres 16
+  migrate:    # eve-migrate job (runs SQL migrations)
+```
+
+**Why nginx proxy?** The web service's nginx reverse-proxies `/api/` to the internal API service. This eliminates CORS, removes the need for hard-coded API hostnames, and gives the SPA same-origin access to the backend. The API service has no public ingress — it's only reachable inside the cluster.
+
+### Manifest Shape
+
+```yaml
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: ./apps/api/Dockerfile
+    ports: [3000]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${managed.db.url}
+      CORS_ORIGIN: "https://myapp.eh1.incept5.dev"
+    # No x-eve.ingress — API is internal only
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: ./apps/web/Dockerfile
+    ports: [80]
+    environment:
+      API_SERVICE_HOST: ${ENV_NAME}-api    # k8s service DNS for nginx proxy
+    depends_on:
+      api:
+        condition: service_healthy
+    x-eve:
+      ingress:
+        public: true
+        port: 80
+        alias: myapp                        # https://myapp.{org}-{project}-{env}.eh1.incept5.dev
+
+  migrate:
+    image: public.ecr.aws/w7c4v0w3/eve-horizon/migrate:latest
+    environment:
+      DATABASE_URL: ${managed.db.url}
+      MIGRATIONS_DIR: /migrations
+    x-eve:
+      role: job
+      files:
+        - source: db/migrations
+          target: /migrations
+
+  db:
+    x-eve:
+      role: managed_db
+      managed:
+        class: db.p1
+        engine: postgres
+        engine_version: "16"
+```
+
+### The nginx Proxy
+
+The web service Dockerfile builds the SPA with Vite, then serves it via nginx. The nginx config uses `envsubst` to resolve `${API_SERVICE_HOST}` at container startup:
+
+```nginx
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://${API_SERVICE_HOST}:3000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffering off;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /health {
+        return 200 "ok";
+        add_header Content-Type text/plain;
+    }
+}
+```
+
+In the manifest, `API_SERVICE_HOST: ${ENV_NAME}-api` resolves to the k8s service name (e.g., `sandbox-api`), giving nginx a stable internal DNS target.
+
+### Eve-Migrate for Schema Management
+
+Eve provides a purpose-built migration runner at `public.ecr.aws/w7c4v0w3/eve-horizon/migrate:latest`. It uses plain SQL files with timestamp prefixes, tracked in a `schema_migrations` table (idempotent, checksummed, transactional).
+
+```
+db/
+  migrations/
+    20260312000000_initial_schema.sql
+    20260312100000_seed_data.sql
+    20260315000000_add_status_column.sql
+```
+
+Mount migrations into the container via `x-eve.files`. The migrate step in the pipeline runs after deploy (the managed DB must be provisioned first).
+
+**Do not use TypeORM, Knex, or Flyway migrations** — they add complexity and diverge from the Eve platform's migration tracking. The eve-migrate runner gives parity between local dev and staging.
+
+### Multi-Stage Dockerfiles
+
+**API Dockerfile** (NestJS/Node):
+
+```dockerfile
+FROM node:22-slim AS base
+WORKDIR /app
+ENV PNPM_HOME="/pnpm" PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+
+FROM deps AS build
+COPY tsconfig.json ./
+COPY src ./src
+RUN pnpm build
+
+FROM node:22-slim AS production
+WORKDIR /app
+RUN groupadd --gid 1000 node || true && useradd --uid 1000 --gid node --shell /bin/bash --create-home node || true
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+USER node
+ENV NODE_ENV=production PORT=3000
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD node -e "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+CMD ["node", "dist/main.js"]
+```
+
+**Web Dockerfile** (Vite SPA + nginx):
+
+```dockerfile
+FROM node:22-slim AS build
+WORKDIR /app
+ENV PNPM_HOME="/pnpm" PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+COPY tsconfig.json vite.config.ts index.html ./
+COPY src ./src
+RUN pnpm build
+
+FROM nginx:alpine AS production
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+EXPOSE 80
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+**Conventions**: node:22-slim base, pnpm via corepack, frozen lockfiles, non-root user (API), health checks on both services.
+
 ## Database Design
 
 ### Provisioning
@@ -128,10 +300,103 @@ Reference the connection URL in other services: `${managed.db.url}`.
 
 ### Schema Strategy
 
-1. **Migrations are first-class.** Use `eve db new` to create migration files. Use `eve db migrate` to apply them. Never modify production schemas by hand.
-2. **Design for RLS from the start.** If agents or users will query the database directly, scaffold RLS helpers early: `eve db rls init --with-groups`. Retrofitting row-level security is painful.
-3. **Inspect before changing.** Use `eve db schema` to examine current schema. Use `eve db sql --env <env>` for ad-hoc queries during development. Use `--direct-url` mode for local dev tools that need a raw connection string.
+1. **Migrations are plain SQL.** Create timestamp-prefixed SQL files in `db/migrations/` (e.g., `20260312000000_initial.sql`). Run via eve-migrate (see Reference Architecture above). Never modify production schemas by hand.
+2. **Design for RLS from the start.** Every table with multi-tenant data gets `org_id TEXT NOT NULL`, RLS policies, and a `DatabaseService` that sets the session context (see below). Retrofitting row-level security is painful.
+3. **Inspect before changing.** Use `eve db schema` to examine current schema. Use `eve db sql --env <env>` for ad-hoc queries during development.
 4. **Separate app data from agent data.** Use distinct schemas or naming conventions. App tables serve the product; agent tables serve memory and coordination (see `eve-agent-memory` for storage patterns).
+
+### RLS + DatabaseService Pattern (NestJS)
+
+The proven pattern for multi-tenant RLS in NestJS uses raw `pg.Pool` (not an ORM) with a request-scoped transaction wrapper:
+
+**`db.ts`** — Pool configuration with startup health check:
+
+```typescript
+import { Pool } from 'pg';
+
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://app:app@localhost:5432/myapp';
+const parsed = new URL(databaseUrl);
+const isLocal = ['localhost', '127.0.0.1'].includes(parsed.hostname);
+
+export const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: !isLocal ? { rejectUnauthorized: false } : undefined,
+});
+```
+
+**`database.service.ts`** — Transaction wrapper with RLS context:
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { pool } from '../db';
+
+export interface DbContext {
+  org_id: string;
+  user_id?: string;
+}
+
+@Injectable()
+export class DatabaseService {
+  async withClient<T>(context: DbContext | null, fn: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (context?.org_id) {
+        await client.query("SELECT set_config('app.org_id', $1, true)", [context.org_id]);
+      }
+      if (context?.user_id) {
+        await client.query("SELECT set_config('app.user_id', $1, true)", [context.user_id]);
+      }
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async query<T extends QueryResultRow>(ctx: DbContext | null, sql: string, params?: unknown[]): Promise<QueryResult<T>> {
+    return this.withClient(ctx, (client) => client.query<T>(sql, params));
+  }
+
+  async queryOne<T extends QueryResultRow>(ctx: DbContext | null, sql: string, params?: unknown[]): Promise<T | null> {
+    const result = await this.query<T>(ctx, sql, params);
+    return result.rows[0] ?? null;
+  }
+}
+```
+
+**Why this pattern?**
+- `set_config('app.org_id', $1, true)` is transaction-scoped — it automatically clears when the connection returns to the pool.
+- Every database access goes through `withClient`, guaranteeing RLS context is set before any query.
+- No ORM overhead — raw SQL gives full control over query plans and joins.
+- The `DbContext` object is derived from `req.user` (set by Eve auth middleware).
+
+**RLS policy template** (applied per table in migration SQL):
+
+```sql
+ALTER TABLE my_table ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY my_table_select ON my_table FOR SELECT
+  USING (current_setting('app.org_id', true) IS NOT NULL
+    AND org_id = current_setting('app.org_id', true));
+
+CREATE POLICY my_table_insert ON my_table FOR INSERT
+  WITH CHECK (current_setting('app.org_id', true) IS NOT NULL
+    AND org_id = current_setting('app.org_id', true));
+
+CREATE POLICY my_table_update ON my_table FOR UPDATE
+  USING (current_setting('app.org_id', true) IS NOT NULL
+    AND org_id = current_setting('app.org_id', true))
+  WITH CHECK (current_setting('app.org_id', true) IS NOT NULL
+    AND org_id = current_setting('app.org_id', true));
+```
+
+**Table conventions**: Every table gets `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `org_id TEXT NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, and `updated_at TIMESTAMPTZ` (with a trigger) on mutable tables. Enable `pgcrypto` extension in the first migration.
 
 ### Access Patterns
 
@@ -145,7 +410,7 @@ Reference the connection URL in other services: `${managed.db.url}`.
 
 ### The Canonical Flow
 
-Every production app should follow `build -> release -> deploy`:
+Every production app should follow `build → release → deploy → migrate → smoke-test`:
 
 ```yaml
 pipelines:
@@ -153,18 +418,31 @@ pipelines:
     steps:
       - name: build
         action:
-          type: build        # Creates BuildSpec + BuildRun, produces image digests
+          type: build          # Creates BuildSpec + BuildRun, produces image digests
       - name: release
         depends_on: [build]
         action:
-          type: release      # Creates immutable release from build artifacts
+          type: release        # Creates immutable release from build artifacts
       - name: deploy
         depends_on: [release]
         action:
-          type: deploy       # Deploys release to target environment
+          type: deploy         # Deploys release to target environment
+      - name: migrate
+        depends_on: [deploy]
+        action:
+          type: job
+          service: migrate     # Runs eve-migrate against the managed DB
+      - name: smoke-test
+        depends_on: [migrate]
+        script:
+          run: ./scripts/smoke-test.sh
+          timeout: 300
 ```
 
-**Why this matters**: The build step produces SHA256 image digests. The release step pins those exact digests. The deploy step uses the pinned release. You deploy exactly what you built — no tag drift, no "latest" surprises.
+**Why this order matters**:
+- `build` produces SHA256 image digests. `release` pins those exact digests. `deploy` uses the pinned release. You deploy exactly what you built — no tag drift, no "latest" surprises.
+- `migrate` runs *after* deploy because the managed DB must be provisioned first. The eve-migrate job applies any pending SQL migrations.
+- `smoke-test` validates the deployed services end-to-end before the pipeline reports success.
 
 ### Registry Decisions
 
@@ -404,12 +682,17 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - [ ] Platform-injected env vars used (not hardcoded URLs)
 
 **Database:**
-- [ ] Migrations managed via `eve db new` / `eve db migrate`
-- [ ] RLS scaffolded if agents or users query directly
+- [ ] Migrations are plain SQL files in `db/migrations/` with timestamp prefixes
+- [ ] `eve-migrate` job service declared in manifest with `x-eve.files` mount
+- [ ] `DatabaseService` wraps all DB access with RLS context (`set_config`)
+- [ ] RLS policies on every table with `org_id`
+- [ ] `pgcrypto` extension enabled, UUID primary keys, `updated_at` triggers
 - [ ] App data separated from agent data by schema or convention
 
 **Pipeline:**
-- [ ] Canonical `build -> release -> deploy` pipeline defined
+- [ ] Canonical `build → release → deploy → migrate → smoke-test` pipeline defined
+- [ ] Migrate step runs after deploy (managed DB must exist first)
+- [ ] Smoke test script validates deployed services end-to-end
 - [ ] Registry chosen and credentials set as secrets
 - [ ] OCI labels on Dockerfiles (for GHCR)
 - [ ] Image digests flow through release (no tag-based deploys)

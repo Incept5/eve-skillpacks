@@ -63,7 +63,7 @@ eve env deploy sandbox --ref main
 
 ## Full Example
 
-A more complete manifest showing registry auto-derivation, a database with healthcheck, an API with ingress, a migration job, environment overrides, and a simple pipeline:
+A complete manifest showing the standard SPA + API + managed DB pattern with eve-migrate, nginx reverse proxy, and the canonical pipeline:
 
 ```yaml
 schema: eve/compose/v2
@@ -72,65 +72,84 @@ project: my-project
 registry: "eve"
 
 services:
-  db:
-    image: postgres:16
-    ports: [5432]
-    environment:
-      POSTGRES_DB: app
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: ${secret.DB_PASSWORD}
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "app"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   api:
     build:
       context: ./apps/api
+      dockerfile: ./apps/api/Dockerfile
     ports: [3000]
     environment:
-      DATABASE_URL: postgres://app:${secret.DB_PASSWORD}@db:5432/app
+      NODE_ENV: production
+      DATABASE_URL: ${managed.db.url}
+      CORS_ORIGIN: "https://my-project.eh1.incept5.dev"
+    # No x-eve.ingress — API is internal, reached via web's /api/ proxy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: ./apps/web/Dockerfile
+    ports: [80]
+    environment:
+      API_SERVICE_HOST: ${ENV_NAME}-api
     depends_on:
-      db:
+      api:
         condition: service_healthy
     x-eve:
       ingress:
         public: true
-        port: 3000
-      api_spec:
-        type: openapi
-        spec_url: /openapi.json
+        port: 80
+        alias: my-project
 
   migrate:
-    image: flyway/flyway:10
-    command: -url=jdbc:postgresql://db:5432/app -user=app -password=${secret.DB_PASSWORD} -locations=filesystem:/migrations migrate
-    volumes:
-      - ./db/migrations:/migrations:ro
-    depends_on:
-      db:
-        condition: service_healthy
+    image: public.ecr.aws/w7c4v0w3/eve-horizon/migrate:latest
+    environment:
+      DATABASE_URL: ${managed.db.url}
+      MIGRATIONS_DIR: /migrations
     x-eve:
       role: job
+      files:
+        - source: db/migrations
+          target: /migrations
+
+  db:
+    x-eve:
+      role: managed_db
+      managed:
+        class: db.p1
+        engine: postgres
+        engine_version: "16"
 
 environments:
   sandbox:
-    pipeline: deploy-sandbox
-    overrides:
-      services:
-        api:
-          environment:
-            NODE_ENV: test
+    pipeline: deploy
 
 pipelines:
-  deploy-sandbox:
+  deploy:
     steps:
-      - name: migrate
-        action: { type: job, service: migrate }
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
       - name: deploy
-        depends_on: [migrate]
+        depends_on: [release]
         action: { type: deploy }
+      - name: migrate
+        depends_on: [deploy]
+        action:
+          type: job
+          service: migrate
+      - name: smoke-test
+        depends_on: [migrate]
+        script:
+          run: ./scripts/smoke-test.sh
+          timeout: 300
 ```
+
+Key patterns:
+- **`eve-migrate`** for database migrations — plain SQL files mounted via `x-eve.files`. Runs after deploy because the managed DB must be provisioned first.
+- **nginx reverse proxy** on the web service proxies `/api/` to the internal API via `API_SERVICE_HOST: ${ENV_NAME}-api` (k8s service DNS). No CORS, no hard-coded hostnames.
+- **`${managed.db.url}`** — connection string injected by Eve for managed databases.
+- **Smoke test** validates the deployed services end-to-end before pipeline success.
 
 ## Top-Level Fields
 

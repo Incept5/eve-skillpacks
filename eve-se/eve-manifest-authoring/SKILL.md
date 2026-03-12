@@ -104,6 +104,60 @@ services:
 Not deployed to K8s — provisioned by the orchestrator on first deploy.
 Reference managed values elsewhere: `${managed.db.url}`.
 
+## Eve-Migrate for Database Migrations
+
+Use the platform's migration runner instead of Flyway, TypeORM, or Knex. It uses plain SQL files with timestamp prefixes, tracked in `schema_migrations`:
+
+```yaml
+services:
+  migrate:
+    image: public.ecr.aws/w7c4v0w3/eve-horizon/migrate:latest
+    environment:
+      DATABASE_URL: ${managed.db.url}
+      MIGRATIONS_DIR: /migrations
+    x-eve:
+      role: job
+      files:
+        - source: db/migrations
+          target: /migrations
+```
+
+Migration files: `db/migrations/20260312000000_initial_schema.sql`. The `x-eve.files` directive mounts them into the container at `/migrations`.
+
+In the pipeline, the migrate step must run **after deploy** (managed DB needs provisioning):
+
+```yaml
+pipelines:
+  deploy:
+    steps:
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
+      - name: deploy
+        depends_on: [release]
+        action: { type: deploy }
+      - name: migrate
+        depends_on: [deploy]
+        action: { type: job, service: migrate }
+```
+
+For local dev, use the same image via Docker Compose for parity:
+
+```yaml
+# docker-compose.yml
+services:
+  migrate:
+    image: ghcr.io/incept5/eve-migrate:latest
+    environment:
+      DATABASE_URL: postgres://app:app@db:5432/myapp
+    volumes:
+      - ./db/migrations:/migrations:ro
+    depends_on:
+      db: { condition: service_healthy }
+```
+
 ## Legacy manifests
 
 If the repo still uses `components:` from older manifests, migrate to `services:`
@@ -114,7 +168,7 @@ and add `schema: eve/compose/v2`. Keep ports and env keys the same.
 - Provide `image` and optionally `build` (context and dockerfile).
 - Use `ports`, `environment`, `healthcheck`, `depends_on` as needed.
 - Use `x-eve.external: true` and `x-eve.connection_url` for externally hosted services.
-- Use `x-eve.role: job` for one-off services (migrations, seeds).
+- Use `x-eve.role: job` for one-off services (migrations, seeds). For database migrations, prefer Eve's `eve-migrate` image (see below).
 
 ### Build configuration
 
