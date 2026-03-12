@@ -38,13 +38,11 @@ npm install @eve-horizon/auth-react
 ## Quick-Start: Backend (Express)
 
 ```typescript
-import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
+import { eveUserAuth, eveAuthGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
 
 app.use(eveUserAuth());                                     // Parse tokens (non-blocking)
 app.get('/auth/config', eveAuthConfig());                   // Serve SSO discovery
-app.get('/auth/me', eveAuthGuard(), (req, res) => {         // Protected endpoint
-  res.json(req.eveUser);
-});
+app.get('/auth/me', eveAuthMe());                           // Full /auth/me for React SDK
 app.use('/api', eveAuthGuard());                            // Protect all API routes
 ```
 
@@ -84,6 +82,7 @@ function Dashboard() {
 | `eveUserAuth(options?)` | Middleware | Verify user token, check org, attach `req.eveUser` (non-blocking) |
 | `eveAuthGuard()` | Middleware | Return 401 if `req.eveUser` not set |
 | `eveAuthConfig()` | Handler | Serve `{ sso_url, eve_api_url, ... }` from env vars |
+| `eveAuthMe(options?)` | Handler | Full `/auth/me` — memberships + project role for React SDK |
 | `eveAuthMiddleware(options?)` | Middleware | Agent/job token verification (blocking), attach `req.agent` |
 | `verifyEveToken(token, url?)` | Function | JWKS-based local verification (15-min cache) |
 | `verifyEveTokenRemote(token, url?)` | Function | HTTP verification via `/auth/token/verify` |
@@ -92,8 +91,8 @@ function Dashboard() {
 
 | Export | Type | Description |
 |--------|------|-------------|
-| `EveAuthProvider` | Component | Context provider, session bootstrap |
-| `useEveAuth()` | Hook | `{ user, loading, loginWithSso, loginWithToken, logout }` |
+| `EveAuthProvider` | Component | Context provider, session bootstrap. Props: `apiUrl?`, `projectId?` |
+| `useEveAuth()` | Hook | `{ user, loading, orgs, activeOrg, switchOrg, loginWithSso, loginWithToken, logout }` |
 | `EveLoginGate` | Component | Render children when authed, login form when not |
 | `EveLoginForm` | Component | SSO + token paste login UI |
 | `createEveClient(baseUrl?)` | Function | Fetch wrapper with automatic Bearer injection |
@@ -134,7 +133,7 @@ Combine both packages for SSO login with protected API routes:
 // Backend
 app.use(eveUserAuth());
 app.get('/auth/config', eveAuthConfig());
-app.get('/auth/me', eveAuthGuard(), (req, res) => res.json(req.eveUser));
+app.get('/auth/me', eveAuthMe());
 app.use('/api', eveAuthGuard());
 ```
 

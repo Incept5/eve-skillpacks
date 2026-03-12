@@ -47,15 +47,15 @@ npm install @eve-horizon/auth
 ```
 
 ```typescript
-import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
+import { eveUserAuth, eveAuthGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
 
 app.use(eveUserAuth());                                     // Parse tokens (non-blocking)
 app.get('/auth/config', eveAuthConfig());                   // Serve SSO discovery
-app.get('/auth/me', eveAuthGuard(), (req, res) => {         // Protected endpoint
-  res.json(req.eveUser);
-});
+app.get('/auth/me', eveAuthMe());                           // Full /auth/me for React SDK
 app.use('/api', eveAuthGuard());                            // Protect all API routes
 ```
+
+**Important**: Use `eveAuthMe()` for `/auth/me` instead of returning `req.eveUser` directly. The handler returns snake_case fields with org memberships — the format the React SDK expects. Returning `req.eveUser` directly (camelCase, no memberships) will break the React SDK.
 
 ### Exports
 
@@ -64,6 +64,7 @@ app.use('/api', eveAuthGuard());                            // Protect all API r
 | `eveUserAuth(options?)` | Middleware | Verify user token, check org membership, attach `req.eveUser` |
 | `eveAuthGuard()` | Middleware | Return 401 if `req.eveUser` not set |
 | `eveAuthConfig()` | Handler | Serve `{ sso_url, eve_api_url, ... }` from env vars |
+| `eveAuthMe(options?)` | Handler | Serve `/auth/me` with full user claims (memberships + project role) |
 | `eveAuthMiddleware(options?)` | Middleware | Agent/job token verification (blocking), attach `req.agent` |
 | `verifyEveToken(token, url?)` | Function | JWKS-based local verification (15-min cache) |
 | `verifyEveTokenRemote(token, url?)` | Function | HTTP verification via `/auth/token/verify` |
@@ -77,6 +78,12 @@ app.use('/api', eveAuthGuard());                            // Protect all API r
 - `orgs` claim missing or target org not found
 
 This lets you mix public and protected routes on the same app — apply `eveUserAuth()` globally, then add `eveAuthGuard()` only on routes that require authentication.
+
+**`eveAuthMe()`** is an Express handler for `/auth/me`. Unlike returning `req.eveUser` directly (which is camelCase and lacks memberships), `eveAuthMe()` reads JWT claims and returns the full response the React SDK expects — snake_case fields, org memberships array, and optional project role. Options:
+- `orgId?: string` -- override `EVE_ORG_ID`
+- `eveApiUrl?: string` -- override `EVE_API_URL`
+- `strategy?: 'local' | 'remote'` -- verification strategy
+- `projectHeader?: string` -- request header name containing a project ID (e.g. `'x-eve-project-id'`). When set, proxies to Eve API to resolve the user's project-level role.
 
 **`eveAuthMiddleware()`** is blocking — returns 401 immediately on any verification failure. Use for agent-facing APIs where every request must be authenticated.
 
@@ -112,6 +119,7 @@ interface EveUser {
   email: string;
   orgId: string;
   role: 'owner' | 'admin' | 'member';
+  projectRole?: 'owner' | 'admin' | 'member' | null;  // When project context available
 }
 ```
 
@@ -141,8 +149,8 @@ function App() {
 
 | Export | Type | Purpose |
 |--------|------|---------|
-| `EveAuthProvider` | Component | Context provider, session bootstrap |
-| `useEveAuth()` | Hook | `{ user, loading, error, config, loginWithSso, loginWithToken, logout }` |
+| `EveAuthProvider` | Component | Context provider, session bootstrap. Props: `apiUrl?`, `projectId?` |
+| `useEveAuth()` | Hook | `{ user, loading, error, config, orgs, activeOrg, switchOrg, loginWithSso, loginWithToken, logout }` |
 | `EveLoginGate` | Component | Render children when authed, login form when not |
 | `EveLoginForm` | Component | SSO + token paste login UI |
 | `createEveClient(baseUrl?)` | Function | Fetch wrapper with Bearer injection |
@@ -202,6 +210,73 @@ User tokens include an `orgs` array populated at mint time:
 
 Limited to 50 most-recent memberships (`EVE_AUTH_ORGS_CLAIM_LIMIT`). The claim can become stale if membership changes after token mint. With the default 1-day TTL this is acceptable. For immediate revocation, use `strategy: 'remote'`.
 
+## Project Role Resolution
+
+The Eve API `/auth/me` endpoint supports an optional `X-Eve-Project-Id` header. When present, it resolves the user's project-level role from the `project_memberships` table and returns it as `project_role`:
+
+```json
+{
+  "user_id": "user_abc",
+  "email": "alice@co.com",
+  "org_id": "org_xyz",
+  "role": "admin",
+  "memberships": [{ "org_id": "org_xyz", "role": "admin" }],
+  "project_role": "owner"
+}
+```
+
+`project_role` is `null` if the user has no explicit project membership.
+
+### Backend: Resolve Project Role
+
+Use `eveAuthMe()` with the `projectHeader` option to automatically forward the project context to the Eve API:
+
+```typescript
+app.get('/auth/me', eveAuthMe({ projectHeader: 'x-eve-project-id' }));
+```
+
+When the frontend sends `X-Eve-Project-Id`, the handler proxies to the Eve API and returns the response including `project_role`.
+
+### Frontend: Send Project Context
+
+Pass `projectId` to `EveAuthProvider` to include the header in `/auth/me` requests:
+
+```tsx
+<EveAuthProvider apiUrl="/api" projectId={currentProjectId}>
+  <App />
+</EveAuthProvider>
+```
+
+The resolved project role is available on `user.projectRole`:
+
+```typescript
+const { user } = useEveAuth();
+if (user?.projectRole === 'owner' || user?.projectRole === 'admin') {
+  // editor access
+}
+```
+
+### Custom App-Level Roles
+
+Apps that need roles beyond `owner/admin/member` (e.g. `editor/viewer`) should map platform roles in middleware:
+
+```typescript
+app.use((req, _res, next) => {
+  if (req.eveUser) {
+    const orgRole = req.eveUser.role;
+    const projectRole = req.eveUser.projectRole;
+    // Org owners/admins are always editors
+    if (['owner', 'admin'].includes(orgRole)) {
+      req.appRole = 'editor';
+    } else {
+      // Map project role or default to viewer
+      req.appRole = projectRole && ['owner', 'admin'].includes(projectRole) ? 'editor' : 'viewer';
+    }
+  }
+  next();
+});
+```
+
 ## Migration from Custom Auth
 
 Replace ~750 lines of hand-rolled auth with ~50 lines:
@@ -260,16 +335,20 @@ app.use((req, _res, next) => {
 });
 ```
 
-**Backend — Auth config controller:**
-Wrap `eveAuthConfig()` in a NestJS controller. Expose both legacy and canonical paths during migration:
+**Backend — Auth config + /auth/me controllers:**
+Wrap `eveAuthConfig()` and `eveAuthMe()` in NestJS controllers:
 
 ```typescript
 @Controller()
 export class AuthConfigController {
-  private handler = eveAuthConfig();
+  private configHandler = eveAuthConfig();
+  private meHandler = eveAuthMe({ projectHeader: 'x-eve-project-id' });
 
   @Get('auth/config')
-  getConfig(@Req() req, @Res() res) { this.handler(req, res); }
+  getConfig(@Req() req, @Res() res) { this.configHandler(req, res); }
+
+  @Get('auth/me')
+  getMe(@Req() req, @Res() res) { this.meHandler(req, res); }
 }
 ```
 

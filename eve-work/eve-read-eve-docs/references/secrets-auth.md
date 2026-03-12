@@ -578,8 +578,8 @@ curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 
 For adding Eve SSO login to deployed apps, use the shared auth packages:
 
-- **`@eve-horizon/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
-- **`@eve-horizon/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access. Now includes org awareness (see below).
+- **`@eve-horizon/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), `eveAuthMe()` (full `/auth/me` handler with memberships + project role), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
+- **`@eve-horizon/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>` (with optional `projectId` prop for project role resolution), `useEveAuth()` hook (with `orgs`, `activeOrg`, `switchOrg`), `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access.
 
 ### Auto-Injected Environment Variables
 
@@ -629,6 +629,16 @@ type EveAuthOrg = {
 - The backend already returns memberships in the token/session; the SDK now exposes them.
 - Active org persists in `localStorage` across sessions.
 - Backward compatible: `user.orgId` still works for single-org apps.
+
+### Project Role Resolution
+
+The `/auth/me` endpoint accepts an `X-Eve-Project-Id` header. When present, it resolves the user's project membership and returns `project_role` (`'owner' | 'admin' | 'member' | null`).
+
+- **Backend**: Use `eveAuthMe({ projectHeader: 'x-eve-project-id' })` to forward the header and include project role in the response.
+- **Frontend**: Pass `projectId` to `<EveAuthProvider>` to send the header automatically. Access via `user.projectRole`.
+- **Custom roles**: Map `project_role` to app-specific roles (e.g. `editor/viewer`) in backend middleware.
+
+See `references/auth-sdk.md` for full details.
 
 ---
 

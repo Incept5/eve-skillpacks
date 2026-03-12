@@ -65,6 +65,22 @@ Express middleware. Returns 401 if `req.eveUser` is not set. Place after `eveUse
 
 Express handler. Returns `{ sso_url, eve_api_url, eve_public_api_url, eve_org_id }` from environment variables. The frontend provider fetches this to discover SSO configuration.
 
+### eveAuthMe(options?)
+
+Express handler for `/auth/me`. Reads JWT claims directly (not `req.eveUser`) and returns the full response the React SDK expects — snake_case fields with org memberships and optional project role.
+
+**Important**: Use this instead of returning `req.eveUser` directly. The `req.eveUser` object is camelCase and lacks memberships, which breaks the React SDK.
+
+- Options:
+  - `orgId?: string` -- override `EVE_ORG_ID`
+  - `eveApiUrl?: string` -- override `EVE_API_URL`
+  - `strategy?: 'local' | 'remote'` -- verification strategy
+  - `projectHeader?: string` -- request header containing project ID (e.g. `'x-eve-project-id'`). When set, proxies to Eve API to resolve `project_role`.
+
+```typescript
+app.get('/auth/me', eveAuthMe({ projectHeader: 'x-eve-project-id' }));
+```
+
 ### eveAuthMiddleware(options?)
 
 Lower-level middleware for agent/job token verification. Attaches `req.agent` with full `EveTokenClaims`. Returns 401 on failure (blocking, unlike `eveUserAuth`).
@@ -89,17 +105,24 @@ Install: `npm install @eve-horizon/auth-react`
 
 Context provider. Handles session bootstrap, token caching, SSO probing. Fetches `/auth/config` from the backend to discover SSO URL.
 
+Props:
+- `apiUrl?: string` -- backend base URL (default: `'/api'`)
+- `projectId?: string` -- sends `X-Eve-Project-Id` header with `/auth/me` to resolve project role
+
 ```tsx
-<EveAuthProvider apiUrl="/api">
+<EveAuthProvider apiUrl="/api" projectId={currentProjectId}>
   {children}
 </EveAuthProvider>
 ```
 
 ### useEveAuth()
 
-Hook returning `{ user, loading, error, config, loginWithSso, loginWithToken, logout }`.
+Hook returning `{ user, loading, error, config, orgs, activeOrg, switchOrg, loginWithSso, loginWithToken, logout }`.
 
-- `user: { id, email, orgId, role } | null`
+- `user: { id, email, orgId, role, projectRole?, organizations? } | null`
+- `orgs: EveAuthOrg[]` -- all org memberships
+- `activeOrg: EveAuthOrg | null` -- currently selected org
+- `switchOrg(orgId: string)` -- switch active org (persists in localStorage)
 - `loginWithSso()` -- redirect to SSO broker login page
 - `loginWithToken(token: string)` -- validate and store a pasted token
 - `logout()` -- clear stored token and reset state
@@ -156,6 +179,7 @@ interface EveUser {
   email: string;
   orgId: string;
   role: 'owner' | 'admin' | 'member';
+  projectRole?: 'owner' | 'admin' | 'member' | null;  // When project context available
 }
 ```
 
@@ -262,6 +286,26 @@ Typical migration replaces ~700-800 lines of hand-rolled auth (JWKS setup, org c
 3. Replace frontend auth with `EveAuthProvider` + `useEveAuth()` or `EveLoginGate`
 4. Remove hardcoded SSO URL discovery hacks -- `eveAuthConfig()` reads auto-injected `EVE_SSO_URL`
 5. Verify: `curl /auth/config` returns SSO config, `curl /auth/me -H "Authorization: Bearer $TOKEN"` returns user
+
+## Project Role Resolution
+
+The Eve API `/auth/me` endpoint accepts an optional `X-Eve-Project-Id` header. When present, it queries the `project_memberships` table and returns `project_role` (`'owner' | 'admin' | 'member' | null`).
+
+**Backend**: Use `eveAuthMe()` with `projectHeader` to forward the header:
+
+```typescript
+app.get('/auth/me', eveAuthMe({ projectHeader: 'x-eve-project-id' }));
+```
+
+**Frontend**: Pass `projectId` to the provider:
+
+```tsx
+<EveAuthProvider apiUrl="/api" projectId={currentProjectId}>
+```
+
+**Access the role**: `user.projectRole` in `useEveAuth()`.
+
+**Custom app roles**: Map platform roles to app-specific roles (e.g. `editor/viewer`) in middleware after `eveUserAuth()`. See the Custom Role Mapping section.
 
 ## Advanced Patterns
 

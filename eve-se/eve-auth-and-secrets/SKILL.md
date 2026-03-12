@@ -326,11 +326,12 @@ Additional exports for agent/service scenarios:
 **Express setup** (~3 lines):
 
 ```typescript
-import { eveUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
+import { eveUserAuth, eveAuthGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
 
 app.use(eveUserAuth());
 app.get('/auth/config', eveAuthConfig());
-app.get('/auth/me', eveAuthGuard(), (req, res) => res.json(req.eveUser));
+app.get('/auth/me', eveAuthMe());               // Full response for React SDK
+app.use('/api', eveAuthGuard());
 ```
 
 **NestJS setup** -- apply `eveUserAuth()` globally in `main.ts`, then use a thin guard wrapper:
