@@ -115,3 +115,4 @@ Notes:
 - `--stuck` filters to jobs active longer than expected (default or `--stuck-minutes`).
 - `follow` uses SSE streaming; `watch` combines status polling with log tailing.
 - `runner-logs` fetches K8s pod logs, useful for debugging harness startup failures.
+- `--with-apis` is server-side: the CLI passes `app_apis` in job hints; the server validates APIs exist, generates the instruction block, and appends it to the description. Same behavior for CLI, API, workflow, and SDK job creation paths.

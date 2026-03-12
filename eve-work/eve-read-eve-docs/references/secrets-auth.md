@@ -579,7 +579,7 @@ curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 For adding Eve SSO login to deployed apps, use the shared auth packages:
 
 - **`@eve-horizon/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
-- **`@eve-horizon/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access.
+- **`@eve-horizon/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>`, `useEveAuth()` hook, `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access. Now includes org awareness (see below).
 
 ### Auto-Injected Environment Variables
 
@@ -609,6 +609,26 @@ For SSE endpoints, the middleware also accepts `?token=` query parameter.
 For development or headless environments, use `eve auth token` to obtain a token for pasting.
 
 **Token staleness**: The `orgs` claim reflects membership at token mint time. With the default 1-day TTL, membership changes can take up to 24h to reflect. Use `strategy: 'remote'` for immediate membership checks.
+
+### Auth-React Org Awareness
+
+`@eve-horizon/auth-react` exposes org membership and switching via the `useEveAuth()` hook:
+
+```typescript
+const { orgs, activeOrg, switchOrg } = useEveAuth();
+// orgs: EveAuthOrg[]  — all orgs the user belongs to
+// activeOrg: EveAuthOrg | null  — currently selected org
+// switchOrg(orgId: string): void  — switch active org
+
+type EveAuthOrg = {
+  id: string;
+  role: 'owner' | 'admin' | 'member';
+};
+```
+
+- The backend already returns memberships in the token/session; the SDK now exposes them.
+- Active org persists in `localStorage` across sessions.
+- Backward compatible: `user.orgId` still works for single-org apps.
 
 ---
 

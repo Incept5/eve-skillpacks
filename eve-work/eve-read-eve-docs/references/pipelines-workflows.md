@@ -195,6 +195,63 @@ workflows:
           prompt: "Audit error logs and summarize anomalies"
 ```
 
+### Multi-Step Workflow Expansion
+
+Workflows compile to a full job DAG at invocation time. A multi-step workflow creates 1 root container job + N child step jobs with dependency ordering.
+
+```yaml
+workflows:
+  ingestion-pipeline:
+    with_apis:
+      - coordinator
+    steps:
+      - name: ingest
+        agent:
+          name: ingestion
+      - name: extract
+        depends_on: [ingest]
+        agent:
+          name: extraction
+      - name: review
+        depends_on: [extract]
+        agent:
+          name: reviewer
+```
+
+**How it works:**
+- Each step becomes a child job under the root workflow job.
+- `depends_on: [step_names]` wires dependency as `blocks` relations -- the scheduler respects them.
+- Per-step agent, harness, and toolchain resolution is supported.
+- `with_apis` can be set at the workflow level (applies to all steps) or per step.
+
+**Validation rules** (enforced by `eve manifest validate`):
+- Duplicate step names → error.
+- Cyclic dependencies → error (reports the cycle path).
+- Invalid `depends_on` references (non-existent step name) → error.
+
+**Response format** includes `step_jobs`:
+
+```json
+{
+  "job_id": "proj-abc12345",
+  "status": "active",
+  "step_jobs": [
+    {"job_id": "proj-abc12345.1", "step_name": "ingest"},
+    {"job_id": "proj-abc12345.2", "step_name": "extract", "depends_on": ["ingest"]},
+    {"job_id": "proj-abc12345.3", "step_name": "review", "depends_on": ["extract"]}
+  ]
+}
+```
+
+**Job tree view** (`eve job tree`):
+
+```
+[*] proj-abc12345 [Workflow] ingestion-pipeline
+|- [-] proj-abc12345.1 [ingestion-pipeline] ingest
+|- [-] proj-abc12345.2 [ingestion-pipeline] extract
+|- [-] proj-abc12345.3 [ingestion-pipeline] review
+```
+
 ### Workflow Hints
 
 Workflow definitions may include a `hints` block. These hints are merged into the job at invocation time (API, CLI, or event triggers). Use hints for:

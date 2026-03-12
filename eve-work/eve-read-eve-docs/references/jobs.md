@@ -141,10 +141,12 @@ Resource refs mount into `.eve/resources/` before harness start. The worker writ
 eve job create --description "Analyze data" --with-apis coordinator,analytics
 ```
 
-`--with-apis` verifies the named APIs exist for the project, then appends an
-instruction block to the description with a runtime-safe Node `fetch` helper for
-in-job API calls. The helper uses `EVE_JOB_TOKEN` (or local creds fallback) and
-works without requiring the `eve` CLI inside the runner.
+`--with-apis` is now **server-side**: the CLI passes `app_apis` in job hints
+instead of generating instructions client-side. The server validates that the
+named APIs exist for the project, generates the instruction block (with a
+runtime-safe Node `fetch` helper using `EVE_JOB_TOKEN`), and appends it to the
+job description. This ensures consistent behavior across CLI, API, workflow, and
+SDK job creation paths.
 
 ### Attachments
 

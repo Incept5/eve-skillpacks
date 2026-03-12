@@ -475,6 +475,43 @@ workflows:
 
 Workflow invocation creates a job with the workflow hints merged.
 
+### Multi-Step Workflow Syntax
+
+Workflows support multi-step DAGs that expand into child jobs at invocation time:
+
+```yaml
+workflows:
+  ingestion-pipeline:
+    with_apis:
+      - coordinator
+    steps:
+      - name: ingest
+        agent:
+          name: ingestion
+      - name: extract
+        depends_on: [ingest]
+        agent:
+          name: extraction
+      - name: review
+        depends_on: [extract]
+        agent:
+          name: reviewer
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `steps[].name` | string | Unique step identifier (required when using `depends_on`) |
+| `steps[].depends_on` | string[] | Step names this step blocks on |
+| `steps[].agent.name` | string | Per-step agent override |
+| `with_apis` | string[] | API names attached to the workflow (workflow-level or per-step) |
+
+**Validation** (`eve manifest validate` checks workflow dependency graphs):
+- Duplicate step names → error.
+- Cyclic dependencies → error (reports cycle path).
+- Invalid `depends_on` references → error.
+
+See `references/pipelines-workflows.md` for expansion behavior, response format, and job tree view.
+
 ## Secret Requirements and Validation
 
 Declare required secrets at the top level or per pipeline step:
