@@ -1,15 +1,8 @@
 {
   "eve_horizon_path": "../eve-horizon",
-  "last_synced_commit": "b3ef2d1d4929fc60664d75b7796fc5181295745e",
-  "last_synced_at": "2026-03-02T16:00:00Z",
+  "last_synced_commit": "e893b2a269382768e78facba19be09f86c4b25b4",
+  "last_synced_at": "2026-03-04T12:00:00Z",
   "sync_log": [
-    {
-      "commit": "c77df4e58aa49c06a9f87e42675c9eb2b2a3a0b0",
-      "commit_short": "c77df4e",
-      "synced_at": "2026-02-18T17:22:10Z",
-      "type": "incremental",
-      "summary": "13-commit incremental sync — ECR migration updates, managed inference catalog/model workflow updates, and CLI managed inference + registry updates"
-    },
     {
       "commit": "790a9e1b662efa270a44046c2c3b5271ae2afd52",
       "commit_short": "790a9e1",
@@ -37,6 +30,13 @@
       "synced_at": "2026-03-02T16:00:00Z",
       "type": "incremental",
       "summary": "11-commit incremental sync — Eve Auth SDK published to npm (@eve-horizon/auth), full SDK system doc (373 lines), eve-sdk overview doc, enriched user visibility (eve user show), admin membership table improvements, system health degraded-state handling. Sentinel-mgr SSO migration patterns distilled into auth skills."
+    },
+    {
+      "commit": "e893b2a269382768e78facba19be09f86c4b25b4",
+      "commit_short": "e893b2a",
+      "synced_at": "2026-03-04T12:00:00Z",
+      "type": "incremental",
+      "summary": "20-commit incremental sync — Pi coding agent harness (Phase 1), worker org-fs parity (.org/ mount in all execution paths), Pi skill discovery, eve-worker CLI removal, ECR public auto-auth for eve local up, auth-react SSO redirect fix"
     }
   ]
 }

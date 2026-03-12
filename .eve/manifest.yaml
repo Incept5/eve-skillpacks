@@ -2,13 +2,11 @@ schema: eve/compose/v1
 project: eve-skillpacks
 
 x-eve:
-  requires:
-    secrets: [GITHUB_TOKEN, CLAUDE_CODE_OAUTH_TOKEN]
   defaults:
-    harness: claude
+    harness: codex
     harness_options:
-      model: claude-opus-4.6
-      reasoning_effort: high
+      model: gpt-5.3-codex-spark
+      reasoning_effort: x-high
     hints:
       permission_policy: auto_edit
     git:
@@ -26,16 +24,15 @@ workflows:
       cron:
         schedule: "0 17 * * *"
     hints:
-      harness: claude
-      model: claude-opus-4.6
-      reasoning_effort: high
+      permission_policy: auto_edit
+      harness: codex
+      model: gpt-5.3-codex-spark
+      reasoning_effort: x-high
     steps:
       - agent:
           prompt: |
             You are the eve-skillpacks auto-sync agent.
 
-            0. Import project secrets from `./secrets.env` when needed:
-               eve secrets import --project "$EVE_PROJECT_ID" --file ./secrets.env
             1. Clone https://github.com/incept5/eve-horizon.git to ../eve-horizon
                (shallow clone of main is sufficient)
             2. Load the sync-horizon skill and execute the full sync workflow

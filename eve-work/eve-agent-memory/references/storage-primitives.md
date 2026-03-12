@@ -151,13 +151,33 @@ DELETE /orgs/:org_id/docs/:doc_id
 GET    /orgs/:org_id/docs/search?q=<query>
 ```
 
-## 6. Org Filesystem (Sync)
+## 6. Org Filesystem
 
 **Scope**: Org
 **Lifetime**: Permanent
-**Access**: Org permissions (orgfs scope with access groups)
+**Access**: Org permissions (orgfs scope with access groups); agents access `.org/` via workspace mount
 
-Bidirectional file sync between local machines and org storage. Syncthing data plane with control-plane APIs.
+Shared per-org file storage with two access paths: agents read/write `.org/` directly in their job workspace (mounted in both agent-runtime and worker execution paths), and developers sync to local machines via the CLI.
+
+### Agent Workspace Access
+
+Agents see `.org/` in their workspace during job execution. Both agent-runtime (warm pods) and worker (runner pods) execution paths mount the org filesystem.
+
+```bash
+# Read shared org files
+cat .org/shared/runbook.md
+
+# Write agent-scoped files
+mkdir -p .org/agents/reviewer/findings/
+echo '{"patterns": [...]}' > .org/agents/reviewer/findings/sprint-42.json
+
+# List available org content
+ls .org/
+```
+
+The mount is scoped by the user's RBAC bindings (`allow_prefixes`, `read_only_prefixes`). `$EVE_ORG_ROOT` points to the mount path.
+
+### CLI Sync (Developer Machines)
 
 ```bash
 # Setup
@@ -275,8 +295,7 @@ Event types relevant to memory:
 The highest-fidelity memory: distilled workflows encoded as agent instructions. See `eve-skill-distillation` for creation workflow.
 
 ```bash
-eve skill install --from ../eve-skillpacks/eve-work/
-eve skill list
+eve skills install ../eve-skillpacks/eve-work/
 ```
 
 ## 11. Container Registry
@@ -403,7 +422,7 @@ Use for: finding relevant prior knowledge before starting work. Combines results
 | Threads | Project/Org | By time | No | Messages | No |
 | Resource Refs | Job | No | Yes (pinned) | URI | Yes |
 | Org Docs | Org | Yes (text) | Yes | Markdown | Yes |
-| Org Filesystem | Org | No* | Via events | Files | Yes |
+| Org Filesystem | Org | No* | Via events | Files (`.org/` mount) | Yes |
 | Managed DB | Environment | Yes (SQL) | No | Tables | No |
 | Secrets | Multi-scope | By key | No | Key-value | No |
 | Event Spine | Project/Org | By type/time | No | JSON | Yes (core) |

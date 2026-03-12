@@ -144,18 +144,21 @@ eve memory search --org $ORG_ID --query "auth retry patterns" --agent reviewer -
 
 Namespace convention: `/agents/{slug}/memory/{category}/{key}.md` or `/agents/shared/memory/...`
 
-**Org Filesystem (sync)** — bidirectional file sync between local machines and org storage.
+**Org Filesystem** — shared per-org file storage mounted at `.org/` in agent workspaces and synced to local machines.
 
 ```bash
-# Set up sync (developer/operator machine)
-eve fs sync init --org $ORG_ID --local ~/Eve/acme --mode two-way
+# Agents access .org/ directly in their workspace (all execution paths)
+ls .org/                                    # browse org files
+cat .org/shared/runbook.md                  # read shared knowledge
+echo "new finding" >> .org/agents/reviewer/notes.md  # write agent-scoped files
 
-# Status and monitoring
+# Developers sync to local machines
+eve fs sync init --org $ORG_ID --local ~/Eve/acme --mode two-way
 eve fs sync status --org $ORG_ID
 eve fs sync logs --org $ORG_ID --follow
 ```
 
-Use for: large knowledge bases, design assets, documentation trees. Markdown-first defaults. Syncthing-based data plane with event-driven notifications (`file.created/updated/deleted`). Best for knowledge that lives as a file tree and benefits from local editing.
+Use for: large knowledge bases, design assets, documentation trees. Agents see `.org/` in their workspace regardless of execution path (agent-runtime or worker). Markdown-first defaults. Event-driven notifications (`file.created/updated/deleted`). Best for knowledge that lives as a file tree and benefits from both agent and human editing.
 
 **Skills and Skillpacks** — distilled patterns packaged for reuse.
 
@@ -267,6 +270,7 @@ Proceed with enriched context
 ```bash
 # Startup sequence
 cat .eve/coordination-inbox.md 2>/dev/null  # sibling context
+ls .org/ 2>/dev/null                         # org filesystem (shared files)
 eve docs search --org $ORG_ID --query "$JOB_DESCRIPTION_KEYWORDS"  # prior knowledge
 eve job attachments $PARENT_JOB_ID  # parent context
 ```
@@ -316,7 +320,8 @@ When to use: after a thread produces knowledge worth preserving beyond the conve
 | Need to distill a conversation into knowledge? | Thread distillation → Agent Memory |
 | Need curated, categorized agent knowledge? | Agent Memory Namespaces |
 | Need versioned, searchable documents? | Org Document Store |
-| Need file-tree sync with local editing? | Org Filesystem |
+| Need shared files across agents in the org? | Org Filesystem (`.org/` mount) |
+| Need file-tree sync with local editing? | Org Filesystem (CLI sync) |
 | Need app-scoped binary/object storage? | Object Store (manifest) |
 | Need structured queries (SQL)? | Managed database |
 | Need to encode a reusable workflow? | Skills |
