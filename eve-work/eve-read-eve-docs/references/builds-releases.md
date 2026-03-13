@@ -342,6 +342,16 @@ pipelines:
 - Releases require a valid `build_id` that exists for the project.
 - Mismatches surface explicit errors; re-run build or re-sync the manifest.
 
+## Cleaning Up Builds and Releases
+
+```bash
+eve build delete <build_id>
+eve build prune --project <id> --keep 10
+
+eve release delete <tag> --project <id>
+eve release prune --project <id> --keep 5
+```
+
 ## API Endpoints
 
 ```

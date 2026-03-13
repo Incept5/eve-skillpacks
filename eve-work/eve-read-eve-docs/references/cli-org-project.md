@@ -33,7 +33,7 @@ eve org update <org_id>                                 # Modify org
   [--name "New Name"] [--deleted true/false]
   [--default-agent mission-control]
   [--billing-config '{"..."}']
-eve org delete <org_id>                                 # Soft-delete org
+eve org delete <org_id> [--hard] [--force]               # Delete org (cascades through projects)
 eve org spend <org_id>                                  # View org spend
   [--since 2026-01-01] [--until 2026-02-01] [--currency usd]
 
@@ -50,6 +50,11 @@ eve org members remove user_abc --org org_xxx
 
 Slugs are immutable after creation. Choose short, meaningful values.
 
+Notes on `org delete`:
+- Default: soft-delete (sets `deleted_at`, recoverable with `update --deleted=false`).
+- `--hard`: cascades hard-delete through all projects + environments (irreversible, requires admin).
+- `--force`: continue on partial failures (e.g., K8s unreachable).
+
 ## Project
 
 ```bash
@@ -62,6 +67,7 @@ eve project update <project_id>
   [--name "New Name"] [--repo-url <url>] [--branch <branch>]
   [--deleted true/false]
 eve project show <project_id>                           # Alias for get
+eve project delete <project_id> [--hard] [--force]      # Delete project (cascades to envs/jobs/builds)
 eve project sync [--dir <path>]                         # Sync manifest to API
   [--validate-secrets] [--strict] [--project <id>]
 eve project spend <project_id>                          # View project spend
@@ -97,6 +103,7 @@ Flags:
 The command aggregates data from the project, releases, environments, and pod diagnostics APIs. Suspended environments are listed but skip service queries. Service URLs are inferred from the namespace and cluster domain (e.g. `https://{component}.{orgSlug}-{projectSlug}-{env}.{domain}`).
 
 Notes:
+- `project delete` default: soft-delete (sets `deleted_at`, recoverable with `update --deleted=false`). `--hard`: physically removes all data including environments, jobs, builds, and releases (irreversible, requires admin). `--force`: continue on partial failures.
 - `project ensure` supports repo-less creation for early bootstrap; omit `--repo-url` to reserve slug/id first, then set repo later with `project ensure --repo-url ...` or `project update --repo-url ...`.
 - `repo_url` accepts HTTPS, SSH (`git@host:org/repo.git`), or `file://` (local/dev only).
 - `project sync` reads the manifest from `--dir` (or cwd) and pushes it to the API.

@@ -54,6 +54,7 @@ eve env recover <project> <env>                         # Analyze state, suggest
 # Lifecycle
 eve env suspend <project> <env> --reason "maintenance"  # Pause environment
 eve env resume <project> <env>                          # Resume environment
+eve env undeploy <env> [--project=<id>] [--force]        # Tear down K8s deployment, keep config
 eve env delete <project> <env> [--force]                # Destroy environment
   [--danger-delete-production]                          # Required for production envs
 ```
@@ -66,6 +67,7 @@ Notes:
 - Deploy error messages list environments defined in the manifest if the provided target name is invalid.
 - `env show` displays ingress aliases (custom domain mappings) when present.
 - `rollback` redeploys a previous release without teardown; `reset` tears down first then redeploys.
+- `env undeploy` tears down the K8s namespace but preserves the environment record. Sets `deploy_status` to `undeployed` and clears `current_release_id`. Redeploy later with `eve env deploy`.
 - `env suspend/resume` pause and resume without deletion.
 
 ## Debugging (CLI-first)

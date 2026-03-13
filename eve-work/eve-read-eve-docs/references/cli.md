@@ -707,6 +707,19 @@ Quick reference:
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
 - `eve system health` -- platform-wide health check
 
+## Resource Cleanup
+
+```bash
+eve build delete <build_id>                  # Delete build + runs/artifacts
+eve build prune [--project=] [--keep=10]     # Delete old builds, keep latest N
+eve release delete <tag> [--project=]        # Delete release by tag
+eve release prune [--project=] [--keep=5]    # Delete old releases, keep latest N
+eve agents delete <slug> [--project=]        # Delete agent config + routes
+eve agents delete-team <team_id> [--project=] # Delete team
+eve thread delete <thread_id>               # Delete thread + messages
+eve pipeline delete <name> [--project=]     # Delete pipeline + run history
+```
+
 ## All Commands Summary
 
 | Category | Key Commands |
@@ -714,21 +727,21 @@ Quick reference:
 | **Profile** | `list`, `show`, `use`, `create`, `set`, `remove` |
 | **Auth** | `login`, `logout`, `status`, `token`, `permissions`, `bootstrap`, `mint`, `creds`, `sync`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `groups create/list/show/update/delete`, `groups members list/add/remove`, `memberships`, `validate`, `plan`, `sync` |
-| **Org** | `list`, `ensure`, `get`, `update`, `delete`, `spend`, `members`, `membership-requests` |
-| **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap`, `status` |
+| **Org** | `list`, `ensure`, `get`, `update`, `delete` (soft/hard), `spend`, `members`, `membership-requests` |
+| **Project** | `list`, `ensure`, `get`, `update`, `show`, `delete` (soft/hard), `sync`, `spend`, `members`, `bootstrap`, `status` |
 | **Docs** | `write`/`create`, `read`, `show`, `list`, `search`, `stale`, `review`, `versions`, `query`, `delete` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
 | **Ingest** | `create` (or `<file>`), `list`, `show` |
-| **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel` |
-| **Releases** | `resolve` |
-| **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |
+| **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel`, `delete`, `prune` |
+| **Releases** | `resolve`, `delete`, `prune` |
+| **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs`, `delete` |
 | **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
-| **Environments** | `create`, `deploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
+| **Environments** | `create`, `deploy`, `undeploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
 | **FS** | `sync` (`init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor`), `share`, `shares`, `revoke`, `publish`, `public-paths` |
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |
-| **Agents** | `sync`, `config`, `runtime-status` |
+| **Agents** | `sync`, `config`, `runtime-status`, `delete`, `delete-team` |
 | **Teams** | `list` |
-| **Threads** | `create`, `list`, `show`, `messages`, `post`, `follow`, `distill` |
+| **Threads** | `create`, `list`, `show`, `messages`, `post`, `follow`, `distill`, `delete` |
 | **KV** | `set`, `get`, `list`, `mget`, `delete` |
 | **Memory** | `set`, `get`, `list`, `delete`, `search` |
 | **Search** | `search` (unified cross-source) |

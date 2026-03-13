@@ -251,6 +251,14 @@ eve chat simulate --project <id> --team-id T123 --channel-id C123 --user-id U123
 
 Returns `thread_id` and `job_ids` showing how the message would be dispatched.
 
+## Deleting Agents and Teams
+
+```bash
+eve agents delete <slug> --project <id>
+eve agents delete-team <team_id> --project <id>
+eve thread delete <thread_id>
+```
+
 ## API Endpoints
 
 ```

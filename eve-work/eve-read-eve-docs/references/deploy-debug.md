@@ -240,6 +240,17 @@ else:
         if health.ready: SUCCESS
 ```
 
+## Undeploying an Environment
+
+To take an environment offline without losing config:
+
+```bash
+eve env undeploy <env> --project <id>
+eve env show <project> <env> --json   # Verify deploy_status = 'undeployed'
+```
+
+Redeploy later: `eve env deploy <project> <env> --tag <tag>`
+
 ## Environment Variable Interpolation
 
 Manifest environment values support these interpolation variables:
