@@ -198,6 +198,27 @@ trigger:
     schedule: "0 */6 * * *"  # Standard cron expression
 ```
 
+#### App Trigger (Application Events)
+
+```yaml
+trigger:
+  app:
+    event: document.uploaded  # Matches event.type from source=app
+```
+
+Use app triggers for event-driven workflows within your application. Emit events via the API (`eve event emit --source app --type document.uploaded`) and the orchestrator auto-dispatches matching workflows.
+
+#### Generic Event Trigger
+
+```yaml
+trigger:
+  event:
+    source: app              # Any event source (app, runner, chat, etc.)
+    type: document.uploaded   # Optional type filter
+```
+
+The generic `event` trigger matches any event source+type combination. Use this when your events come from non-standard sources. The `app` trigger is a shorthand for `event.source: app`.
+
 #### Manual Trigger (No Auto-Trigger)
 
 ```yaml
@@ -239,4 +260,13 @@ pipelines:
     steps:
       - name: diagnose
         agent: { prompt: "Diagnose the failed deploy and suggest a fix" }
+
+workflows:
+  process-upload:
+    trigger:
+      app:
+        event: document.uploaded
+    steps:
+      - name: ingest
+        agent: { prompt: "Process the uploaded document" }
 ```
