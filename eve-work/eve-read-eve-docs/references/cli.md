@@ -718,6 +718,7 @@ Quick reference:
 | **Project** | `list`, `ensure`, `get`, `update`, `show`, `sync`, `spend`, `members`, `bootstrap`, `status` |
 | **Docs** | `write`/`create`, `read`, `show`, `list`, `search`, `stale`, `review`, `versions`, `query`, `delete` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
+| **Ingest** | `create` (or `<file>`), `list`, `show` |
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel` |
 | **Releases** | `resolve` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs` |

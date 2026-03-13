@@ -71,6 +71,7 @@ Delivered via gateway: `POST /gateway/providers/slack/webhook` (or legacy `POST 
 | `system.doc.created` | Org doc created | `{ org_id, project_id, doc_id, doc_version_id, path, version, content_hash, mutation_id, request_id, metadata }` |
 | `system.doc.updated` | Org doc updated | `{ org_id, project_id, doc_id, doc_version_id, path, version, content_hash, mutation_id, request_id, metadata }` |
 | `system.doc.deleted` | Org doc deleted | `{ org_id, project_id, doc_id, path, version, content_hash, mutation_id, request_id, metadata }` |
+| `system.doc.ingest` | Ingest upload confirmed | `{ org_id, project_id, ingest_id, file_name, mime_type, size_bytes, storage_key, title, callback_url }` |
 | `system.resource.hydration.started` | Worker begins resource hydration | `{ job_id, attempt_id, resource_count }` |
 | `system.resource.hydration.completed` | Worker completes hydration | `{ job_id, attempt_id, resolved_count, missing_optional_count, failed_required_count, resources[] }` |
 | `system.resource.hydration.failed` | Worker hydration failed | `{ job_id, attempt_id, resolved_count, missing_optional_count, failed_required_count, resources[] }` |

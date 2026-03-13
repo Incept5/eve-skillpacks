@@ -33,6 +33,8 @@ Three storage primitives share a common object store backend:
 
 The object store is MinIO locally (k3d dev) and S3/GCS/R2/Tigris in cloud. All speak the S3 protocol.
 
+**CORS**: Org buckets are automatically created with CORS headers (`GET`, `PUT`, `HEAD` from all origins). This means browser JS (`fetch`, `XMLHttpRequest`, PDF.js) can access presigned URLs directly. Simple HTML elements (`<img>`, `<embed>`, `<a>`) work without CORS.
+
 ## Org Filesystem
 
 ### Sync Protocol
