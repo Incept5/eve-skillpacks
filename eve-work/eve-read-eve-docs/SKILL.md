@@ -33,6 +33,10 @@ triggers:
   - eve google drive
   - eve cloud fs
   - eve oauth
+  - app cli
+  - agent cli
+  - cli for agents
+  - cli wrapper
 ---
 
 # Eve Read Docs (Load First)
@@ -74,6 +78,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Document ingestion (upload, processing, download, callbacks): `references/ingest.md`
 - Eve SDK overview, install, quick-start, token flow, exports: `references/eve-sdk.md`
 - Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification: `references/auth-sdk.md`
+- Build agent-friendly CLIs for app APIs, manifest declaration, bundling, distribution, env var contract: `references/app-cli.md`
 - OAuth app credentials (BYOA), Google Drive mounts, cloud FS browse/search, integrations, Slack connect, GitHub setup, identity linking, membership requests: `references/integrations.md`
 - Observability, cost tracking, receipts, and analytics: `references/observability.md`
 - Database provisioning, migrations, SQL, and managed DB operations: `references/database-ops.md`
@@ -106,6 +111,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/integrations.md` -- OAuth app credentials (BYOA), Google Drive cloud FS mounts, external integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
 - `references/observability.md` -- Correlation IDs, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
 - `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy.
+- `references/app-cli.md` -- App CLI framework: manifest declaration, env var contract, bundling, distribution, implementation patterns.
 - `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues.
 
 ## Intent Coverage Matrix
@@ -126,6 +132,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Add SSO auth to an app or verify tokens | `references/eve-sdk.md`, `references/auth-sdk.md`, `references/secrets-auth.md` | SDK setup code, token verification, SSO flow |
 | Configure OAuth app credentials or connect Google Drive | `references/integrations.md` | BYOA config status, mount IDs, browse/search results |
 | Connect Slack/GitHub or resolve external identities | `references/integrations.md`, `references/agents-teams.md` | Integration status, identity binding, membership requests |
+| Build an agent-friendly CLI for an app API | `references/app-cli.md`, `references/manifest.md` | CLI source, esbuild bundle, manifest declaration, tested commands |
 | Diagnose a failure from symptoms | `references/troubleshooting.md`, `references/deploy-debug.md` | Root cause, fix command, recovery path |
 
 ## Hard Rules
