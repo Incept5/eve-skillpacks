@@ -30,6 +30,9 @@ triggers:
   - eve github
   - eve identity
   - eve ingest
+  - eve google drive
+  - eve cloud fs
+  - eve oauth
 ---
 
 # Eve Read Docs (Load First)
@@ -71,7 +74,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Document ingestion (upload, processing, download, callbacks): `references/ingest.md`
 - Eve SDK overview, install, quick-start, token flow, exports: `references/eve-sdk.md`
 - Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification: `references/auth-sdk.md`
-- Integrations, Slack connect, GitHub setup, identity linking, membership requests: `references/integrations.md`
+- OAuth app credentials (BYOA), Google Drive mounts, cloud FS browse/search, integrations, Slack connect, GitHub setup, identity linking, membership requests: `references/integrations.md`
 - Observability, cost tracking, receipts, and analytics: `references/observability.md`
 - Database provisioning, migrations, SQL, and managed DB operations: `references/database-ops.md`
 - Symptom-first troubleshooting across auth, secrets, deploy, jobs, and builds: `references/troubleshooting.md`
@@ -100,7 +103,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/ingest.md` -- Document ingest lifecycle: upload, processing, download URLs, callbacks, CORS, event integration.
 - `references/eve-sdk.md` -- Eve SDK overview: packages, install, quick-start patterns, token flow, backend/frontend exports, environment variables.
 - `references/auth-sdk.md` -- Eve Auth SDK deep-dive: middleware behavior, verification strategies, token types, SSO session bootstrap, NestJS patterns, migration guide.
-- `references/integrations.md` -- External integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
+- `references/integrations.md` -- OAuth app credentials (BYOA), Google Drive cloud FS mounts, external integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
 - `references/observability.md` -- Correlation IDs, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
 - `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy.
 - `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues.
@@ -121,6 +124,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Sync files, share links, or configure org filesystem | `references/object-store-filesystem.md`, `references/cli-org-project.md` | Sync status, share tokens, public path URLs |
 | Upload, process, or download documents via ingest | `references/ingest.md`, `references/events.md` | Ingest IDs, download URLs, callback payloads, processing status |
 | Add SSO auth to an app or verify tokens | `references/eve-sdk.md`, `references/auth-sdk.md`, `references/secrets-auth.md` | SDK setup code, token verification, SSO flow |
+| Configure OAuth app credentials or connect Google Drive | `references/integrations.md` | BYOA config status, mount IDs, browse/search results |
 | Connect Slack/GitHub or resolve external identities | `references/integrations.md`, `references/agents-teams.md` | Integration status, identity binding, membership requests |
 | Diagnose a failure from symptoms | `references/troubleshooting.md`, `references/deploy-debug.md` | Root cause, fix command, recovery path |
 

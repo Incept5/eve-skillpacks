@@ -89,7 +89,7 @@ POST /gateway/providers/:provider/webhook
 
 ### Signature Validation
 
-Slack requests are validated using the signing secret (`EVE_SLACK_SIGNING_SECRET`). The provider computes `HMAC-SHA256(signing_secret, v0:timestamp:body)` and compares against the `X-Slack-Signature` header. Invalid signatures are rejected before parsing. Both the webhook and interactive endpoints use the same signing secret.
+Slack requests are validated using the per-org signing secret from `oauth_app_configs`. Each org configures their own Slack app with `eve integrations configure slack --signing-secret "..."`. The gateway reads the signing secret from the integration's enriched `settings_json` (populated by the API from `oauth_app_configs`). The provider computes `HMAC-SHA256(signing_secret, v0:timestamp:body)` and compares against the `X-Slack-Signature` header. Invalid signatures are rejected before parsing. Both the webhook and interactive endpoints use the same per-org signing secret.
 
 ### Event Parsing Flow
 
@@ -143,7 +143,7 @@ Responses delivered via Slack Web API (`chat.postMessage`), threaded to the orig
 `POST /gateway/providers/slack/interactive` handles Slack interactive components (buttons, modals, menus).
 
 - Content-Type: `application/x-www-form-urlencoded` with a `payload` field containing a JSON string.
-- Signature validated using the same signing secret as the webhook endpoint.
+- Signature validated using the same per-org signing secret as the webhook endpoint.
 - Routes by `action_id` to the appropriate handler.
 
 Supported actions:

@@ -1,9 +1,11 @@
 # Integrations Reference
 
 ## Use When
-- You need to connect a Slack workspace or GitHub repo to an Eve org.
+- You need to register OAuth app credentials for a provider (Google Drive, Slack).
+- You need to connect a Google Drive account, Slack workspace, or GitHub repo to an Eve org.
 - You need to resolve external provider identities to Eve users.
 - You need to manage membership requests from unresolved external users.
+- You need to browse or search files in connected cloud storage (Google Drive).
 
 ## Load Next
 - `references/gateways.md` for chat gateway routing and thread key mechanics.
@@ -12,10 +14,11 @@
 
 ## Ask If Missing
 - Confirm the target org ID and whether the integration already exists.
-- Confirm the provider type (Slack or GitHub) and available credentials (bot token, signing secret).
+- Confirm the provider type (google-drive, slack, or github) and available OAuth app credentials.
+- Confirm whether OAuth app credentials have been registered (`eve integrations config <provider>`).
 - Confirm whether identity resolution is needed or if users are already bound.
 
-External provider integrations (Slack, GitHub) and identity resolution for Eve orgs.
+External provider integrations (Slack, Google Drive, GitHub), OAuth app configuration, cloud storage mounts, and identity resolution for Eve orgs.
 
 ## Overview
 
@@ -25,11 +28,176 @@ Key tables:
 
 | Table | Purpose |
 |-------|---------|
-| `integrations` | Maps provider accounts to orgs |
+| `oauth_app_configs` | Per-org OAuth application credentials (client_id, client_secret) |
+| `integrations` | Maps provider accounts to orgs (holds OAuth tokens) |
+| `cloud_fs_mounts` | Cloud storage mounts linking a provider folder to an org/project |
 | `external_identities` | Maps provider user IDs to Eve users |
 | `membership_requests` | Tracks pending/approved/denied access requests |
 
+## OAuth App Configuration (BYOA)
+
+Each org registers its own OAuth application credentials — the **Bring Your Own App** (BYOA) pattern. No cluster-level OAuth secrets exist; every org configures its own GCP project or Slack app.
+
+### Why BYOA
+
+- **Isolation**: One org's leaked credentials cannot compromise another.
+- **Branding**: Org employees see their own company name on consent screens.
+- **Enterprise**: Google Workspace and Slack Enterprise Grid admins can trust and manage the app internally.
+- **Rate limits**: Per-org API quotas.
+
+### Setup Flow
+
+1. **Get setup instructions** — provider-specific callback URLs and required scopes:
+
+```bash
+eve integrations setup-info google-drive --org <org_id>
+eve integrations setup-info slack --org <org_id>
+```
+
+2. **Create the OAuth app** in the provider's console (GCP, api.slack.com), using the callback URL from step 1.
+
+3. **Register credentials** in Eve:
+
+```bash
+# Google Drive
+eve integrations configure google-drive \
+  --org <org_id> \
+  --client-id "xxx.apps.googleusercontent.com" \
+  --client-secret "GOCSPX-xxx" \
+  --label "Acme Corp Google Drive"
+
+# Slack (includes signing secret)
+eve integrations configure slack \
+  --org <org_id> \
+  --client-id "12345.67890" \
+  --client-secret "abc123" \
+  --signing-secret "def456" \
+  --label "Acme Corp Slack Bot"
+```
+
+4. **Verify config**:
+
+```bash
+eve integrations config google-drive --org <org_id>   # secrets redacted
+```
+
+5. **Initiate OAuth connection**:
+
+```bash
+eve integrations connect google-drive --org <org_id>
+```
+
+### Provider Name Normalization
+
+CLI accepts both `google-drive` and `google_drive`. Internally the provider name is normalized to underscore form (`google_drive`, `slack`).
+
+### Manage Config
+
+```bash
+eve integrations config <provider> --org <org_id>       # View (secrets redacted)
+eve integrations unconfigure <provider> --org <org_id>   # Remove config
+```
+
+Removing a config prevents new OAuth flows. Existing integration tokens continue to work until they expire or refresh fails.
+
+### Relationship Between Tables
+
+```
+oauth_app_configs              integrations
+(one per org per provider)     (one per connected account)
+  client_id, client_secret  →    tokens_json (access_token, refresh_token)
+  config_json (signing_secret)   settings_json, status
+```
+
+One OAuth app config can back multiple integrations (e.g., connecting multiple Google accounts to the same org).
+
+## Google Drive Integration
+
+### Prerequisites
+
+1. Configure Google OAuth app credentials via `eve integrations configure google-drive` (see BYOA section above).
+2. The Google Drive API must be enabled in the org's GCP project.
+
+### OAuth Authorization
+
+After configuring credentials, initiate the Google Drive OAuth flow:
+
+```bash
+eve integrations connect google-drive --org <org_id>
+```
+
+This prints an authorization URL. Open it in a browser to grant access. The callback creates an integration with a refresh token. Token refresh is automatic — the platform reads the org's `client_id` and `client_secret` from `oauth_app_configs` when refreshing.
+
+API endpoint: `GET /orgs/:org_id/integrations/google-drive/authorize`
+
+### Cloud FS Mounts
+
+Cloud FS mounts link a Google Drive folder to an org (or project). Files in the mounted folder are browsable and searchable via the CLI.
+
+```bash
+# Create a mount
+eve cloud-fs mount \
+  --provider google-drive \
+  --folder-id 0ABxxx \
+  --label "Shared Drive" \
+  --org <org_id> \
+  [--project <project_id>] \
+  [--mode read_only|write_only|read_write] \
+  [--auto-index true|false]
+
+# List mounts
+eve cloud-fs list --org <org_id>
+
+# Show mount details
+eve cloud-fs show <mount_id> --org <org_id>
+
+# Update mount settings
+eve cloud-fs update <mount_id> --label "New Name" --org <org_id>
+
+# Remove a mount
+eve cloud-fs unmount <mount_id> --org <org_id>
+```
+
+### Browsing and Searching
+
+Browse files at a path within a mount, or search across all mounts:
+
+```bash
+# Browse files at a path
+eve cloud-fs ls / --mount <mount_id> --org <org_id>
+eve cloud-fs ls /reports --mount <mount_id> --org <org_id>
+
+# Search files
+eve cloud-fs search "Q4 report" --org <org_id>
+eve cloud-fs search "*.pdf" --mount <mount_id> --mime-type application/pdf --org <org_id>
+```
+
+### RBAC Permissions
+
+| Permission | Grants |
+|------------|--------|
+| `cloud_fs:read` | List mounts, browse files, search |
+| `cloud_fs:write` | Create/update/delete mounts |
+| `cloud_fs:admin` | Full control including integration management |
+
+### Token Refresh
+
+Token refresh is transparent. When an access token expires, the platform reads the org's OAuth app credentials from `oauth_app_configs` and exchanges the refresh token for a new access token. If refresh fails (e.g., credentials revoked), the integration status is updated accordingly.
+
 ## Slack Integration
+
+### Prerequisites
+
+Configure Slack app credentials via BYOA before connecting:
+
+```bash
+eve integrations setup-info slack --org <org_id>        # Get callback/webhook URLs
+eve integrations configure slack \
+  --org <org_id> \
+  --client-id "..." \
+  --client-secret "..." \
+  --signing-secret "..."                                # Required for webhook verification
+```
 
 ### Connect (OAuth Install Link — Recommended)
 
@@ -73,7 +241,7 @@ eve integrations test <integration_id> --org <org_id>
 
 ### Auth
 
-- **Signing secret**: Verifies inbound webhook signatures (`EVE_SLACK_SIGNING_SECRET`)
+- **Signing secret**: Verifies inbound webhook signatures. Each org's signing secret is stored in `oauth_app_configs.config_json` and set during `eve integrations configure slack --signing-secret "..."`. The gateway reads it from the integration's enriched `settings_json`.
 - **Bot token**: `xoxb-...` for outbound messages, stored in integration `tokens_json`
 
 ### Required Bot Events
@@ -161,15 +329,32 @@ Lifecycle:
 
 | Command | Purpose |
 |---------|---------|
+| **OAuth App Configuration (BYOA)** | |
+| `eve integrations setup-info <provider> --org <org>` | Get callback URLs and setup instructions |
+| `eve integrations configure <provider> --org <org> --client-id "..." --client-secret "..."` | Register OAuth app credentials |
+| `eve integrations config <provider> --org <org>` | View OAuth app config (secrets redacted) |
+| `eve integrations unconfigure <provider> --org <org>` | Remove OAuth app config |
+| `eve integrations connect <provider> --org <org>` | Initiate OAuth connection flow |
+| **Cloud FS (Google Drive)** | |
+| `eve cloud-fs list --org <org>` | List cloud FS mounts |
+| `eve cloud-fs mount --provider google-drive --folder-id <id> --org <org>` | Create a mount |
+| `eve cloud-fs show <mount_id> --org <org>` | Show mount details |
+| `eve cloud-fs update <mount_id> --org <org>` | Update mount settings |
+| `eve cloud-fs unmount <mount_id> --org <org>` | Remove a mount |
+| `eve cloud-fs ls [path] --mount <mount_id> --org <org>` | Browse files |
+| `eve cloud-fs search <query> --org <org>` | Search files across mounts |
+| **Slack** | |
 | `eve integrations list --org <org>` | List integrations |
 | `eve integrations test <id> --org <org>` | Test integration health |
 | `eve integrations slack install-url --org <org> [--ttl 7d]` | Generate shareable Slack install link |
 | `eve integrations slack connect --org <org> --team-id <id> --token <token>` | Connect Slack (manual fallback) |
 | `eve integrations update <id> --org <org> --setting key=value` | Update settings |
+| **Identity** | |
 | `eve identity link slack --org <org>` | Self-service identity link |
 | `eve org membership-requests list --org <org>` | List pending requests |
 | `eve org membership-requests approve <id> --org <org>` | Approve request |
 | `eve org membership-requests deny <id> --org <org>` | Deny request |
+| **GitHub** | |
 | `eve github setup` | GitHub webhook setup |
 
 ## Related Skills
