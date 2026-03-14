@@ -388,5 +388,11 @@ See `references/skills-system.md`.
 | Observability + cost | `references/observability.md` |
 | Database operations | `references/database-ops.md` |
 | Troubleshooting | `references/troubleshooting.md` |
+| App CLIs | `references/app-cli.md` |
+| Eve SDK | `references/eve-sdk.md` |
+| Auth SDK | `references/auth-sdk.md` |
+| Integrations | `references/integrations.md` |
+| Object store + filesystem | `references/object-store-filesystem.md` |
+| Document ingest | `references/ingest.md` |
 
 **Note:** These references are distilled from the Eve Horizon system docs. For narrative walkthroughs and tutorials, see the [eve-horizon](https://github.com/incept5/eve-horizon) repository docs.

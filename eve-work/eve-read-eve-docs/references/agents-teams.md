@@ -41,6 +41,9 @@ agents:
       git:
         commit: auto                 # never | manual | auto | required
         push: on_success             # never | on_success | required
+    with_apis:
+      - service: api
+        description: App REST API for reading and writing data
     gateway:
       policy: routable               # none | discoverable | routable
       clients: [slack]               # omit = all providers
@@ -65,6 +68,26 @@ Control which agents are visible and directly addressable from external chat gat
 | `routable` | Visible | Works | Works |
 
 Resolution order: pack `gateway.default_policy` (base, defaults to `none`) -> agent `gateway.policy` -> project overlay.
+
+### App API Access (`with_apis`)
+
+Agents that need to call app-published APIs declare `with_apis` in their config or in workflow definitions. When a service also declares `x-eve.cli`, the platform makes the CLI available on `$PATH` automatically.
+
+```yaml
+agents:
+  data-agent:
+    skill: data-processing
+    with_apis:
+      - service: api
+```
+
+The agent receives:
+- `EVE_APP_API_URL_{SERVICE}` env var with the service URL
+- `EVE_JOB_TOKEN` for authentication
+- If the service has `x-eve.cli`: the CLI binary on PATH (e.g., `eden --help`)
+- An instruction block describing available APIs and CLIs
+
+See `references/app-cli.md` for building CLIs that agents use instead of raw REST calls.
 
 ## teams.yaml
 

@@ -223,6 +223,7 @@ workflows:
 - `depends_on: [step_names]` wires dependency as `blocks` relations -- the scheduler respects them.
 - Per-step agent, harness, and toolchain resolution is supported.
 - `with_apis` can be set at the workflow level (applies to all steps) or per step.
+- When a service declares `x-eve.cli`, agents also get the CLI binary on `$PATH`. See `references/app-cli.md`.
 
 **Validation rules** (enforced by `eve manifest validate`):
 - Duplicate step names → error.

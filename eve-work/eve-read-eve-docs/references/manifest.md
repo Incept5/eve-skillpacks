@@ -230,6 +230,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | `ingress` | object | `{ public: true\|false, port: number }` |
 | `api_spec` | object | Single API spec registration |
 | `api_specs` | array | Multiple API spec registrations |
+| `cli` | object | App CLI declaration (see CLI Declaration below) |
 | `external` | boolean | External dependency (not deployed) |
 | `connection_url` | string | Connection string for external services |
 | `worker_type` | string | Worker pool type for this service |
@@ -310,6 +311,39 @@ api_specs:
   - type: graphql
     spec_url: /graphql
 ```
+
+### CLI Declaration
+
+Declare a domain-specific CLI that agents use instead of raw REST calls:
+
+```yaml
+x-eve:
+  api_spec:
+    type: openapi
+  cli:
+    name: eden                  # binary name on $PATH (lowercase alphanumeric + hyphens)
+    bin: cli/bin/eden            # path relative to repo root (repo-bundled mode)
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | CLI binary name. Lowercase alphanumeric + hyphens (`^[a-z][a-z0-9-]*$`). Must be unique per project. |
+| `bin` | string | Yes (repo mode) | Path to executable, relative to repo root. |
+| `image` | string | Yes (image mode) | Docker image containing CLI binary. |
+| `description` | string | No | Brief description shown in agent instruction block. |
+
+**Distribution modes:**
+
+- **Repo-bundled** (primary): CLI is a pre-built single-file executable in the repo (e.g., esbuild bundle). Platform runs `chmod +x` and adds to PATH after clone. Zero additional latency.
+- **Image-based**: CLI is distributed via Docker init container (same pattern as toolchains). Platform pulls the image and copies the binary to a shared volume. Adds 2-5s startup latency.
+
+When an agent job has `with_apis: [api]` and the service declares `x-eve.cli`, the agent receives:
+- The CLI on `$PATH` (ready to run)
+- `EVE_APP_API_URL_{SERVICE}` env var (for CLI internal use)
+- `EVE_JOB_TOKEN` for auth (CLI reads this automatically)
+- A CLI-first instruction block: "Use `eden --help` to see all commands"
+
+See `references/app-cli.md` for the full implementation guide including bundling, env var contract, and testing patterns.
 
 ### Files Mount
 
