@@ -73,6 +73,8 @@ eve-skillpacks/
     │   └── SKILL.md
     ├── eve-job-debugging/
     │   └── SKILL.md
+    ├── eve-agent-optimisation/
+    │   └── SKILL.md
     ├── eve-skill-distillation/
     │   └── SKILL.md
     └── eve-agent-memory/
@@ -123,6 +125,7 @@ Skills for doing productive work using Eve Horizon patterns.
 - **eve-orchestration**: Orchestrate jobs via depth propagation, parallel decomposition, relations, and control signals
 - **eve-job-lifecycle**: Create, manage, and review jobs and dependencies
 - **eve-job-debugging**: Monitor and debug jobs via CLI
+- **eve-agent-optimisation**: Debug and optimise agents for smooth, fast execution — diagnostics, resource hydration, prompt tuning, harness config
 - **eve-skill-distillation**: Turn repeated patterns into reusable skills
 - **eve-agent-memory**: Choose and combine storage primitives for agent memory — workspace, attachments, threads, org docs, filesystem, managed DB
 

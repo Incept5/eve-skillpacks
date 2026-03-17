@@ -8,6 +8,7 @@ Skills for doing productive work using Eve Horizon patterns.
 - **eve-orchestration** - Orchestrate jobs via depth propagation, parallel decomposition, relations, and control signals
 - **eve-job-lifecycle** - Create, manage, and review jobs and dependencies
 - **eve-job-debugging** - Monitor and debug jobs via CLI
+- **eve-agent-optimisation** - Debug and optimise agents for smooth, fast execution
 - **eve-skill-distillation** - Turn repeated patterns into reusable skills
 - **eve-agent-memory** - Choose and combine storage primitives to give agents persistent memory
 
