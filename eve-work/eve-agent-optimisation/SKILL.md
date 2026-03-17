@@ -1,514 +1,221 @@
 ---
 name: eve-agent-optimisation
-description: Debug and optimise Eve agents for smooth, fast execution. Covers diagnostics, prompt tuning, harness selection, team dispatch, resource management, cost control, and common failure modes across all agent workloads.
+description: Analyse agent execution to find wasted tool calls, wrong turns, and blind alleys. Optimise agents to reach their goal in the fewest turns, tokens, and least time. Recommend harness/model changes — never apply without user approval.
 ---
 
 # Eve Agent Optimisation
 
-Diagnose why Eve agents are slow, failing, or producing poor results — then fix them. Applies to any agent workload: coding, review, orchestration, document processing, chat routing, deployments, data analysis, or custom workflows.
+The goal: get the agent to its objective in the **fewest tool calls, fewest tokens, shortest time**. Find where it wastes effort and eliminate it.
 
-## The Execution Pipeline
+## Hard Rule: Recommend, Don't Change
 
-Every agent job follows this pipeline. Know the stages to know where to look:
+**Never change the harness, model, reasoning effort, or permission policy without asking the user first.** These are cost and capability decisions that belong to the project owner. Diagnose, explain the tradeoff, and recommend — then wait for approval.
 
-```
-Job created → Orchestrator claims → Route to runtime →
-  Clone repo → Install skills → Hydrate resources → Build prompt →
-    Select harness → Invoke eve-agent-cli →
-      Agent executes (reads files, calls tools, uses CLI, emits messages) →
-    Extract result → Emit events → Complete job
-```
+## What You're Looking For
 
-Agent jobs route to **agent-runtime** (warm pods). Build/deploy/script jobs route to **worker**. If an agent job lands on the wrong runtime, check `EVE_AGENT_RUNTIME_URL` in orchestrator config.
+Analyse agent execution logs to identify:
+
+1. **Wrong turns** — agent tried an approach that couldn't work and had to backtrack.
+2. **Blind alleys** — agent spent tokens exploring something irrelevant to the goal.
+3. **Unnecessary tool calls** — agent read files it didn't need, ran commands that gave no useful information, or repeated calls with slight variations.
+4. **Missing context** — agent had to discover something through trial and error that should have been stated in the SKILL.md or job description.
+5. **Wrong tool for the job** — agent used a slow or fragile tool when a faster/native alternative exists (e.g., shelling out to `pdftotext` when the LLM reads PDFs natively).
+6. **Excessive reading** — agent read entire large files when it only needed a section, or read many files looking for something that could have been found with a targeted search.
+7. **Verbose output** — agent explained its reasoning at length when the task only needed a concise result.
+8. **Retry loops** — agent repeated the same failing operation, hoping for a different result.
 
 ## Diagnostic Workflow
 
-### Step 1: Triage
+### Step 1: Get the Execution Record
 
 ```bash
 eve job diagnose <job-id>          # Full timeline, routing, errors
 eve job show <job-id> --verbose    # Phase, attempts, harness, agent
+eve job receipt <job-id>           # Token usage + cost
 ```
 
-Key signals:
-- **Phase `failed`** — check `failure_disposition` (`retry` vs `permanent`).
-- **Multiple attempts** — agent crashed/timed out and was retried.
-- **Phase stuck `active`** — agent is running, hung, or the runtime lost it.
-- **Long provisioning** — gap between `claimed` and `active` means slow clone/hydration.
+Key numbers:
+- **Input tokens** — how much the agent read. High = reading too much.
+- **Output tokens** — how much it wrote. High = verbose or excessive reasoning.
+- **Attempt count** — more than 1 means the agent crashed or timed out.
+- **Duration** — compare against what a focused agent should take.
 
-### Step 2: Stream Logs
+### Step 2: Stream or Replay the Logs
 
 ```bash
-eve job follow <job-id>            # Real-time SSE log stream
+eve job follow <job-id>            # Real-time (if still active)
+eve job logs <job-id>              # Historical
 ```
 
-Watch for:
-- **Silence** — harness failed to start. Check runner logs.
-- **Repeated tool failures** — agent trying something that won't work.
-- **Excessive file reads** — agent reading too much context (bloated token usage).
-- **Eve-message blocks** — agent's own progress updates to the user.
+Read the log sequentially. For each tool call, ask:
+- **Did this advance the goal?** If not, it's waste.
+- **Could this have been avoided?** If the SKILL.md had told the agent where to look, would it have skipped this?
+- **Was this the right tool?** Could a different approach have gotten the same information faster?
+- **Was the scope right?** Did the agent read an entire file when it needed 10 lines?
 
-### Step 3: Inspect Results and Cost
+### Step 3: Map the Critical Path
+
+Identify the **minimum set of tool calls** needed to achieve the goal:
+
+1. What files actually mattered?
+2. What commands actually produced useful output?
+3. What decisions were correct on first attempt?
+
+Everything else is waste. Quantify: how many tool calls were on the critical path vs total? What percentage of tokens were spent on productive work?
+
+### Step 4: Identify Root Causes
+
+For each category of waste, trace back to the root cause:
+
+| Waste | Root Cause | Fix |
+|-------|-----------|-----|
+| Agent explored wrong files | SKILL.md doesn't say where to look | Add specific file paths or search patterns to SKILL.md |
+| Agent tried wrong approach first | SKILL.md doesn't state the preferred approach | Add explicit instructions: "Do X, not Y" |
+| Agent read files it didn't need | Job description too vague | Narrow the description; specify exact scope |
+| Agent retried failing command | No error handling guidance | Add failure mode instructions to SKILL.md |
+| Agent used wrong tool for file type | SKILL.md doesn't mention native capabilities | Add file-type routing: "PDFs: read natively. Images: view directly." |
+| Agent read entire large file | No guidance on targeted reading | Add instructions: "Read only lines 1-50" or "Search for X" |
+| Agent verbose in output | No output format specified | Specify exact format: JSON schema, attachment name, concise summary |
+| Agent lacks context for decisions | Missing resource refs or env vars | Attach the right resources; ensure `with_apis` is configured |
+| Agent re-discovers known facts | No persistent memory strategy | Use org docs, KV store, or attachments to carry forward knowledge |
+| Agent slow due to provisioning | Too many resources, large clone, unnecessary toolchains | Trim resource refs, configure shallow clone, remove unused toolchains |
+
+## The Fix Is Almost Always the SKILL.md
+
+The SKILL.md is the highest-leverage optimisation target. A precise SKILL.md eliminates entire categories of wasted tool calls.
+
+### Write for Efficiency
+
+1. **State the goal in one sentence.** The agent should know exactly what it's trying to achieve before doing anything.
+
+2. **Name specific files and paths.** "Check the auth config" wastes tool calls searching. "Read `src/config/auth.ts` lines 1-30" is one tool call.
+
+3. **State the approach explicitly.** "Use native PDF reading via the Read tool — do NOT shell out to conversion tools" prevents the agent from trying the wrong path.
+
+4. **Specify what NOT to do.** If there's a common wrong turn, block it. "Do not read the entire test suite; only read the failing test file."
+
+5. **Define the output format.** "Write a JSON attachment named `findings.json` with schema `{issues: [{file, line, severity, message}]}`." This eliminates formatting deliberation.
+
+6. **Tell the agent what context it has.** "The resource index at `.eve/resources/index.json` lists all attached documents with mime_type. Read it first to determine processing strategy."
+
+7. **Provide decision trees for branches.** Instead of "handle different file types appropriately":
+   ```
+   Check mime_type in resource index:
+   - application/pdf → read natively, use page ranges for >10 pages
+   - text/* → read directly
+   - image/* → view directly (multimodal)
+   - other → describe and note for human review
+   ```
+
+8. **Keep it short.** Every word the agent reads consumes input tokens. Cut filler. Use tables and lists over prose.
+
+### Test the SKILL.md
+
+After rewriting, run the same job again and compare:
+- Fewer tool calls?
+- Fewer tokens?
+- Faster completion?
+- Correct result on first attempt?
 
 ```bash
-eve job result <job-id> --format text    # Exit code + output
-eve job receipt <job-id>                 # Token usage + cost breakdown
+eve job compare <old-job-id> <new-job-id>   # Compare receipts
 ```
 
-Compare cost against expected budget. High input tokens = agent reading too much. High output tokens = verbose output or unnecessary reasoning.
+## Beyond the SKILL.md
 
-### Step 4: Check the Full Chain
+When SKILL.md changes aren't sufficient, look at these levers (all require user approval to change):
 
-```bash
-eve job tree <job-id>              # Orchestrated job hierarchy
-eve job dep list <job-id>          # What's blocking this job
-eve job context <job-id>           # Derived status (blocked, waiting)
-```
+### Harness and Model
 
-For team dispatches, check the coordination thread:
-```bash
-eve thread messages <thread-id> --since 1h
-```
+If the agent is consistently:
+- **Too slow** for the task → recommend a faster model (e.g., sonnet → haiku).
+- **Not capable enough** → recommend a more capable model (e.g., sonnet → opus).
+- **Using too many thinking tokens** → recommend lower reasoning effort.
+- **Not thinking enough** → recommend higher reasoning effort.
 
-## Optimising Agent Configuration
+Present the tradeoff (speed vs cost vs quality) and let the user decide.
 
-### agents.yaml
+### Permission Policy
 
-The agent definition controls harness selection, policies, skills, gateway visibility, and API access.
+If the agent is blocked waiting for approvals on every file edit:
+- Recommend `yolo` for automated batch work.
+- Recommend `auto_edit` for supervised coding.
+- Explain the security implications.
 
-```yaml
-agents:
-  my-agent:
-    slug: my-agent
-    skill: my-skill                    # primary skill loaded for this agent
-    harness_profile: primary-coder     # named profile from x-eve.agents.profiles
-    policies:
-      permission_policy: yolo          # auto_edit | never | yolo
-      git:
-        commit: auto
-        push: on_success
-    with_apis:
-      - service: api                   # app APIs the agent can call
-    gateway:
-      policy: routable                 # none | discoverable | routable
-```
+### Resource Refs
 
-**Optimisation levers:**
-- **`harness_profile`** — use profiles instead of hardcoding a harness. Profiles define a fallback chain; if the primary harness is unavailable, the next one is used.
-- **`permission_policy`** — `yolo` for automated batch work (fastest). `auto_edit` for supervised coding. `default` for interactive/sensitive work.
-- **`with_apis`** — only list APIs the agent actually calls. Each adds an instruction block to the prompt.
-- **`gateway.policy`** — `none` for internal-only agents (hides from chat). `routable` for chat-addressable agents.
-- **`skill`** — reference the specific skill, not a generic one. Skill content is the single biggest lever for agent quality.
-
-### Harness Profiles
-
-Define in manifest under `x-eve.agents.profiles`:
-
-```yaml
-x-eve:
-  agents:
-    profiles:
-      fast-worker:
-        - harness: mclaude
-          model: haiku-4.5
-          reasoning_effort: low
-      deep-reviewer:
-        - harness: mclaude
-          model: opus-4-6
-          reasoning_effort: high
-        - harness: zai
-          model: glm-5
-          reasoning_effort: high
-```
-
-Match profile to task complexity:
-
-| Task | Model | Reasoning | Why |
-|------|-------|-----------|-----|
-| Extraction, formatting, simple edits | haiku-4.5 | low | Fast, cheap, sufficient |
-| General coding, analysis, reviews | sonnet-4.6 | medium | Balance of speed and quality |
-| Architecture, complex debugging | opus-4-6 | high | Deep reasoning capability |
-| Novel problems, multi-step proofs | opus-4-6 | x-high | Maximum thinking budget |
-
-Reasoning effort controls thinking token budget:
-- `low` ~1K tokens, `medium` ~8K, `high` ~16K, `x-high` ~32K.
+If provisioning is slow:
+- Remove resource refs the agent doesn't actually use.
+- Mark optional context as `required: false`.
+- Thread `mime_type` so the agent doesn't need to probe file types.
 
 ### Git Controls
 
-For code-producing agents, tune git behaviour:
+If the agent wastes time on git operations:
+- `commit: auto` + `push: on_success` eliminates manual git ceremony.
+- `create_branch: if_missing` avoids branch creation failures.
+- `ref_policy: auto` minimises clone scope.
 
-```yaml
-policies:
-  git:
-    ref: main                    # base ref to checkout
-    branch: job/${job_id}        # feature branch per job
-    create_branch: if_missing
-    commit: auto                 # auto-commit changes on completion
-    push: on_success             # push only when commits were created
+### Job Scope
+
+If the agent is doing too much in one job:
+- Split into focused children via orchestration.
+- Each child gets a narrow scope and specialised SKILL.md.
+- Cheaper models for simpler children; capable models only where needed.
+
+### Team Coordination
+
+If child agents duplicate work:
+- Ensure skills read `.eve/coordination-inbox.md` at startup.
+- Wire `depends_on` for sequential steps.
+- Use attachments (not prose) for passing data between jobs.
+
+## Optimisation Report Template
+
+After analysing an agent's execution, present findings in this format:
+
+```
+## Agent Optimisation Report: <job-id>
+
+**Goal:** <what the agent was trying to do>
+**Result:** <succeeded/failed> in <duration> using <tokens> tokens (<cost>)
+
+### Efficiency Score
+- Total tool calls: N
+- Productive tool calls: M (X%)
+- Wasted tool calls: N-M (Y%)
+
+### Waste Categories
+1. <category>: N calls, ~X tokens wasted
+   - Example: <specific wasteful action from logs>
+   - Fix: <specific SKILL.md or config change>
+
+### Recommended Changes
+- [ ] SKILL.md: <specific edit> — eliminates <category> waste
+- [ ] SKILL.md: <specific edit> — eliminates <category> waste
+- [ ] (Requires approval) Model: <current> → <recommended> — <reason>
+- [ ] (Requires approval) Reasoning: <current> → <recommended> — <reason>
+
+### Expected Improvement
+- Estimated tool calls: N → M
+- Estimated tokens: X → Y
+- Estimated time: A → B
 ```
 
-- `commit: auto` + `push: on_success` → fastest CI loop for automated coding.
-- `commit: manual` → agent decides when to commit (better for interactive work).
-- `commit: required` → fail if the agent didn't produce any changes.
-
-## Optimising Skills (SKILL.md)
-
-The SKILL.md is the single most impactful lever for agent performance. A well-written skill eliminates wasted tool calls, prevents dead-end approaches, and guides the agent to the fastest path.
-
-### Principles
-
-1. **Lead with what the agent CAN do**, not prohibitions. "Read PDFs directly" beats "Do NOT use pdftotext."
-
-2. **Be specific about inputs and outputs.** Tell the agent exactly what data it will receive (env vars, resource index, coordination inbox, app APIs) and what it should produce (attachments, control signals, commits, thread messages).
-
-3. **Specify the output format.** JSON schema, markdown structure, or attachment name. Ambiguity wastes tokens on formatting decisions.
-
-4. **Reference Eve primitives by name.** If the agent should use org docs, say so. If it should emit events, show the command. If it should post to a coordination thread, explain the protocol.
-
-5. **Match instructions to the agent's runtime context.** The agent has:
-   - `EVE_JOB_ID`, `EVE_PROJECT_ID`, `EVE_ATTEMPT_ID` — identity
-   - `EVE_PARENT_JOB_ID` — coordination (if child job)
-   - `EVE_RESOURCE_INDEX` — path to `.eve/resources/index.json` (if resources attached)
-   - `.eve/coordination-inbox.md` — sibling status (if team dispatch)
-   - App CLIs on `$PATH` (if `with_apis` declared with `x-eve.cli` services)
-   - Org filesystem at `.org/` — shared persistent storage
-   - Secrets pre-configured — auth tools work without manual setup
-
-6. **Structure for scanning.** Agents scan before they read. Use clear headers, short paragraphs, and put the most important instruction first in each section.
-
-### Anti-Patterns
-
-- **Listing every possible tool** — the agent knows its tools. Only mention tools when the choice is non-obvious.
-- **Verbose motivation** — agents don't need persuasion. Short, direct instructions work better.
-- **Deep conditional trees** — use lookup tables instead of nested prose.
-- **Referencing tools by framework name** — say "read the file" not "use the Read tool." Harnesses map to the right tool.
-- **Duplicating platform docs** — reference skills and docs by name. "See `eve-orchestration` skill for decomposition patterns."
-
-## Optimising Team Dispatch
-
-### Choose the Right Dispatch Mode
-
-| Mode | Behaviour | Best For |
-|------|-----------|----------|
-| `fanout` | Parallel child jobs per member | Independent reviews, parallel analysis |
-| `council` | All respond, merged by strategy | Consensus decisions, multi-perspective review |
-| `relay` | Sequential lead → member chain | Pipeline-style processing, escalation |
-
-### Tune Team Parameters
-
-```yaml
-teams:
-  review-council:
-    lead: mission-control
-    members: [code-reviewer, security-auditor, perf-analyst]
-    dispatch:
-      mode: fanout
-      max_parallel: 3           # limit concurrent children
-      lead_timeout: 300         # seconds before lead times out
-      member_timeout: 300       # seconds per member
-      merge_strategy: majority  # how to combine results
-```
-
-- **Reduce `max_parallel`** if children compete for shared resources.
-- **Increase timeouts** for complex tasks; decrease for quick checks.
-- **Use `relay`** when each step depends on the previous — avoids wasted parallel work.
-
-### Coordination Thread Best Practices
-
-Child agents receive `.eve/coordination-inbox.md` at startup. Teach skills to:
-1. Read the inbox for sibling context before starting work.
-2. Post progress updates: `eve thread post <thread-id> --body '{"kind":"update","body":"Phase 1 complete"}'`
-3. Ask the lead for guidance: `eve thread post <thread-id> --body '{"kind":"question","body":"Should I proceed with approach A or B?"}'`
-
-## Optimising Resource Management
-
-### Resource Refs (Job Inputs)
-
-Resources attached via `resource_refs` are hydrated to `.eve/resources/` before the harness starts. The index at `.eve/resources/index.json` describes what was resolved:
-
-```json
-{
-  "resources": [
-    {
-      "uri": "org_docs:/pm/spec.md@v3",
-      "local_path": ".eve/resources/pm/spec.md",
-      "mime_type": "text/markdown",
-      "status": "resolved"
-    }
-  ]
-}
-```
-
-Optimisation:
-- **Only attach what the agent needs.** Every ref triggers a download during provisioning.
-- **Use `required: false`** for optional context — missing optionals don't fail the job.
-- **Thread `mime_type`** so the agent knows file types from the index without probing.
-- **Use `mount_path`** for predictable workspace locations.
-
-### Job Attachments (Job Outputs)
-
-Structured data passes between jobs via attachments, not prose:
-
-```bash
-eve job attach $EVE_JOB_ID --name findings.json --content '{"issues": [...]}'
-eve job attach $EVE_JOB_ID --name report.md --file ./report.md
-```
-
-Parent jobs read child attachments directly:
-```bash
-eve job attachment $CHILD_JOB_ID findings.json --out ./child-findings.json
-```
-
-### Org Documents (Persistent Knowledge)
-
-Agents that learn should write to the org document store:
-
-```bash
-eve docs write --org $ORG_ID --path /agents/my-agent/learnings/pattern-x.md --file ./findings.md
-eve docs search --org $ORG_ID --query "auth retry"
-```
-
-Always search before writing to avoid duplicates.
-
-### Org Filesystem (Shared State)
-
-Agents access `.org/` in their workspace for org-wide shared files:
-
-```bash
-ls .org/shared/                           # shared knowledge base
-cat .org/agents/my-agent/state.json       # agent-specific state
-```
-
-### Agent KV Store (Operational State)
-
-For lightweight state with TTL:
-
-```bash
-eve kv set --org $ORG_ID --agent my-agent --key "pr-123-status" --value '{"phase":"review"}' --namespace workflow --ttl 86400
-```
-
-### Choose the Right Primitive
-
-| Need | Use |
-|------|-----|
-| Scratch notes during execution | Workspace files (`.eve/`) |
-| Pass data to parent/children | Job attachments |
-| Curated persistent knowledge | Org document store |
-| Shared file tree (agents + humans) | Org filesystem (`.org/`) |
-| Lightweight state with TTL | Agent KV store |
-| Inter-agent communication | Coordination threads |
-| Encode reusable patterns | Skills |
-
-## Optimising Workflows
-
-### Multi-Step Workflow Design
-
-```yaml
-workflows:
-  analysis-pipeline:
-    steps:
-      - name: gather
-        agent: { name: researcher }
-      - name: analyse
-        depends_on: [gather]
-        agent: { name: analyst }
-      - name: report
-        depends_on: [analyse]
-        agent: { name: writer }
-```
-
-Optimisation:
-- **Parallelise independent steps.** Steps without `depends_on` run concurrently.
-- **Match agent to step.** Use specialised agents with focused skills instead of one general agent.
-- **Right-size the harness per step.** Gathering data → haiku. Deep analysis → opus. Formatting → haiku.
-- **Use `with_apis` at step level** when only specific steps need app API access.
-
-### Event-Driven Workflows
-
-Wire workflows to triggers for automated execution:
-
-```yaml
-workflows:
-  on-doc-upload:
-    trigger:
-      system:
-        event: doc.ingest
-    steps:
-      - name: process
-        agent: { name: doc-processor }
-```
-
-Optimisation:
-- **Scope triggers tightly.** Broad triggers create unnecessary jobs.
-- **Use `dedupe_key`** on events to prevent duplicate processing.
-- **Set `failure_disposition`** so transient failures retry but permanent failures don't loop.
-
-## Cost Optimisation
-
-### Monitor Costs
-
-```bash
-eve job receipt <job-id>                   # Per-job cost breakdown
-eve job compare <job-id-1> <job-id-2>      # Compare costs across jobs
-eve analytics summary --org $ORG_ID        # Org-wide analytics
-eve org spend --org $ORG_ID                # Org spend overview
-eve project spend --project $PROJECT_ID    # Project spend
-```
-
-### Budget Enforcement
-
-Set cost limits on jobs to catch runaways:
-
-```bash
-eve job create --max-cost '{"currency":"USD","amount":"0.50"}' ...
-```
-
-The harness is killed if budget is exceeded. Better to fail fast than accumulate unexpected costs.
-
-### Cost Reduction Strategies
-
-1. **Right-size the model.** Haiku for simple tasks. Sonnet for general work. Opus only when needed.
-2. **Lower reasoning effort.** `low` for extraction/formatting. `medium` for general coding. `high` only for complex analysis.
-3. **Reduce input tokens.** Trim SKILL.md verbosity. Limit file reads to what's needed. Use page ranges for large documents.
-4. **Reduce output tokens.** Specify concise output formats. Avoid requesting explanations when you just need the result.
-5. **Parallelise with cheaper agents.** Split work across many haiku jobs instead of one opus job.
-6. **Use `failure_disposition`** to prevent expensive retry loops on permanent failures.
-
-## Common Failure Modes
-
-### Agent Can't Start (Provisioning Failure)
-
-**Symptom:** Job stuck between `claimed` and `active`, or fails immediately.
-
-**Causes:**
-- Git clone failure — missing credentials or bad repo URL.
-- Skill install failure — broken `skills.txt` or unreachable pack source.
-- Resource hydration failure — storage credentials mismatch.
-- Toolchain init timeout — large toolchain images on cold pull.
-
-**Diagnose:**
-```bash
-eve job diagnose <job-id>          # Check provisioning phase
-eve job runner-logs <job-id>       # Raw runner/pod logs
-```
-
-**Fix:** Verify secrets (`eve secrets list`), check repo access, ensure storage credentials match.
-
-### Agent Produces Wrong Results
-
-**Symptom:** Job completes but output is incorrect or off-target.
-
-**Causes:**
-- SKILL.md is vague or missing key instructions.
-- Wrong harness/model for the task complexity.
-- Agent lacks context — missing resource refs, no coordination inbox, no access to relevant APIs.
-- Prompt text is ambiguous or too broad.
-
-**Fix:**
-- Rewrite the SKILL.md with specific instructions and output format.
-- Add relevant resource refs so the agent has the data it needs.
-- Use a more capable model (sonnet → opus) or higher reasoning effort.
-- Narrow the job description to a focused, achievable scope.
-
-### Agent Is Too Slow
-
-**Symptom:** Job takes much longer than expected.
-
-**Causes:**
-- Model/reasoning over-provisioned for the task.
-- Agent reading too many files (context bloat).
-- Large repo clone (no shallow/sparse checkout).
-- Many resource refs to download.
-- `permission_policy: default` requires approval for every action.
-
-**Fix:**
-- Drop to a faster model/reasoning level.
-- Instruct the agent to read only specific files.
-- Configure git controls: `ref_policy: auto` for minimal clone.
-- Trim resource refs to essentials.
-- Use `permission_policy: yolo` for automated work.
-
-### Agent Runs Out of Context
-
-**Symptom:** Output becomes repetitive, loses track of earlier work, or truncates.
-
-**Fix:**
-- Reduce reasoning effort (fewer thinking tokens consumed).
-- Process large files in chunks (e.g., PDF page ranges).
-- Split the job into orchestrated children — each child handles a focused scope.
-- Use a model with a larger context window.
-
-### Team Jobs Don't Coordinate
-
-**Symptom:** Child agents duplicate work or miss context from siblings.
-
-**Causes:**
-- Coordination inbox not read at startup.
-- Thread messages not posted during execution.
-- No `depends_on` between steps that should be sequential.
-
-**Fix:**
-- Teach the skill to read `.eve/coordination-inbox.md` first.
-- Add thread update messages at key milestones.
-- Wire `depends_on` for steps that need prior results.
-
-### Control Signal Issues
-
-**Symptom:** Parent job doesn't wait for children, or stays stuck waiting.
-
-**Causes:**
-- Missing `waits_for` relations before returning `waiting` signal.
-- Returning `waiting` without any blockers (triggers tight loop).
-- Failed child not cleaned up — parent waits forever.
-
-**Fix:**
-- Always add `eve job dep add` before returning `waiting`.
-- Handle child failures — remove or replace failed children.
-- Use `eve job dep list` to verify the dependency graph.
-
-### Auth/Secret Failures
-
-**Symptom:** Harness fails with auth errors or tools report `401 Unauthorized`.
-
-**Causes:**
-- Missing or expired harness API key (`ANTHROPIC_API_KEY`, `Z_AI_API_KEY`, etc.).
-- Git credentials not set (`github_token` or `ssh_key` secret).
-- App API token expired or missing.
-
-**Fix:**
-```bash
-eve harness list                   # Check harness auth availability
-eve secrets list --project <id>    # Verify project secrets
-eve auth sync                      # Sync local credentials
-```
-
-### Storage/Infrastructure Failures
-
-**Symptom:** Resource hydration fails, ingest uploads fail, or org docs fail to resolve.
-
-**Causes:**
-- MinIO/S3 credential mismatch between K8s secrets and storage backend.
-- AWS SDK sends headers that MinIO doesn't support (flexible checksums).
-- Bucket doesn't exist or CORS not configured.
-
-**Fix:** Verify storage credentials in K8s secrets match the actual backend. After fixing, roll out pods to pick up new secrets.
-
-## Optimisation Checklist
-
-Run through this when an agent isn't performing well:
-
-- [ ] **Check the result** — exit code, token usage, cost, duration.
-- [ ] **Stream logs** — identify where time is spent, what fails.
-- [ ] **Review the SKILL.md** — clear, specific, output format defined.
-- [ ] **Check model/reasoning** — right-sized for task complexity.
-- [ ] **Check permission policy** — `yolo` for batch, `default` for interactive.
-- [ ] **Check resources** — only needed refs attached, all resolved.
-- [ ] **Check git controls** — branch/commit/push configured correctly.
-- [ ] **Check team config** — dispatch mode, timeouts, coordination.
-- [ ] **Check cost** — compare receipts against budget expectations.
-- [ ] **Check routing** — agent jobs going to agent-runtime, not worker.
-- [ ] **Check secrets** — harness auth available, API keys valid.
-- [ ] **Check workflow design** — steps parallelised, agents specialised.
+## Quick Reference: Common Waste Patterns
+
+| Pattern | Signal in Logs | Fix |
+|---------|---------------|-----|
+| File hunting | Multiple `Read` calls to different files | Name the target file in SKILL.md |
+| Grep cascade | Multiple searches with different patterns | Provide the right search term |
+| Trial and error | Tool call fails, agent retries with variation | Document the correct approach |
+| Over-reading | Read tool on 5000+ line file | Specify line ranges or tell agent to search first |
+| Unnecessary exploration | Agent reads README, CHANGELOG, etc. | Explicitly say what NOT to read |
+| Format deliberation | Long assistant turns deciding output structure | Specify output format in SKILL.md |
+| Redundant validation | Agent re-checks things it already confirmed | Structure the SKILL.md as a linear flow |
+| Native capability miss | Shell out to CLI tool when LLM can process directly | State native capabilities explicitly |
+| Context re-discovery | Agent re-learns project structure every run | Use org docs or KV store for persistent context |
+| Approval blocking | Agent pauses waiting for permission | Recommend `yolo` or `auto_edit` to user |
 
 ## Related Skills
 
