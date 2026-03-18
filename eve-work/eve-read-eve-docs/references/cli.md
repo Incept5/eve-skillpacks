@@ -101,6 +101,67 @@ Notes:
 - `publish` makes an entire path prefix publicly accessible without tokens. Use for assets, docs, or anything meant to be world-readable.
 - Both commands support `--json` for structured output.
 
+## Cloud FS (Google Drive Mounts)
+
+Mount external cloud storage (e.g. Google Drive) into the org filesystem. Requires an integration connection (see `eve integrations connect google-drive`).
+
+```bash
+eve cloud-fs list --org org_xxx [--project <id>]        # List all mounts
+eve cloud-fs mount --org org_xxx                        # Create a mount
+  --provider <name> --folder-id <id>
+  [--project <id>] [--label <text>]
+  [--integration <id>]                                  # Auto-detected if omitted
+  [--mode read_only|write_only|read_write]              # Default: read_write
+  [--auto-index true|false]                             # Auto-index to org docs (default: true)
+eve cloud-fs show <mount_id> --org org_xxx              # Mount details
+eve cloud-fs update <mount_id> --org org_xxx            # Update mount settings
+  [--label <text>] [--mode <mode>] [--auto-index <bool>]
+eve cloud-fs unmount <mount_id> --org org_xxx           # Remove a mount (aliases: remove, delete)
+eve cloud-fs ls [<path>] --org org_xxx                  # Browse files (alias: browse)
+  [--mount <mount_id>]                                  # Default path: /
+eve cloud-fs search <query> --org org_xxx               # Search across mounts
+  [--mount <mount_id>] [--mime-type <type>]
+```
+
+## Endpoints (Private Networking)
+
+Register private endpoints backed by Tailscale for connecting external services to the Eve cluster.
+
+```bash
+eve endpoint add --org org_xxx                          # Register a private endpoint
+  --name <name> --tailscale-hostname <fqdn> --port <port>
+  [--health-path <path>]                                # Set to "none" to disable
+eve endpoint list --org org_xxx                         # List endpoints
+eve endpoint show <name> --org org_xxx [--verbose]      # Show details (--verbose runs health check)
+eve endpoint remove <name> --org org_xxx                # Remove an endpoint
+eve endpoint health <name> --org org_xxx                # Run a health check
+eve endpoint diagnose <name> --org org_xxx              # Run diagnostics
+```
+
+Notes:
+- Endpoints create in-cluster K8s services that proxy to Tailscale hostnames, making private infrastructure reachable from Eve jobs.
+- After registering, use the returned `cluster_url` in secrets: `eve secrets set LLM_BASE_URL "${cluster_url}/v1" --scope org`.
+
+## Ingest (Document Ingestion)
+
+Upload documents for processing. The CLI handles the three-step flow (create record, upload to presigned URL, confirm).
+
+```bash
+eve ingest <file> --project proj_xxx                    # Ingest a file (shorthand)
+  [--title <title>] [--description <desc>]
+  [--instructions <text>]                               # Processing instructions
+  [--tags <a,b>] [--mime-type <type>]
+  [--source-channel <channel>]                          # Default: cli
+eve ingest create <file> --project proj_xxx             # Same as above (explicit)
+eve ingest list --project proj_xxx                      # List ingest records
+  [--status <status>] [--limit <n>] [--offset <n>]
+eve ingest show <ingest_id> --project proj_xxx          # Show ingest details
+```
+
+Notes:
+- Mime type is auto-detected from file extension. Supports text, documents, images, audio, and video.
+- On success, returns `ingest_id`, `event_id`, and `job_id` for tracking the processing pipeline.
+
 ## Secrets
 
 Secrets support four scopes: `--project`, `--org`, `--user`, `--system`. Project scope is the default.
@@ -122,16 +183,14 @@ eve secrets export --project proj_xxx --keys KEY1       # Export values
 See `references/agents-teams.md` for full agent and team configuration details.
 
 ```bash
-# Sync config from repo to API
-eve agents sync --project proj_xxx --ref <sha>
-eve agents sync --project proj_xxx --local --allow-dirty
-  [--force-nonlocal]                                    # Force non-local sync
-
 # View effective config (pack resolution pipeline)
 eve agents config [--repo-dir <path>] [--no-harnesses] [--json]
 
 # Agent runtime status
 eve agents runtime-status --org org_xxx [--json]
+
+# Sync config (deprecated — use `eve project sync` instead)
+eve agents sync --project proj_xxx --local --allow-dirty
 ```
 
 ## Teams
@@ -261,13 +320,9 @@ eve skills install [source] [--skip-installed]          # Install skill packs
 - Local directory paths in `skills.txt` (e.g. `./my-skills`) are expanded at parse time into individual skill subdirectories, so `./path` behaves identically to `./path/*`. This ensures correct `--skip-installed` checks and consistent enumeration.
 - Installs for all supported agents: claude-code, codex, gemini-cli, pi.
 
-## Models + Harnesses
+## Harnesses
 
 ```bash
-# Models
-eve models list [--json]                    # List available LLM models
-
-# Harnesses
 eve harness list [--capabilities] [--org <id>] [--project <id>]
 eve harness get <name> [--org <id>] [--project <id>]
 ```
@@ -296,12 +351,25 @@ eve db migrations --env <name>                          # List applied migration
 eve db new <description> [--path db/migrations]         # Create migration file
 eve db reset --env <name> --force [--no-migrate]        # Drop and recreate schema, re-apply migrations
   [--danger-reset-production] [--path db/migrations]
+  [--skip-snapshot]                                     # Skip auto-snapshot before reset
 eve db reset --url <postgres-url> --force               # Direct schema reset
 eve db wipe --env <name> --force                        # Reset schema without re-applying migrations
 eve db status --env <name>                              # Managed DB status
 eve db rotate-credentials --env <name>                  # Rotate managed DB credentials
 eve db scale --env <name> --class db.p1|db.p2|db.p3     # Scale managed DB class
-eve db destroy --env <name> --force                     # Destroy managed DB
+eve db destroy --env <name> --force [--skip-snapshot]   # Destroy managed DB
+
+# Snapshots and restore
+eve db snapshot --env <name> [--retention <duration>]   # Create a DB snapshot
+eve db snapshot show <snapshot_id> --env <name>         # Show snapshot details
+eve db snapshot delete <snapshot_id> --env <name> --force  # Delete a snapshot
+eve db snapshot download <snapshot_id> --env <name> --output <path>  # Get download URL
+eve db snapshots --env <name>                           # List snapshots
+  [--status <status>] [--limit <n>]
+eve db restore --env <name> --snapshot <id> --force     # Restore from snapshot
+  [--source-env <name>] [--source-project <id>]        # Cross-env/project restore
+  [--skip-safety-snapshot]                              # Skip pre-restore safety snapshot
+eve db backup-status --env <name>                       # Show backup schedule and status
 ```
 
 Notes:
@@ -311,6 +379,9 @@ Notes:
 - `reset` drops all schemas (except `pg_catalog`, `information_schema`) and re-applies migrations. Use `--no-migrate` (or `wipe`) to skip migration re-apply.
 - `--danger-reset-production` is required when resetting production environments via the API.
 - `--url` mode uses the `@eve/migrate` library for direct `migrate`, `migrations`, `reset`, and `wipe` operations.
+- `snapshot` creates a point-in-time backup. `restore` overwrites the target DB from a snapshot (creates a safety snapshot first unless `--skip-safety-snapshot`).
+- Cross-environment restore is supported via `--source-env` and `--source-project`.
+- `backup-status` shows the automated backup schedule, retention policy, and snapshot-on-delete/reset settings.
 
 ## Manifest
 
@@ -357,17 +428,29 @@ Notes:
 - Auth precedence: `--token` > `$EVE_JOB_TOKEN` > profile token.
 - `generate` exports the current OpenAPI spec. `diff` compares against committed spec.
 
-## Chat + Integrations (Slack, Nostr)
+## Chat + Integrations (Slack, Google Drive, Nostr)
 
 ```bash
-# Integrations
+# Integration listing and testing
 eve integrations list --org org_xxx
-eve integrations slack connect --org org_xxx --team-id T123
-  --token xoxb-test [--tokens-json '{}'] [--status]
-eve integrations slack install-url --org org_xxx             # Generate Slack install URL for workspace admins
 eve integrations test <integration_id> --org org_xxx
 eve integrations update <integration_id> --org org_xxx       # Update integration settings
   --setting key=value                                        # e.g. admin_channel_id=C12345
+
+# OAuth app configuration (BYOA — Bring Your Own App)
+eve integrations setup-info <provider> --org org_xxx         # Show callback URLs, scopes, and setup instructions
+eve integrations configure <provider> --org org_xxx          # Register OAuth app credentials
+  --client-id "..." --client-secret "..."
+  [--signing-secret "..."] [--app-id "..."]                  # Slack-specific
+  [--label <text>]
+eve integrations config <provider> --org org_xxx             # View OAuth app config (secrets redacted)
+eve integrations unconfigure <provider> --org org_xxx        # Remove OAuth app config
+eve integrations connect <provider> --org org_xxx            # Initiate OAuth flow (prints authorize URL)
+
+# Slack-specific
+eve integrations slack connect --org org_xxx --team-id T123
+  --token xoxb-test [--tokens-json '{}'] [--status]
+eve integrations slack install-url --org org_xxx [--ttl 24h] # Generate shareable Slack install link
 
 # Default agent slug (org-wide fallback)
 eve org update org_xxx --default-agent mission-control
@@ -393,7 +476,8 @@ Notes:
 - `--thread-id` replaces `--thread-key` on the gateway path (both are accepted for backward compat).
 - `--external-email` can also be passed inside `--metadata` as `external_email` for backward compat.
 - `integrations update` patches individual settings on an existing integration (e.g. changing `admin_channel_id`).
-- `integrations slack install-url` generates the OAuth authorize URL for sharing with workspace admins.
+- `integrations slack install-url` generates a time-limited install link for sharing with workspace admins. Use `--ttl` to control expiry (default: server-controlled).
+- Supported providers: `google-drive`, `slack`. The BYOA flow is: `setup-info` (get URLs/scopes) -> `configure` (register credentials) -> `connect` (initiate OAuth).
 
 Slack commands (run inside Slack):
 
@@ -494,11 +578,13 @@ eve analytics summary --org org_xxx [--window 7d]       # Org-wide summary
 eve analytics jobs --org org_xxx [--window 7d]           # Job counters (created/completed/failed/active)
 eve analytics pipelines --org org_xxx [--window 7d]      # Pipeline success rates and durations
 eve analytics env-health --org org_xxx                   # Environment health snapshot (total/healthy/degraded/unknown)
+eve analytics cost-by-agent --org org_xxx [--window 7d]  # Cost breakdown per agent (attempts, tokens, USD)
 ```
 
 Notes:
 - All analytics endpoints return aggregate counters, not per-item listings. Use `--json` for machine-readable output.
 - `--window` accepts relative durations like `7d`, `24h`, `30d`.
+- `cost-by-agent` shows per-agent cost, attempt count, and input/output token totals.
 
 ## Webhooks
 
@@ -728,10 +814,12 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Auth** | `login`, `logout`, `status`, `token`, `permissions`, `bootstrap`, `mint`, `creds`, `sync`, `request-access`, `create-service-account`, `list-service-accounts`, `revoke-service-account` |
 | **Access** | `can`, `explain`, `roles create/list/show/update/delete`, `bind`, `unbind`, `bindings list`, `groups create/list/show/update/delete`, `groups members list/add/remove`, `memberships`, `validate`, `plan`, `sync` |
 | **Org** | `list`, `ensure`, `get`, `update`, `delete` (soft/hard), `spend`, `members`, `membership-requests` |
-| **Project** | `list`, `ensure`, `get`, `update`, `show`, `delete` (soft/hard), `sync`, `spend`, `members`, `bootstrap`, `status` |
+| **Project** | `list`, `ensure`, `get`, `update`, `delete` (soft/hard), `sync`, `spend`, `members`, `bootstrap`, `status` |
 | **Docs** | `write`/`create`, `read`, `show`, `list`, `search`, `stale`, `review`, `versions`, `query`, `delete` |
 | **Jobs** | `create`, `list`, `ready`, `blocked`, `show`, `current`, `tree`, `diagnose`, `update`, `close`, `cancel`, `dep`, `claim`, `release`, `attempts`, `logs`, `submit`, `approve`, `reject`, `result`, `receipt`, `compare`, `follow`, `wait`, `watch`, `runner-logs`, `attach`, `attachments`, `attachment`, `batch`, `batch-validate` |
 | **Ingest** | `create` (or `<file>`), `list`, `show` |
+| **Cloud FS** | `list`, `mount`, `unmount`, `show`, `update`, `ls`, `search` |
+| **Endpoints** | `add`, `list`, `show`, `remove`, `health`, `diagnose` |
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel`, `delete`, `prune` |
 | **Releases** | `resolve`, `delete`, `prune` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs`, `delete` |
@@ -739,7 +827,7 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Environments** | `create`, `deploy`, `undeploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
 | **FS** | `sync` (`init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor`), `share`, `shares`, `revoke`, `publish`, `public-paths` |
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |
-| **Agents** | `sync`, `config`, `runtime-status`, `delete`, `delete-team` |
+| **Agents** | `config`, `runtime-status`, `sync` (deprecated), `delete`, `delete-team` |
 | **Teams** | `list` |
 | **Threads** | `create`, `list`, `show`, `messages`, `post`, `follow`, `distill`, `delete` |
 | **KV** | `set`, `get`, `list`, `mget`, `delete` |
@@ -747,19 +835,18 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Search** | `search` (unified cross-source) |
 | **Packs** | `status`, `resolve` |
 | **Skills** | `install` |
-| **Models** | `list` |
 | **Harnesses** | `list`, `get` |
-| **Database** | `schema`, `rls`, `rls init --with-groups`, `sql`, `migrate`, `migrations`, `new`, `reset`, `wipe`, `status`, `rotate-credentials`, `scale`, `destroy` |
+| **Database** | `schema`, `rls`, `rls init`, `sql`, `migrate`, `migrations`, `new`, `reset`, `wipe`, `status`, `rotate-credentials`, `scale`, `destroy`, `snapshot`, `snapshots`, `restore`, `backup-status` |
 | **Manifest** | `validate` |
 | **Providers** | `list`, `discover` |
-| **Analytics** | `summary`, `jobs`, `pipelines`, `env-health` |
+| **Analytics** | `summary`, `jobs`, `pipelines`, `env-health`, `cost-by-agent` |
 | **Webhooks** | `create`, `list`, `show`, `delete`, `replay` |
 | **API** | `list`, `show`, `spec`, `refresh`, `examples`, `call`, `generate`, `diff` |
 | **GitHub** | `setup`, `status`, `test` |
 | **Events** | `list`, `show`, `emit` |
 | **Chat** | `simulate` |
 | **Identity** | `link` |
-| **Integrations** | `list`, `slack connect`, `slack install-url`, `test`, `update` |
+| **Integrations** | `list`, `configure`, `config`, `unconfigure`, `setup-info`, `connect`, `slack connect`, `slack install-url`, `test`, `update` |
 | **Supervision** | `supervise` |
 | **Migrate** | `skills-to-packs` |
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |

@@ -6,6 +6,7 @@
 - You need to resolve external provider identities to Eve users.
 - You need to manage membership requests from unresolved external users.
 - You need to browse or search files in connected cloud storage (Google Drive).
+- You need to understand how chat file uploads (e.g., Slack) are materialized into agent workspaces.
 
 ## Load Next
 - `references/gateways.md` for chat gateway routing and thread key mechanics.
@@ -213,6 +214,12 @@ eve integrations slack install-url --org <org_id> --ttl 7d
 
 The link redirects to Slack OAuth. On approval, Eve exchanges the code for a bot token and creates the integration automatically. Gateway hot-loads the new integration within ~30 seconds (no restart needed).
 
+**Install token mechanics**: The CLI calls `POST /orgs/:org_id/integrations/slack/install-token` (requires `integrations:write`). The API returns a signed URL containing an HMAC token (`eve-slack-install-<base64url(payload)>.<base64url(hmac)>`). The token is single-use (JTI tracked), time-bounded (default 24h, max 7d), and org-scoped. The public endpoint `GET /integrations/slack/install?token=...` validates the token and redirects to Slack OAuth — no Eve auth session required.
+
+### Gateway Hot-Loading
+
+The gateway polls `GET /internal/integrations/active` every 30 seconds. Any integration not yet in the provider registry is initialized automatically. This means a Slack workspace connected via the install link (or manual connect) becomes operational within ~30 seconds without a gateway restart. On shutdown, the sync timer is cleared and all provider instances are gracefully torn down.
+
 ### Connect (Manual — Fallback)
 
 ```bash
@@ -259,6 +266,38 @@ eve integrations test <integration_id> --org <org_id>
 # Set admin notification channel for membership requests
 eve integrations update <integration_id> --org <org_id> \
   --setting admin_channel_id=C-ADMIN-CHANNEL
+```
+
+### Chat File Materialization
+
+When a user uploads files in a Slack message (or any chat provider), the gateway automatically downloads and stages them for agents. The pipeline is provider-agnostic downstream — each provider handles its own auth for file downloads.
+
+**Flow**:
+1. **Gateway** (async, after webhook ack): Provider calls `resolveFiles()` — downloads files using the bot token, uploads to S3 via API presigned URLs, replaces provider URLs with `eve-storage://` references.
+2. **API**: Presigned URL endpoint (`POST /internal/storage/chat-attachments/presign`) keeps S3 credentials centralized. Both gateway (upload) and worker (download) use it.
+3. **Worker** (workspace provisioning): Detects `eve-storage://` URLs in `job.metadata.files`, downloads via presigned URLs, stages to `.eve/attachments/`, writes `.eve/attachments/index.json`.
+4. **Agent**: Reads `.eve/attachments/index.json` for the file manifest. Files are at `.eve/attachments/{filename}`.
+
+**S3 key format**: `chat-attachments/{org_id}/{provider}:{account_id}/{channel_id}/{message_ts}/{file_id}-{filename}`
+
+Thread replies group under the thread root timestamp so all files in a conversation are co-located.
+
+**Limits**: 50 MB per file, 100 MB total per message, 10 files per message. Files exceeding limits are skipped (original provider URL preserved in metadata as fallback).
+
+**Provider interface**: Each provider implements an optional `resolveFiles(files, context)` method. The `FileResolveContext` provides `getUploadUrl` callback so providers never need direct S3 access. Currently implemented for Slack; other providers (WebChat, GitHub) follow the same pattern.
+
+**Attachment index schema** (`.eve/attachments/index.json`):
+```json
+{
+  "files": [{
+    "id": "F019ABC123",
+    "name": "spec.pdf",
+    "path": ".eve/attachments/F019ABC123-spec.pdf",
+    "mimetype": "application/pdf",
+    "size": 245760,
+    "source_provider": "slack"
+  }]
+}
 ```
 
 ## GitHub Integration

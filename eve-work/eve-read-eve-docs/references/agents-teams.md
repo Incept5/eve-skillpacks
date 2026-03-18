@@ -13,7 +13,7 @@
 ## Ask If Missing
 - Confirm the target project/org manifest path and whether agents are repo-synced.
 - Confirm whether routing is intended to be command-only or auto-routable in chat.
-- Confirm if team dispatch should use fanout, relay, or lead/merge semantics.
+- Confirm if team dispatch should use fanout, relay, or council semantics (and whether staged preparation is needed).
 
 ## Overview
 
@@ -28,6 +28,7 @@ version: 1
 agents:
   mission-control:
     slug: mission-control           # org-unique, ^[a-z0-9][a-z0-9-]*$
+    alias: mc                       # optional short name for chat addressing
     description: "Primary orchestration agent"
     skill: eve-orchestration        # required
     workflow: nightly-audit          # optional
@@ -54,8 +55,39 @@ agents:
 ### Agent Slug Rules
 
 - Lowercase alphanumeric + dashes, org-unique, enforced at sync.
+- Pack resolver prefixes slugs with the project slug (e.g., `pm` in project `pmbot` becomes `pmbot-pm`).
 - Used for Slack routing: `@eve <slug> <command>`.
 - Set a default: `eve org update org_xxx --default-agent <slug>`.
+
+### Agent Aliases
+
+Aliases are optional short names that bypass the prefixed slug for chat addressing. Users type `@eve pm hello` instead of `@eve pmbot-pm hello`.
+
+```yaml
+agents:
+  pm:
+    slug: pm
+    alias: pm              # short vanity name for chat
+    skill: pm-coordinator
+    gateway:
+      policy: routable
+```
+
+Key rules:
+- Aliases and slugs share the same org-scoped routing namespace. If a slug `pm` exists, no other agent can claim alias `pm`.
+- Matching is case-insensitive and trimmed.
+- Reserved words that cannot be used as aliases: `agents`, `help`, `status`, `eve`, `admin`, `system`, `health`.
+- Aliases are NOT prefixed by the pack resolver -- that is the entire point.
+- Alias uniqueness is validated at sync time. Collisions with existing slugs or aliases are rejected.
+
+Resolution order at chat dispatch:
+
+1. Slug match (canonical prefixed slug)
+2. Alias match
+3. Team name match (see Gateway Team Dispatch below)
+4. Org default agent fallback
+
+The `@eve agents list` display shows aliases alongside canonical slugs (e.g., `pmbot-pm (-> pm)`).
 
 ### Gateway Discovery Policy
 
@@ -121,6 +153,42 @@ teams:
 | `council` | All agents respond, results merged by strategy |
 | `relay` | Sequential delegation from lead through members |
 
+### Staged Team Dispatch
+
+Staged dispatch is an option on council mode where the lead prepares work before members start. Use it when members need processed input (e.g., a transcript, summary, or extracted data) that the lead must produce first.
+
+```yaml
+teams:
+  expert-panel:
+    lead: pm-coordinator
+    members: [tech-lead, ux-advocate, biz-analyst, risk-assessor]
+    dispatch:
+      mode: council
+      staged: true              # lead runs first, then members fan out
+      lead_timeout: 3600
+      member_timeout: 300
+```
+
+`staged: true` is only valid with `mode: council`. Schema validation rejects other combinations.
+
+Lifecycle:
+
+1. **Dispatch** -- Lead job is created in `ready` phase. Member jobs are created in `backlog` phase (visible via `eve job list` but not claimable by the orchestrator).
+2. **Prepare** -- Lead runs, does pre-processing (transcription, analysis, etc.), posts prepared content to the coordination thread, then returns `eve.status = "prepared"`.
+3. **Promote** -- Orchestrator detects `prepared` on a staged job, promotes all `backlog` children to `ready`, and requeues the lead with `wake_on: [children.all_done]`.
+4. **Parallel work** -- Members run concurrently, each reading `.eve/coordination-inbox.md` for the lead's prepared content. Each returns `eve.summary` which auto-relays to the coordination thread.
+5. **Synthesize** -- Lead wakes when all children complete, reads member summaries from the coordination inbox, produces a final synthesis, returns `eve.status = "success"`.
+
+Edge cases:
+- If the lead returns `success` or `failed` without ever returning `prepared`, backlog children are automatically cancelled.
+- If staged is true but the team has no members, the lead runs normally (warning logged).
+
+Lead agent skill pattern -- return `prepared` after phase 1, then `success` after synthesis:
+
+```json
+{"eve": {"status": "prepared", "summary": "Content prepared for expert review"}}
+```
+
 ## chat.yaml
 
 Define routing rules with explicit target prefixes.
@@ -165,7 +233,7 @@ eve agents sync --project proj_xxx --local --allow-dirty
 eve agents config --repo-dir ./my-app
 ```
 
-Sync resolves AgentPacks from `x-eve.packs`, deep-merges pack agents/teams/chat with local overrides, validates org-wide slug uniqueness, and pushes to the API.
+Sync resolves AgentPacks from `x-eve.packs`, deep-merges pack agents/teams/chat with local overrides, validates org-wide slug and alias uniqueness, and pushes to the API.
 
 ### Pack Overlay
 
@@ -218,6 +286,54 @@ eve thread post <thread-id> --body '{"kind":"update","body":"Phase 1 complete"}'
 eve thread follow <thread-id>                    # stream in real-time
 ```
 
+## Chat Outbound Delivery
+
+Agent results are automatically posted back to the originating Slack thread. When a chat-originated job completes, the orchestrator detects the `chat` label and `hints.thread_id`, extracts the result text (falling back to `eve.summary`), and pushes it through the delivery pipeline:
+
+```
+Orchestrator → POST /internal/projects/{id}/chat/deliver → API → Gateway → Slack thread
+```
+
+Key behaviors:
+- Delivery is fire-and-forget -- failures are logged but never block job completion.
+- Threads store provider metadata (`metadata_json`) with `provider`, `account_id`, `channel_id`, and `thread_id` for outbound routing.
+- Outbound messages are recorded as `thread_messages` with `direction = 'outbound'` and tracked via `delivery_status` (`pending`, `delivered`, `failed`).
+- Duplicate delivery is prevented by a unique index on `job_id` for outbound messages.
+- Messages over 3900 characters are truncated with a pointer to `eve job result <id>`.
+
+Inspect delivery status via CLI:
+
+```bash
+eve thread messages <thread_id>
+# Shows: inbound user message, system ack, outbound agent reply with delivery status
+```
+
+## Chat Progress Updates
+
+Agents can send real-time progress updates to the originating Slack thread during execution. The agent emits `eve-message` fenced blocks in its output, and the `EveMessageRelay` on the agent-runtime delivers them to the chat channel.
+
+```
+```eve-message
+Pulling metrics data from the warehouse...
+```                                          # ← posted to Slack thread as progress
+```
+
+The relay also accepts structured JSON with a `body` field:
+
+```
+```eve-message
+{"kind":"progress","body":"Found 847 records, analyzing trends..."}
+```
+```
+
+Rate limiting:
+- Coordination thread (internal): 1 message per 5 seconds, no cap.
+- Chat delivery (external): 1 message per 30 seconds, max 10 per job. Progress text is capped at 500 characters.
+
+Progress updates reuse the same delivery pipeline as final results (`POST /internal/.../chat/deliver` with `progress: true`). They are stored as `thread_messages` with `job_id = NULL` (bypassing the outbound idempotency constraint).
+
+Works for both single-agent chat jobs and team dispatch child jobs. Non-chat jobs only relay to the coordination thread.
+
 ## Supervision
 
 Monitor a job tree and coordinate team execution.
@@ -234,12 +350,23 @@ Long-polls child job events for the lead agent.
 ### Routing Commands (in Slack)
 
 ```
-@eve <agent-slug> <command>         # direct to specific agent
-@eve agents list                    # list available agent slugs
+@eve <slug-or-alias> <command>      # direct to specific agent (slug or alias)
+@eve <team-name> <command>          # direct to team lead (gateway team dispatch)
+@eve agents list                    # list available agent slugs + aliases
 @eve agents listen <agent-slug>     # subscribe agent to channel or thread
 @eve agents unlisten <agent-slug>   # unsubscribe agent
 @eve agents listening               # list active listeners
 ```
+
+### Gateway Team Dispatch
+
+Teams can be addressed directly from chat using the team name. When a user types `@eve expert-panel review this`, the gateway resolves the name through the standard chain (slug, then alias, then team name lookup). If a team matches:
+
+1. The team lead's `gateway_policy` is checked -- dispatch is rejected if the lead is `none` or the provider is not in the lead's `clients` list.
+2. The chat service creates the full team dispatch (fanout/council/relay with staged support) directly, bypassing route matching.
+3. Each job receives per-job HOME isolation (`EVE_JOB_USER_HOME`).
+
+This is equivalent to having a `chat.yaml` route with `target: team:expert-panel`, but without needing to define one.
 
 ### Thread-Level vs Channel-Level Listeners
 
@@ -262,7 +389,7 @@ eve integrations test <integration_id> --org org_xxx
 eve org update org_xxx --default-agent mission-control
 ```
 
-When a message does not start with a known slug, Eve routes to the org default agent with the full message as the command.
+When a message does not match any slug, alias, or team name, Eve routes to the org default agent with the full message as the command.
 
 ## Chat Simulation
 
@@ -287,10 +414,10 @@ eve thread delete <thread_id>
 ```
 POST /projects/{id}/agents/sync       # sync agents/teams/chat config
 POST /projects/{id}/agents/config     # get effective merged config
-GET  /agents                           # list agents
+GET  /agents                           # list agents (includes alias column)
 GET  /teams                            # list teams
 
-GET  /threads/{id}/messages            # list thread messages
+GET  /threads/{id}/messages            # list thread messages (includes delivery_status)
 POST /threads/{id}/messages            # post to thread
 GET  /threads/{id}/follow              # stream thread messages (SSE)
 
@@ -299,4 +426,7 @@ POST /chat/simulate                    # simulate chat message
 POST /chat/listen                      # subscribe agent to channel/thread
 POST /chat/unlisten                    # unsubscribe agent
 GET  /chat/listeners                   # list active listeners
+
+POST /internal/projects/{id}/chat/deliver  # deliver result/progress to chat thread (internal)
+POST /gateway/internal/deliver             # gateway sends to provider (internal)
 ```

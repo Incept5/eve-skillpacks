@@ -74,6 +74,67 @@ Domain resolution: 1) manifest `x-eve.ingress.domain`, 2) `EVE_DEFAULT_DOMAIN`, 
 
 Use cert-manager for automatic TLS on app ingresses. Set `EVE_DEFAULT_TLS_CLUSTER_ISSUER` (e.g., `letsencrypt-prod`) to enable per-host certs via cert-manager annotations. Optionally set `EVE_DEFAULT_TLS_SECRET` for a wildcard cert or `EVE_DEFAULT_INGRESS_CLASS` for a specific ingress controller.
 
+## Private Endpoints (Tailscale)
+
+Platform networking primitive that makes Tailscale-only services (e.g., LM Studio on a Mac Mini, internal APIs) accessible to all cluster workloads. Uses the Tailscale K8s Operator to create egress proxies via ExternalName Services.
+
+### How It Works
+
+```
+K8s Pod → K8s Service (eve-tunnels ns) → Tailscale Operator Egress Proxy → WireGuard → Tailnet Device
+```
+
+Every private endpoint gets a stable in-cluster DNS name:
+```
+http://<orgSlug>-<name>.eve-tunnels.svc.cluster.local:<port>
+```
+
+This URL works from any pod: app pods, agent runtime, workers, runners.
+
+### CLI Commands
+
+```bash
+# Register a private endpoint
+eve endpoint add \
+  --name lmstudio \
+  --provider tailscale \
+  --tailscale-hostname mac-mini.tail12345.ts.net \
+  --port 1234
+
+# List / show / diagnose
+eve endpoint list
+eve endpoint show lmstudio --verbose
+eve endpoint diagnose lmstudio
+
+# Remove
+eve endpoint remove lmstudio
+```
+
+### Wiring to Apps and Agents
+
+Private endpoints integrate via standard BYOK secrets:
+
+```bash
+# Set the endpoint URL as a secret
+eve secrets set LLM_BASE_URL \
+  "http://myorg-lmstudio.eve-tunnels.svc.cluster.local:1234/v1" \
+  --scope project
+
+eve secrets set LLM_API_KEY "lm-studio-xxx" --scope project
+```
+
+Reference in manifests or agent profiles via `${secrets.LLM_BASE_URL}`.
+
+### Diagnostics
+
+`eve endpoint diagnose <name>` checks: operator running, K8s Service exists, egress proxy created, DNS resolution, TCP connectivity, HTTP health check. Status transitions: `pending` -> `ready` or `error`.
+
+### Prerequisites
+
+The Tailscale K8s Operator must be installed once per cluster (k3d, staging, production). The Eve API service account needs RBAC to create/delete Services in the `eve-tunnels` namespace.
+
+**k3d shortcut**: If the host Mac is already on Tailscale, k3d containers can typically route to `100.x.x.x` addresses directly. Use raw `eve secrets set` to point at the Tailscale IP instead of `eve endpoint add`.
+
 ## Worker Image Registry
 
 Pre-built images on public ECR eliminate local builds and ensure consistent toolchains.
@@ -94,6 +155,61 @@ Pre-built images on public ECR eliminate local builds and ensure consistent tool
 - **Multi-arch**: `linux/amd64` + `linux/arm64`.
 
 Configure via `EVE_RUNNER_IMAGE` on the worker deployment. Pin to semantic versions in production. Use SHA tags or `latest` for dev/CI only.
+
+## Worker Toolchain-on-Demand
+
+The default worker runs the `base` image (~800MB: Node.js, git, harnesses). Toolchains (Python, Rust, Java, Kotlin, media/ffmpeg) are injected via init containers only when needed.
+
+### How Init Container Injection Works
+
+When a job declares toolchains (via agent config or workflow step), the orchestrator adds init containers to the runner pod:
+
+```
+Runner Pod
+  Init: tc-python  → copies /toolchain/* to /opt/eve/toolchains/python/
+  Init: tc-media   → copies /toolchain/* to /opt/eve/toolchains/media/
+  Container: runner → base image, PATH extended with toolchain bins
+```
+
+Each toolchain image is small (50-300MB). Init containers finish in <1s if the image is cached on the node. First pull adds ~5-10s.
+
+### Toolchain Images
+
+| Toolchain | Contents | Size |
+|-----------|----------|------|
+| `python` | Python 3, pip, venv, uv | ~100MB |
+| `media` | ffmpeg, ffprobe, whisper-cli + ggml-small.en model | ~300MB |
+| `rust` | rustup, stable toolchain, rustfmt, clippy | ~400MB |
+| `java` | Temurin JDK 21 | ~300MB |
+| `kotlin` | kotlinc 2.0 + JDK 21 (self-contained) | ~350MB |
+
+Images published to ECR: `public.ecr.aws/w7c4v0w3/eve-horizon/toolchain-{name}:{version}`
+
+### Environment Setup
+
+The entrypoint sources per-toolchain `env.sh` files and extends `PATH`:
+
+```bash
+# Automatic: entrypoint.sh handles this
+export PATH="${EVE_TOOLCHAIN_PATHS}:${PATH}"
+# Per-toolchain env.sh sets JAVA_HOME, RUSTUP_HOME, CARGO_HOME, etc.
+```
+
+### Deployment Impact
+
+- Default worker variant changed from `full` to `base` (CI and local k3d)
+- `EVE_WORKER_VARIANT=full` restores the old fat image if needed
+- Agents without `toolchains` field are unaffected (no init containers)
+- Configure toolchain image prefix/tag: `EVE_TOOLCHAIN_IMAGE_PREFIX`, `EVE_TOOLCHAIN_IMAGE_TAG`
+- Local k3d: build + import toolchain images with `./bin/eh k8s image --toolchains`
+
+### Debugging Toolchain Issues
+
+If a job fails with "command not found" for a toolchain binary:
+1. Check the agent config declares `toolchains: [<name>]`
+2. Check init container logs: `kubectl -n eve logs <pod> -c tc-<name>`
+3. Verify the toolchain image exists: `docker pull <prefix><name>:<tag>`
+4. Fallback: set `EVE_WORKER_VARIANT=full` on the worker deployment
 
 ## Docker Compose Runtime (Dev Only)
 
@@ -240,16 +356,51 @@ else:
         if health.ready: SUCCESS
 ```
 
-## Undeploying an Environment
+## App Undeploy & Delete Lifecycle
 
-To take an environment offline without losing config:
+### Environment Undeploy
+
+Take an environment offline without losing config. Tears down K8s namespace but preserves the environment record (variables, secrets bindings, release pointer).
 
 ```bash
 eve env undeploy <env> --project <id>
 eve env show <project> <env> --json   # Verify deploy_status = 'undeployed'
 ```
 
-Redeploy later: `eve env deploy <project> <env> --tag <tag>`
+Redeploy later: `eve env deploy <env> --ref <sha>`. The `deploy_status` field tracks state: `unknown` | `deployed` | `undeployed` | `deploying` | `undeploying` | `failed`. Deploy/rollback/reset flows update this automatically.
+
+### Project Delete
+
+```bash
+eve project delete <project>                # Soft-delete (sets deleted_at)
+eve project delete <project> --hard         # Hard-delete with cascading cleanup
+eve project delete <project> --hard --force # Continue on partial failures
+```
+
+Hard delete: undeploys all environments, cascade-deletes jobs/pipeline-runs/releases/builds/agents/teams/threads, then deletes the project record.
+
+### Org Delete
+
+```bash
+eve org delete <org>                        # Soft-delete
+eve org delete <org> --hard --force         # Full tenancy teardown
+```
+
+### Resource Cleanup
+
+```bash
+eve build delete <id>
+eve build prune --project <id> --keep 10    # Keep last N
+eve release delete <id>
+eve release prune --project <id> --keep 10
+eve pipeline delete <name> --project <id>
+eve agents delete <name> --project <id>
+eve thread delete <id>
+```
+
+### Debugging Delete Failures
+
+If `--hard` delete fails partway, re-run with `--force` to continue past individual failures. Check for FK constraint errors in API logs -- the migration `00080_fix_project_cascade_deletes.sql` fixes cascades on 11 tables referencing `projects(id)`.
 
 ## Environment Variable Interpolation
 

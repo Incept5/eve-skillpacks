@@ -231,8 +231,12 @@ browser/client-side code. Services can override these in their `environment` sec
 - Agent packs via `x-eve.packs` with optional `x-eve.install_agents` defaults.
 - Agent config paths via `x-eve.agents.config_path` and `x-eve.agents.teams_path`.
 - Chat routing config via `x-eve.chat.config_path`.
-- Service extensions under `x-eve` (ingress, role, api specs, worker pools).
+- Service extensions under `x-eve` (ingress, role, api specs, worker pools, cli, object_store).
 - API specs: `x-eve.api_spec` or `x-eve.api_specs` (spec URL relative to service by default).
+- App CLI: `x-eve.cli` declares an agent-friendly CLI for the service (see below).
+- Toolchains: agent-level `toolchains` declarations inject on-demand runtimes (see below).
+- Cloud FS mounts: configured via integrations, not the manifest (see `references/integrations.md`).
+- Per-org OAuth: each org registers its own OAuth app credentials via `eve integrations configure` (see `eve-auth-and-secrets`).
 
 Example:
 
@@ -248,6 +252,100 @@ x-eve:
   packs:
     - source: ./skillpacks/my-pack
 ```
+
+## App CLI Framework
+
+Declare an agent-friendly CLI for a service. The platform makes the CLI available on `$PATH` in agent workspaces when the job uses `with_apis`.
+
+```yaml
+services:
+  api:
+    x-eve:
+      api_spec:
+        type: openapi
+      cli:
+        name: myapp              # Binary name (goes on $PATH)
+        bin: cli/bin/myapp       # Path relative to repo root (pre-bundled)
+```
+
+For compiled CLIs, use an image-based distribution:
+
+```yaml
+services:
+  api:
+    x-eve:
+      cli:
+        name: myapp
+        image: ghcr.io/org/myapp-cli:latest    # Pre-built image
+```
+
+### How It Works
+
+1. Manifest sync stores CLI metadata alongside `api_spec`.
+2. Job workspace setup (after clone) runs `chmod +x` and symlinks the binary to `/usr/local/bin/`.
+3. For image-based CLIs, an init container copies the binary from the image.
+4. The CLI reads `EVE_APP_API_URL_{SERVICE}` and `EVE_JOB_TOKEN` (already injected) -- no manual auth or URL configuration.
+
+### CLI naming rules
+
+- Lowercase alphanumeric with hyphens: `[a-z][a-z0-9-]*`
+- Must be unique per project
+- The name becomes the command agents invoke (e.g., `eden projects list`)
+
+## Worker Toolchain Declarations
+
+Agents declare which runtime toolchains they need. The platform injects them as init containers -- no fat worker image required.
+
+```yaml
+# In agents.yaml
+agents:
+  data-analyst:
+    name: Data Analyst
+    skill: analyze-data
+    harness_profile: claude-sonnet
+    toolchains: [python]           # Needs python + uv
+
+  doc-processor:
+    name: Document Processor
+    skill: process-documents
+    harness_profile: claude-sonnet
+    toolchains: [media]            # Needs ffmpeg + whisper
+```
+
+Available toolchains: `python`, `media`, `rust`, `java`, `kotlin`.
+
+Workflows can override agent defaults:
+
+```yaml
+workflows:
+  process-document:
+    steps:
+      - name: process
+        agent: doc-processor
+        toolchains: [media, python]  # Override: needs both
+```
+
+Toolchains are mounted at `/opt/eve/toolchains/{name}/` with binaries on `$PATH`. The default worker image is `base` (~800MB); toolchains add only what each job needs.
+
+## Cloud FS Mounts
+
+Google Drive folders can be mounted into the org filesystem via cloud FS integrations. Configuration is through the integrations system, not the manifest.
+
+```bash
+# Org admin registers Google Drive OAuth app credentials (BYOA)
+eve integrations configure google-drive \
+  --client-id "xxx.apps.googleusercontent.com" \
+  --client-secret "GOCSPX-xxx"
+
+# Connect and mount a Drive folder
+eve integrations connect google-drive
+eve cloud-fs mount add --org org_xxx \
+  --provider google-drive \
+  --folder-id <drive-folder-id> \
+  --mount-path /drive/shared
+```
+
+Agents access mounted content through `.org/drive/shared/` in their workspace. Developers browse and search via CLI.
 
 ## App Object Store
 

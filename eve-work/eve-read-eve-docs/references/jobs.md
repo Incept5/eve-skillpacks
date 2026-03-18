@@ -413,6 +413,119 @@ Injected by the worker during execution:
 - `EVE_AGENT_ID` — agent identifier
 - `EVE_PARENT_JOB_ID` — parent job (for coordination)
 
+## Agent-Native Job Monitoring
+
+### Event→Job Linkage
+
+When the orchestrator processes an event and creates a workflow job, it writes the `job_id` back to the event record. Use `eve event show <event-id>` to see which job an event triggered. This enables tracing from event source through to job execution.
+
+### Workflow-Aware List Filtering
+
+```bash
+eve job list --label workflow:ingestion-pipeline --root   # Root workflow jobs only
+eve job list --type agent --since 1h                      # Filter by job type
+eve job list --dead-letters                                # Failed (not cancelled) jobs
+eve job list --disposition failed                          # Explicit disposition filter
+```
+
+Flags: `--label`, `--type`, `--root` (root jobs only, excludes children), `--dead-letters` (shorthand for `--phase cancelled --disposition failed`), `--disposition` (`failed` | `cancelled` | `upstream_failed`).
+
+### Summary Follow Mode
+
+```bash
+eve job follow <job-id> --summary
+eve job logs <job-id> --summary
+```
+
+`--summary` emits only actionable lines: phase transitions, permission rejections, periodic LLM cost/token aggregates, tool names (no I/O), eve-message blocks, errors, and a final summary footer with totals (LLM calls, tokens in/out, cost, tool uses). Cuts hundreds of raw JSONL lines to ~20 lines.
+
+## Production Hardening
+
+### Content-Hash Deduplication (Ingest)
+
+`eve ingest confirm` checks the S3 ETag as a content fingerprint. If an identical file was already confirmed in the same project, it returns the existing record (`deduplicated: true`) instead of firing a new processing event. Use `--force` to skip the dedup check.
+
+### Failure Disposition (Dead Letters)
+
+Jobs have a `failure_disposition` field distinguishing intentional cancellation from exhausted-retry failure:
+
+| Value | Meaning |
+|-------|---------|
+| `cancelled` | Explicitly cancelled by user/API |
+| `failed` | Failed after exhausting retries |
+| `upstream_failed` | Cascaded failure from upstream dependency |
+
+Query dead letters: `GET /projects/{id}/jobs?phase=cancelled&failure_disposition=failed`
+
+### Auto-Retry with Backoff
+
+Configure retry policy via hints or CLI:
+
+```bash
+eve job create --description "Process data" --retry-max 3 --retry-backoff 30
+```
+
+Policy fields (in `hints.retry`):
+- `max_attempts` — max attempts before permanent failure (default: 1 = no retry)
+- `backoff_seconds` — base delay (default: 60)
+- `backoff_multiplier` — exponential multiplier (default: 2)
+- `retryable_errors` — error codes eligible for retry (default: `['attempt_timeout', 'attempt_stale']`)
+
+On failure, the orchestrator checks the retry policy. If retries remain and the error is retryable, it creates a new attempt with `trigger_type = 'auto_retry'` and sets `defer_until` for backoff. When retries are exhausted, the job gets `failure_disposition = 'failed'`.
+
+Workflow steps support retry in the manifest:
+
+```yaml
+steps:
+  - name: ingest
+    agent: doc-processor
+    retry:
+      max_attempts: 3
+      backoff_seconds: 30
+      retryable_errors: [attempt_timeout, attempt_stale]
+```
+
+### Cost Tracking
+
+```bash
+eve analytics cost-by-agent --window 7d
+```
+
+Groups cost by agent across all projects in the org. Shows attempts, total cost, and token counts per agent.
+
+### Per-Phase Latency in Diagnostics
+
+`eve job diagnose` now shows a latency waterfall from existing lifecycle execution logs:
+
+```
+Latency Breakdown:
+  provision/clone     12,340ms  ████████░░░░░░░░  14%
+  provision/setup      2,100ms  █░░░░░░░░░░░░░░░   2%
+  invoke/harness      71,200ms  ████████████████  82%
+  cleanup/workspace    1,400ms  █░░░░░░░░░░░░░░░   2%
+  ────────────────────────────
+  Total               87,040ms
+```
+
+### Routing Decision Logging
+
+A structured `routing` execution log is written at claim time, capturing harness selection, target (agent-runtime vs worker), budget config, and selection source. Visible in `eve job diagnose` and `eve job logs`.
+
+### Auto-Expiry for Stale Documents
+
+Org documents with `expires_at` are automatically transitioned to `expired` status by a background loop (every 15 minutes). After a grace period (default 7 days, configurable via `EVE_DOC_EXPIRY_GRACE_DAYS`), expired documents are archived (content cleared, metadata preserved).
+
+## Per-Job HOME Isolation
+
+Each job attempt gets an isolated HOME directory at `/tmp/eve/agent-homes/<attemptId>/home/`. The worker overrides `HOME` and sets `EVE_JOB_USER_HOME` in the harness environment. Pre-created directories:
+
+- `.config/eve/` — Eve CLI credentials
+- `.config/gh/` — GitHub CLI auth
+- `.claude/` — Claude config
+- `.eve/harnesses/` — Harness config
+
+All directories are mode 0700. Cleaned up after the attempt completes. This prevents agents from reading credentials written for other jobs or the host system.
+
 ## Not Yet Implemented
 
 - Workspace reuse (`workspace.mode=job|session|isolated`). Today every attempt gets a fresh workspace.

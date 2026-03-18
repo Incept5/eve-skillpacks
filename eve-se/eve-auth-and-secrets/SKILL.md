@@ -431,6 +431,58 @@ The SDK replaces ~700-800 lines of hand-rolled auth with ~50 lines. Delete custo
 
 For the full migration checklist, types reference, token lifecycle, and advanced patterns (SSE auth, token paste mode, token staleness), see [references/app-sso-integration.md](references/app-sso-integration.md).
 
+## BYOK Model (LLM API Keys)
+
+Eve does not proxy inference traffic. All model access is BYOK (Bring Your Own Keys): harnesses and apps bring their own API keys via secrets and call providers directly.
+
+Store LLM provider keys as project secrets:
+
+```bash
+eve secrets set ANTHROPIC_API_KEY "sk-ant-xxx" --project proj_xxx
+eve secrets set OPENAI_API_KEY "sk-xxx" --project proj_xxx
+eve secrets set OPENAI_BASE_URL "https://my-vllm.runpod.ai/v1" --project proj_xxx
+```
+
+Harnesses resolve these automatically. For self-hosted models (vLLM, LM Studio via Tailscale), set the base URL and API key as secrets -- Eve provides connectivity via private endpoints (see `eve-deploy-debugging`), not a managed inference layer.
+
+## Per-Org OAuth Credentials (BYOA)
+
+Each org brings its own OAuth app credentials for Google Drive, Slack, and other integrations. No cluster-level shared secrets.
+
+```bash
+# View setup instructions (redirect URIs, required scopes)
+eve integrations setup-info google-drive
+eve integrations setup-info slack
+
+# Register OAuth app credentials
+eve integrations configure google-drive \
+  --client-id "xxx.apps.googleusercontent.com" \
+  --client-secret "GOCSPX-xxx" \
+  --label "Acme Corp Google Drive"
+
+eve integrations configure slack \
+  --client-id "12345.67890" \
+  --client-secret "abc123" \
+  --signing-secret "def456" \
+  --app-id "A0123ABC" \
+  --label "Acme Corp Slack Bot"
+
+# View current config (secrets redacted)
+eve integrations config google-drive
+
+# Then connect as before (uses per-org credentials)
+eve integrations connect google-drive
+eve integrations connect slack
+```
+
+Benefits: isolated credentials per org, custom consent screen branding, independent rate limits, no shared-secret blast radius.
+
+## Project Role Resolution
+
+Role and org membership changes take effect immediately -- the server resolves permissions from live DB memberships, not stale JWT claims. When a request includes a `project_id` but no `org_id`, the permission guard derives the org context from the project's owning org.
+
+The Auth SDK (`@eve-horizon/auth`) exposes this via `eveUserAuth()` middleware. Use `strategy: 'remote'` for immediate membership freshness when needed.
+
 ## Project Secrets
 
 ```bash

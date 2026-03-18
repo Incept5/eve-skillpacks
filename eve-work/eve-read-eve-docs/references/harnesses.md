@@ -16,26 +16,37 @@
 - Confirm available secrets/toolchain constraints for command execution.
 
 Eve executes AI work through **harnesses** -- thin adapters that wrap AI coding CLIs
-(Claude Code, Gemini CLI, Codex, etc.) behind a uniform invocation contract. This
-reference covers the full lifecycle: invocation, workspace setup, authentication,
-per-harness configuration, policy controls, and introspection.
+(Claude Code, Gemini CLI, Codex, etc.) behind a uniform invocation contract. All model
+access is BYOK: harnesses and apps bring their own API keys via secrets and call
+providers directly. Eve never proxies inference traffic. This reference covers the full
+lifecycle: invocation, workspace setup, authentication, per-harness configuration,
+policy controls, and introspection.
 
 ---
 
 ## Invocation Flow
 
+Both the worker and agent-runtime execute jobs through a shared invoke module
+(`packages/shared/src/invoke/`). Agent jobs route to the agent-runtime; builds,
+deploys, pipelines, and scripts route to the worker. The shared module provides
+full feature parity across both runtimes.
+
 Every job attempt follows a two-stage pipeline:
 
 ```
 HarnessInvocation
-  { attemptId, jobId, projectId, text, workspacePath, repoUrl, harness }
+  { attemptId, jobId, projectId, text, workspacePath, repoUrl, harness, toolchains }
         |
         v
-InvokeService.execute()
+InvokeService.execute()  (worker or agent-runtime, both using shared invoke module)
   1. prepareWorkspace()          -- mkdir + git clone/copy
-  2. resolveWorkerAdapter()      -- look up WorkerHarnessAdapter by name
-  3. adapter.buildOptions(ctx)   -- resolve auth, config dirs, env
-  4. executeEveAgentCli()        -- spawn eve-agent-cli, stream JSON to execution_logs
+  2. writeCarryoverContext()     -- memory, docs, parent attachments
+  3. stageAttachments()          -- download chat files to workspace
+  4. writeSecurityClaudeMd()     -- security policy to CLAUDE_CONFIG_DIR
+  5. resolveWorkerAdapter()      -- look up WorkerHarnessAdapter by name
+  6. adapter.buildOptions(ctx)   -- resolve auth, config dirs, env
+  7. BudgetEnforcer.start()      -- enforce max_tokens/max_cost via llm.call tracking
+  8. executeEveAgentCli()        -- spawn eve-agent-cli, stream JSON to execution_logs
         |
         v
 eve-agent-cli
@@ -47,6 +58,28 @@ eve-agent-cli
 
 The worker never calls harness binaries directly. It always goes through `eve-agent-cli`,
 which owns argument construction, permission mapping, and output normalization.
+
+### Shared Invoke Module
+
+Agent-execution features live in `packages/shared/src/invoke/` and are imported by
+both worker and agent-runtime. Key modules:
+
+| Module                   | Purpose                                              |
+|--------------------------|------------------------------------------------------|
+| `budget-enforcement.ts`  | BudgetEnforcer: max_tokens/max_cost, llm.call tracking, kill |
+| `carryover-context.ts`   | Write memory, docs, parent attachments to workspace  |
+| `security-policy.ts`     | Build and write security CLAUDE.md                   |
+| `result-extraction.ts`   | Extract result text, JSON, token usage, error messages |
+| `attachment-staging.ts`  | Stage chat file attachments into workspace           |
+| `coordination.ts`        | Write coordination inbox and thread context           |
+| `workspace-hooks.ts`     | Run acquire/release hooks                            |
+| `workspace-secrets.ts`   | Resolve, materialize, and clean up secrets           |
+| `eve-message-relay.ts`   | EveMessageRelay: deliver to chat + coordination thread |
+| `resource-hydration.ts`  | Hydrate resources with lifecycle events              |
+| `harness-lifecycle.ts`   | Log harness start/end events                         |
+| `codex-auth.ts`          | Write-back refreshed Codex auth tokens               |
+
+New agent-execution features go in the shared module, never in a single runtime.
 
 ---
 
@@ -123,18 +156,76 @@ When a job has `git` configuration, the worker:
 
 ---
 
-## Worker Types
+## Worker Image and Toolchains
 
-Request a worker type via `hints.worker_type`:
+The default worker image is `base` (~800MB), which includes Node.js, git, gh, kubectl,
+kaniko, buildctl, and all harness binaries (claude-code, codex, gemini-cli, cc-mirror,
+code, bd, skills). Most agent jobs need nothing beyond this.
 
-| Type             | Contents                                     |
-|------------------|----------------------------------------------|
-| `base` (default) | Standard worker with common CLI tools        |
-| `python`         | Python runtime + package managers            |
-| `rust`           | Rust toolchain + Cargo                       |
-| `node`           | Node.js runtime + npm/yarn                   |
+### Toolchain-on-Demand
 
-Worker type determines the container image. The execution flow is identical across types.
+Toolchains (Python, Rust, Java, Kotlin, ffmpeg/whisper) are delivered as init containers
+rather than baked into the worker image. This replaces the previous `full` image (2.6GB)
+approach.
+
+Available toolchains:
+
+| Toolchain | Contents                                     | Approx Size |
+|-----------|----------------------------------------------|-------------|
+| `python`  | Python 3, pip, venv, uv                      | ~100MB      |
+| `media`   | ffmpeg, whisper-cli, ggml-small.en model     | ~300MB      |
+| `rust`    | rustup, stable toolchain, rustfmt, clippy    | ~400MB      |
+| `java`    | Temurin JDK 21                               | ~300MB      |
+| `kotlin`  | kotlinc 2.0.21 + bundled JDK 21             | ~350MB      |
+
+Init containers copy toolchain payloads from small single-purpose images into
+`/opt/eve/toolchains/{name}/`. The entrypoint extends `PATH` from `EVE_TOOLCHAIN_PATHS`
+and sources per-toolchain `env.sh` files for variables like `JAVA_HOME` and `CARGO_HOME`.
+
+### Declaring Toolchains
+
+Agents declare required toolchains in their config:
+
+```yaml
+# eve/agents.yaml
+agents:
+  data-analyst:
+    name: Data Analyst
+    skill: analyze-data
+    harness_profile: claude-sonnet
+    toolchains: [python]
+
+  doc-processor:
+    name: Document Processor
+    skill: process-documents
+    harness_profile: claude-sonnet
+    toolchains: [media]
+```
+
+Workflows can override the agent default:
+
+```yaml
+# eve/workflows.yaml
+workflows:
+  process-document:
+    trigger:
+      system.event: doc.ingest
+    steps:
+      - name: process
+        agent: doc-processor
+        toolchains: [media, python]    # override agent default
+```
+
+Toolchain precedence: workflow step `toolchains` overrides agent `toolchains` overrides
+empty (base-only). The `full` image remains available via `EVE_WORKER_VARIANT=full` for
+backwards compatibility.
+
+### Runner Pod Injection
+
+For K8s runner pods, the orchestrator generates init containers from the `toolchains`
+array. Each init container copies its payload into a shared `emptyDir` volume mounted
+at `/opt/eve/toolchains/`. On nodes with a persistent toolchain cache (node-local PVC),
+init containers skip the copy if the cached version matches.
 
 ---
 
@@ -282,11 +373,11 @@ If a `variants/<variant>` directory exists, it overlays the base config.
 
 ```
 mclaude --print --verbose --output-format stream-json \
-  --model opus --permission-mode default "<prompt>"
+  --model sonnet --permission-mode default "<prompt>"
 ```
 
 - Config dir: `<config root>/mclaude` or `$CLAUDE_CONFIG_DIR`
-- Model: `$CLAUDE_MODEL` or `opus`
+- Model: `$CLAUDE_MODEL` or `sonnet` (default fallback changed from `opus` to `sonnet`)
 - Skills: mclaude installs from `skills.txt` into `.agents/skills/` at runtime
 
 ### zai
@@ -377,6 +468,20 @@ x-eve:
 Reference profiles in jobs via `harness_profile` to avoid hardcoding harness choices.
 Skills should always reference profiles, not specific harnesses.
 
+### Profile Resolution for Chat-Routed Jobs
+
+Harness profiles resolve correctly for chat-routed jobs. The ChatService resolves
+`harness_profile` names to concrete harness + harness_options using the project's
+`x_eve_yaml` (from agent config, synced via `eve agents sync`). This applies to all
+chat job creation paths: direct agent routing, team lead/coordinator jobs, team relay
+and fanout member jobs, and direct slug routing.
+
+### Profile Resolution Source
+
+Profiles are read from `agent_config.x_eve_yaml` (set during agents sync), not from
+`manifest.manifest_yaml`. The manifest contains `x-eve.packs` but not profiles. For
+backwards compatibility, resolution falls back to the manifest if agent config is absent.
+
 ---
 
 ## Harness Auth Status (Introspection)
@@ -465,3 +570,6 @@ All harness output is logged to the `execution_logs` table:
 | `WORKSPACE_ROOT` / `EVE_WORKSPACE_ROOT` | Root directory for workspaces        |
 | `EVE_CACHE_ROOT`               | Shared cache directory                         |
 | `EVE_AGENT_CLI_PATH`           | Override path to eve-agent-cli binary          |
+| `EVE_TOOLCHAIN_PATHS`          | Colon-separated paths to mounted toolchain bins |
+| `EVE_TOOLCHAIN_IMAGE_PREFIX`   | Image prefix for toolchain init containers     |
+| `EVE_TOOLCHAIN_IMAGE_TAG`      | Image tag for toolchain init containers        |

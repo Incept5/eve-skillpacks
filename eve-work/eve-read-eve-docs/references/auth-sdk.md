@@ -173,6 +173,22 @@ function App() {
 
 When the cached access token expires, the bootstrap re-probes the SSO session. If the SSO refresh token is also expired, the user sees the login form. No manual token refresh logic is needed in apps.
 
+## Org Awareness (Auth-React)
+
+`@eve-horizon/auth-react` exposes org memberships and provides org switching for multi-org apps.
+
+```typescript
+const { orgs, activeOrg, switchOrg } = useEveAuth();
+```
+
+| Field | Source | Persistence |
+|-------|--------|-------------|
+| `orgs` | `/auth/me` `memberships` field | Refreshed on session bootstrap |
+| `activeOrg` | First org from `orgs`, or restored from `localStorage` | `localStorage` (survives reload) |
+| `switchOrg(orgId)` | Validates `orgId` is in `orgs` before switching | Updates `localStorage` |
+
+`user.orgId` continues to work for single-org apps. The `orgs` / `activeOrg` fields are additive — apps that don't reference them are unaffected.
+
 ## Auto-Injected Environment Variables
 
 The platform deployer injects these into every deployed app:

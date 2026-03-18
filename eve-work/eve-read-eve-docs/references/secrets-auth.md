@@ -642,9 +642,88 @@ See `references/auth-sdk.md` for full details.
 
 ---
 
-## Harness Credentials
+## Harness Credentials (BYOK Model)
 
-Preferred secrets for agent harnesses: `ANTHROPIC_API_KEY` (Claude/mclaude/zai), `OPENAI_API_KEY` or `CODEX_AUTH_JSON_B64` (Codex/Code), `GEMINI_API_KEY` or `GOOGLE_API_KEY` (Gemini), `Z_AI_API_KEY` (Z.ai). For private repos: `GITHUB_TOKEN` (HTTPS) or `ssh_key` (SSH via `GIT_SSH_COMMAND`).
+Eve does not manage inference endpoints or proxy LLM traffic. Apps and agents bring their own API keys (BYOK) via Eve secrets. Harnesses call upstream providers directly using resolved secrets — no platform-managed models, no managed catalog, no inference proxy.
+
+### Required Secrets by Harness
+
+| Harness | Secret | Optional |
+|---------|--------|----------|
+| mclaude / claude / zai | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` (for custom endpoints) |
+| code / codex | `OPENAI_API_KEY` or `CODEX_AUTH_JSON_B64` | `OPENAI_BASE_URL` |
+| gemini | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | |
+| zai | `Z_AI_API_KEY` | |
+
+For private repos: `GITHUB_TOKEN` (HTTPS) or `ssh_key` (SSH via `GIT_SSH_COMMAND`).
+
+### Self-Hosted Models (RunPod, vLLM, LM Studio, etc.)
+
+Users who run their own models store the endpoint URL and API key as Eve secrets. The harness or app uses standard env vars (`OPENAI_BASE_URL`, `OPENAI_API_KEY`) — Eve is not involved in the lifecycle of the GPU endpoint.
+
+For Tailscale-only endpoints, use private endpoints (platform networking primitive) to make them reachable from cluster pods.
+
+### How It Works
+
+```
+Job created with harness=mclaude
+  -> Worker resolves project secrets (ANTHROPIC_API_KEY, etc.)
+  -> Harness adapter injects env vars into the harness process
+  -> Harness calls provider API directly
+  -> Eve never touches inference traffic
+```
+
+---
+
+## Per-Org OAuth Credentials
+
+Orgs bring their own OAuth app credentials for external providers (Google Drive, Slack) instead of relying on cluster-level defaults. Credentials are stored in the `oauth_app_configs` table (one config per org per provider).
+
+### Setup Flow
+
+1. Admin creates an OAuth app in the provider's console (GCP for Google Drive, api.slack.com for Slack).
+2. Admin registers the credentials with Eve:
+
+```bash
+eve integrations configure google-drive \
+  --client-id "xxx.apps.googleusercontent.com" \
+  --client-secret "GOCSPX-xxx" \
+  --label "Acme Corp Google Drive"
+
+eve integrations configure slack \
+  --client-id "12345.67890" \
+  --client-secret "abc123" \
+  --signing-secret "def456" \
+  --app-id "A0123ABC"
+```
+
+3. Initiate the OAuth connection: `eve integrations connect google-drive`
+
+### How It Works
+
+- A single callback URL per provider handles all orgs. Org routing uses the `state` parameter (signed JWT).
+- Token refresh uses the org's own `client_id` + `client_secret` from `oauth_app_configs`.
+- Slack webhook verification uses the org's own `signing_secret` (resolved via org-scoped webhook URL or `team_id` lookup).
+- No cluster-level `EVE_GOOGLE_CLIENT_ID`, `EVE_SLACK_CLIENT_ID`, etc. required.
+
+### CLI
+
+```bash
+eve integrations setup-info google-drive   # Shows redirect URI, required scopes
+eve integrations config google-drive       # View current config (secrets redacted)
+eve integrations unconfigure google-drive  # Remove config
+```
+
+### API
+
+```
+POST   /orgs/:org_id/integrations/providers/:provider/config   # Upsert credentials
+GET    /orgs/:org_id/integrations/providers/:provider/config    # View (redacted)
+DELETE /orgs/:org_id/integrations/providers/:provider/config    # Remove
+GET    /orgs/:org_id/integrations/providers/:provider/setup-info
+```
+
+Permission: `integrations:write` for create/update/delete, `integrations:read` for view.
 
 ---
 

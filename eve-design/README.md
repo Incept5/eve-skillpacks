@@ -6,7 +6,7 @@ Architecture and design thinking for building on Eve Horizon.
 
 - **eve-agent-native-design** — Design principles: parity, granularity, composability, emergent capability
 - **eve-fullstack-app-design** — Architect a full-stack app on Eve: manifest, services, DB, pipelines, deploys, secrets, observability
-- **eve-agentic-app-design** — Layer agentic capabilities onto a full-stack app: agents, teams, inference, memory, events, chat, coordination
+- **eve-agentic-app-design** — Layer agentic capabilities onto a full-stack app: agents, teams, memory, events, chat, coordination
 
 ### Design Progression
 

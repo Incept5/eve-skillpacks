@@ -103,6 +103,18 @@ services:
 
 When wired, the platform injects `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`, and `STORAGE_FORCE_PATH_STYLE` into the service container.
 
+### Cloud FS / Google Drive Storage
+
+For document-oriented storage, use cloud FS mounts. Each org connects its own Google Drive via BYOA OAuth credentials, then mounts folders into the org filesystem:
+
+```bash
+eve integrations configure google-drive --client-id "..." --client-secret "..."
+eve integrations connect google-drive
+eve cloud-fs mount add --org org_xxx --provider google-drive --folder-id <id> --mount-path /drive/shared
+```
+
+Agents access mounted Drive content through `.org/drive/shared/` in their workspace. This is complementary to object store buckets -- use cloud FS for shared documents and collaboration, use object store for app-managed binary assets.
+
 ### Platform-Injected Variables
 
 Every deployed service receives `EVE_API_URL`, `EVE_PUBLIC_API_URL`, `EVE_PROJECT_ID`, `EVE_ORG_ID`, and `EVE_ENV_NAME`. Use `EVE_API_URL` for server-to-server calls. Use `EVE_PUBLIC_API_URL` for browser-facing code. Design your app to read these rather than hardcoding URLs.
@@ -509,6 +521,73 @@ When a deploy fails:
 4. **Reset**: `eve env reset <project> <env>` — nuclear option, reprovisions from scratch.
 
 Design your app to be rollback-safe: migrations should be forward-compatible, and services should handle schema version mismatches gracefully during rolling deploys.
+
+## Per-Org OAuth for App Integrations
+
+Apps that integrate with Google Drive, Slack, or other OAuth providers use per-org credentials (BYOA -- Bring Your Own App). Each org registers its own OAuth app, giving it control over branding, scopes, rate limits, and credential rotation.
+
+```bash
+eve integrations configure google-drive --client-id "..." --client-secret "..."
+eve integrations connect google-drive
+```
+
+**Design implications**: Apps that consume Google Drive data or Slack messages should reference integration tokens through the Eve API, not store OAuth credentials themselves. The platform handles token refresh using the org's registered OAuth app credentials.
+
+## Event Triggers for Workflows
+
+Workflows can be triggered by platform events, enabling reactive automation:
+
+```yaml
+workflows:
+  on-deploy:
+    trigger:
+      system.event: environment.deployed
+    steps:
+      - name: smoke-test
+        script:
+          run: ./scripts/smoke-test.sh
+
+  on-ingest:
+    trigger:
+      system.event: doc.ingest.completed
+    steps:
+      - name: process
+        agent: doc-processor
+```
+
+Event sources include: GitHub webhooks, Slack events, system events (deploy, build, ingest), cron schedules, and manual triggers. See `eve-pipelines-workflows` for trigger syntax and `references/events.md` for the full event catalog.
+
+## App CLI Framework
+
+Apps can ship agent-friendly CLIs that replace raw REST/curl interactions. Declare the CLI in the manifest:
+
+```yaml
+services:
+  api:
+    x-eve:
+      cli:
+        name: myapp
+        bin: cli/bin/myapp
+```
+
+The platform symlinks the bundled binary onto `$PATH` in agent workspaces. Agents invoke `myapp --help` to discover capabilities, eliminating URL construction, auth headers, and JSON quoting. See `eve-manifest-authoring` for declaration details and `references/app-cli.md` for the full implementation pattern.
+
+## App Undeploy/Delete Lifecycle
+
+Manage the full lifecycle of environments and projects:
+
+```bash
+# Undeploy services (stops pods, keeps env record and history)
+eve env undeploy <project> <env>
+
+# Delete environment entirely (cascades to managed DB, secrets)
+eve env delete <project> <env>
+
+# Delete project (cascades to all environments, artifacts, history)
+eve project delete <project-id>
+```
+
+Design your app for clean teardown: migrations should be idempotent, managed DB deletion is irreversible, and pipeline history is preserved in audit logs even after environment deletion.
 
 ## Secrets and Configuration
 

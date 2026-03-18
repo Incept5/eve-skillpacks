@@ -119,6 +119,14 @@ eve pipeline logs <pipeline> <run-id> [--step <name>]
 Notes:
 - `--ref` must be a 40-character SHA, or a ref resolved against `--repo-dir`/cwd.
 
+### Auto-Trigger Environment-Linked Pipelines
+
+When an environment references a pipeline (`environments.<env>.pipeline: deploy`) and that pipeline has no explicit `trigger` block, the platform creates an implicit trigger: the pipeline fires automatically on `github.push` to the project's default branch.
+
+Environments can override the branch with `environments.<env>.branch`. Set `auto_deploy: false` to disable implicit triggering for a specific environment.
+
+If the pipeline already has an explicit `trigger` block, the implicit trigger is skipped (user controls triggering).
+
 ### Env Deploy as Pipeline Alias
 
 If `environments.<env>.pipeline` is set, `eve env deploy <env> --ref <sha>` triggers the pipeline.
@@ -225,6 +233,42 @@ workflows:
 - `with_apis` can be set at the workflow level (applies to all steps) or per step.
 - When a service declares `x-eve.cli`, agents also get the CLI binary on `$PATH`. See `references/app-cli.md`.
 
+### Resource Propagation Between Steps
+
+All workflow steps receive the parent workflow's `resource_refs`. Resources are hydrated into `.eve/resources/` in each step's workspace automatically. Previously only the first step received resources; now every step gets them.
+
+### Prior Step Result Injection
+
+When a workflow step has `depends_on`, the orchestrator injects the completed dependency's `result_text` into the step's job description at dispatch time. This means downstream agents receive upstream outputs without making API calls.
+
+- Injected as a `## Prior Step Results` section in the job description
+- Each prior step's result appears under a `### Step: <name> (<job_id>)` heading
+- Capped at 50KB per step to avoid prompt bloat
+- If a step has multiple dependencies, all completed results are included
+
+### Per-Step `with_apis` Overrides
+
+Individual workflow steps can override the workflow-level `with_apis` declaration:
+
+```yaml
+workflows:
+  pipeline:
+    with_apis:
+      - coordinator
+    steps:
+      - name: ingest
+        agent: { name: ingestion }
+        # Inherits with_apis: [coordinator] from workflow level
+      - name: transform
+        with_apis:
+          - coordinator
+          - analytics
+        agent: { name: transformer }
+        # Uses its own with_apis, overriding workflow level
+```
+
+Steps without their own `with_apis` inherit from the workflow level.
+
 **Validation rules** (enforced by `eve manifest validate`):
 - Duplicate step names → error.
 - Cyclic dependencies → error (reports the cycle path).
@@ -283,6 +327,34 @@ eve workflow logs <job-id>
 ## Triggers
 
 Both pipelines and workflows can include a `trigger` block. The orchestrator matches incoming events and creates pipeline runs or workflow jobs.
+
+### Generic Event Triggers
+
+Workflows and pipelines can trigger on any event source and type:
+
+```yaml
+trigger:
+  event:
+    source: app
+    type: document.uploaded
+```
+
+- `source` (required): matches `event.source` (e.g., `app`, `runner`, `chat`, `github`)
+- `type` (optional): matches `event.type` exactly; omit to match all events from that source
+
+When a workflow is triggered by an event, the event payload is forwarded as workflow input. The input JSON is included in child job descriptions so step agents can see what triggered them.
+
+### App Trigger (Shorthand)
+
+For app-sourced events, use the `app` trigger as a shorthand:
+
+```yaml
+trigger:
+  app:
+    event: question.answered
+```
+
+This is equivalent to `event: { source: app, type: question.answered }`. Both formats work; use whichever reads better in context.
 
 ### GitHub Push Triggers
 

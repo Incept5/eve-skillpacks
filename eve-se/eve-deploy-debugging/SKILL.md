@@ -170,6 +170,82 @@ Use `EVE_API_URL` for backend calls. Use `EVE_PUBLIC_API_URL` for browser/client
 | **Docker Compose** | `docker compose logs <service>`, dev-only (no production use) |
 | **Kubernetes** | Ingress-based access, `kubectl -n eve logs` as last resort |
 
+## Private Endpoints (Tailscale)
+
+Connect services on private networks (home lab GPUs, internal APIs, dev machines) to the Eve cluster. The platform creates K8s ExternalName services backed by Tailscale egress proxies.
+
+```bash
+# Register a private endpoint
+eve endpoint add \
+  --name lmstudio \
+  --provider tailscale \
+  --tailscale-hostname mac-mini.tail12345.ts.net \
+  --port 1234 \
+  --org org_xxx
+
+# List and inspect
+eve endpoint list --org org_xxx
+eve endpoint show lmstudio --org org_xxx
+
+# Diagnose connectivity
+eve endpoint diagnose lmstudio
+
+# Remove
+eve endpoint remove lmstudio --org org_xxx
+```
+
+Each endpoint gets a stable in-cluster DNS name: `http://{orgSlug}-{name}.eve-tunnels.svc.cluster.local:{port}`. Wire it into apps/agents via secrets:
+
+```bash
+eve secrets set LLM_BASE_URL \
+  "http://myorg-lmstudio.eve-tunnels.svc.cluster.local:1234/v1" \
+  --scope project
+```
+
+Diagnostics check: operator status, K8s service existence, DNS resolution, TCP connectivity, and HTTP health.
+
+## Worker Toolchain-on-Demand
+
+The default worker image is `base` (~800MB with Node.js, git, and all harnesses). Toolchains (Python, Rust, Java, Kotlin, media) are injected on-demand via init containers rather than bundled in a fat image.
+
+**Deployment impact**: If an agent job needs toolchains, the runner pod starts init containers that copy toolchain binaries from small pre-built images. First pull adds ~5-10s; subsequent jobs on the same node use cached images.
+
+**Debugging toolchain issues**:
+
+```bash
+# Check if toolchains are declared in agent config
+# agents.yaml: toolchains: [python]
+
+# If a toolchain binary is missing at runtime:
+# 1. Verify agent config has the toolchain declared
+# 2. Check init container logs on the runner pod
+# 3. Verify toolchain images are available in the registry
+```
+
+To use the full image (all toolchains bundled): set `EVE_WORKER_VARIANT=full` or use `--variant full` locally.
+
+## App Undeploy/Delete Lifecycle
+
+Remove environments and clean up resources:
+
+```bash
+# Undeploy services from an environment (stops pods, keeps env record)
+eve env undeploy <project> <env>
+
+# Delete the environment entirely (removes env record, managed DB, secrets)
+eve env delete <project> <env>
+```
+
+When a managed DB is attached, `eve env delete` deprovisions it. Secrets scoped to the environment are cleaned up. The environment's pipeline history remains in the audit log.
+
+For app-level cleanup, remove the project:
+
+```bash
+eve project delete <project-id>
+```
+
+This cascades: environments, secrets, pipeline history, and build artifacts are removed.
+
 ## Workspace Janitor
 
 Production disk management for agent workspaces:

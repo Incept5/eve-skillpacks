@@ -91,7 +91,7 @@ Skills for thinking about how to build on Eve Horizon — not just how to use it
 **Skills included**:
 - **eve-agent-native-design**: Design principles — parity, granularity, composability, emergent capability
 - **eve-fullstack-app-design**: Architect a full-stack app — manifest, services, DB, pipelines, deploys, secrets, observability
-- **eve-agentic-app-design**: Layer agentic capabilities — agents, teams, inference, memory, events, chat, coordination
+- **eve-agentic-app-design**: Layer agentic capabilities — agents, teams, memory, events, chat, coordination
 
 **Design progression**: principles → PaaS architecture → agentic architecture. Each skill builds on the previous.
 

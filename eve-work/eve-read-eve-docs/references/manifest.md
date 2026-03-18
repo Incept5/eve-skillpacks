@@ -345,6 +345,119 @@ When an agent job has `with_apis: [api]` and the service declares `x-eve.cli`, t
 
 See `references/app-cli.md` for the full implementation guide including bundling, env var contract, and testing patterns.
 
+### Toolchain Declarations
+
+Agents can declare toolchains they need. The platform injects them as init containers at pod creation time, keeping the base worker image small (~800MB) while making language runtimes available on demand.
+
+```yaml
+# In eve/agents.yaml
+version: 1
+agents:
+  data-analyst:
+    name: Data Analyst
+    skill: analyze-data
+    harness_profile: claude-sonnet
+    toolchains: [python]           # python + uv available at runtime
+
+  doc-processor:
+    name: Document Processor
+    skill: process-documents
+    harness_profile: claude-sonnet
+    toolchains: [media]            # ffmpeg + whisper available at runtime
+
+  full-stack:
+    name: Full Stack Dev
+    skill: full-stack-dev
+    harness_profile: claude-opus
+    toolchains: [python, rust, java]  # multi-toolchain
+```
+
+Available toolchains: `python`, `media`, `rust`, `java`, `kotlin`.
+
+Workflow steps can override agent toolchain defaults:
+
+```yaml
+workflows:
+  process-document:
+    steps:
+      - name: process
+        agent: doc-processor
+        toolchains: [media, python]  # override agent default
+```
+
+Toolchain precedence: workflow step `toolchains` > agent `toolchains` > none.
+
+Each toolchain is a small container image (~50-300MB) copied to `/opt/eve/toolchains/{name}/` via init containers. The entrypoint extends `PATH` from `EVE_TOOLCHAIN_PATHS`. Per-toolchain `env.sh` files set additional variables (e.g., `JAVA_HOME`, `RUSTUP_HOME`).
+
+Agents without `toolchains` run on the `base` image (Node.js + harnesses only). The `full` image (~2.6GB, all toolchains baked in) remains available via `EVE_WORKER_VARIANT=full`.
+
+### Cloud FS Mounts
+
+Manifest can reference cloud filesystem mounts (Google Drive) connected at the org level. Cloud FS mounts are managed via the `eve cloud-fs` CLI, not declared in the manifest directly.
+
+```bash
+# Mount a Google Drive folder
+eve cloud-fs mount \
+  --provider google_drive \
+  --folder-id <drive-folder-id> \
+  --mode read_write \
+  --label "Engineering Shared Drive"
+
+# List mounts
+eve cloud-fs list
+
+# Browse files in a mount
+eve cloud-fs browse --mount <mount-id> [--path /subfolder]
+
+# Search across mounts
+eve cloud-fs search <query> [--mount <mount-id>]
+
+# Show mount details
+eve cloud-fs show <mount-id>
+
+# Update mount settings
+eve cloud-fs update <mount-id> --mode read_only
+
+# Remove a mount
+eve cloud-fs remove <mount-id>
+```
+
+Mounts are stored in the `cloud_fs_mounts` table, scoped to org (or optionally project). Each mount links an integration's OAuth credentials to a provider folder with configurable mode (`read_only`, `write_only`, `read_write`) and optional auto-indexing into org docs.
+
+Requires a Google Drive integration connection first (`eve integrations connect google-drive`). See Per-Org OAuth Configs below.
+
+### Per-Org OAuth Configs
+
+Each org brings its own OAuth app credentials for external providers (Google Drive, Slack). No cluster-level OAuth secrets required.
+
+```bash
+# View setup instructions (shows redirect URI to register)
+eve integrations setup-info google-drive
+eve integrations setup-info slack
+
+# Register OAuth app credentials for your org
+eve integrations configure google-drive \
+  --client-id "xxx.apps.googleusercontent.com" \
+  --client-secret "GOCSPX-xxx"
+
+eve integrations configure slack \
+  --client-id "12345.67890" \
+  --client-secret "abc123" \
+  --signing-secret "def456" \
+  --app-id "A0123ABC"
+
+# View current config (secrets redacted)
+eve integrations config google-drive
+
+# Remove config
+eve integrations unconfigure google-drive
+
+# Then connect as before (uses per-org credentials)
+eve integrations connect google-drive
+```
+
+One OAuth app config per provider per org. Multiple connections (integrations) share the same app config. The platform stores credentials in `oauth_app_configs` and uses them for all OAuth authorize, callback, and token refresh flows. Cluster-level `EVE_GOOGLE_CLIENT_*` / `EVE_SLACK_CLIENT_*` env vars are deprecated.
+
 ### Files Mount
 
 Mount source files from the repo into the container:
@@ -741,3 +854,51 @@ If a service exposes ports and the cluster domain is configured, Eve creates ing
 Set `x-eve.ingress.public: false` to disable.
 
 URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`
+
+## App Undeploy & Delete
+
+Full lifecycle operations for environments, projects, and orgs.
+
+### Environment Undeploy
+
+Take an environment offline without losing config. Tears down K8s resources but preserves the environment record for redeployment.
+
+```bash
+eve env undeploy <env> --project <id>
+eve env show <project> <env> --json   # Verify deploy_status = 'undeployed'
+```
+
+Redeploy later with `eve env deploy <env> --ref <sha>`. The `deploy_status` field tracks state: `unknown`, `deployed`, `undeployed`, `deploying`, `undeploying`, `failed`.
+
+### Project Delete
+
+```bash
+eve project delete <project>           # Soft-delete (sets deleted_at)
+eve project delete <project> --hard    # Hard-delete: cascades through all resources
+eve project delete <project> --hard --force  # Continue on partial failures
+```
+
+Hard delete sequence: undeploy all environments, delete environments (triggers managed DB cleanup), cascade-delete jobs/pipeline-runs/releases/builds/agents/teams/threads, delete project record.
+
+### Org Delete
+
+```bash
+eve org delete <org>                   # Soft-delete
+eve org delete <org> --hard --force    # Full tenancy teardown
+```
+
+Cascades through all projects and environments in the org.
+
+### Resource Cleanup
+
+Individual resource delete and prune commands:
+
+```bash
+eve build delete <id>                  # Delete a single build
+eve build prune --project <id> --keep 10  # Keep last N, delete rest
+eve release delete <id>
+eve release prune --project <id> --keep 10
+eve pipeline delete <name> --project <id>
+eve agents delete <name> --project <id>
+eve thread delete <id>
+```

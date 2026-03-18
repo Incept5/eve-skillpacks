@@ -111,12 +111,11 @@ eve org spend --org org_xxx                          # Org spend overview
 eve project spend --project proj_xxx                 # Project spend
 ```
 
-## Provider + Model Discovery
+## Provider + Harness Discovery
 
 ```bash
 eve providers list [--json]                         # Registered providers
 eve providers discover <provider> [--json]          # Live model list (cached with TTL)
-eve models list [--json]                            # Available LLM models
 eve harness list [--capabilities]                   # Harness model support matrix
 ```
 

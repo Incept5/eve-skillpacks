@@ -82,7 +82,7 @@ eve org ensure test-org --slug test-org             # 3. Use the CLI
 
 **Phase**: Pre-MVP (K8s runtime + agent runtime + chat gateway + builds/deploy pipeline + auth/RBAC complete).
 
-**What exists**: monorepo with 6 services (API, orchestrator, worker, agent runtime, gateway, SSO). Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Full auth stack (SSH login, web auth via GoTrue + SSO broker, service principals, custom roles, access groups). RBAC with policy-as-code and default-deny data plane. Persistent environment deployment to K8s with manifest variable interpolation and ingress routing. First-class builds (BuildKit), releases, and pipelines (build -> release -> deploy). Job execution with mclaude/claude/zai/gemini/code/codex harnesses via `eve-agent-cli`. Provider registry + model discovery. Agent/team/thread primitives with repo-first sync and AgentPacks (`x-eve.packs`). Chat gateway with Slack + Nostr integration. Agent runtime (org-scoped warm pods). Org filesystem sync + org docs. Cost tracking (execution receipts, resource classes, budgets, balance ledger). Analytics, webhooks, and supervision primitives. Agent app API access (server-side `app_apis` in job hints, `@eve-horizon/auth` SDK). Workflow expansion into job DAGs with `depends_on` step dependencies. Org-aware auth SDK (memberships, org switching via `@eve-horizon/auth-react`). CLI as npm package (`@eve-horizon/cli`) and local `./bin/eh` helpers. K8s local stack via k3d.
+**What exists**: monorepo with 6 services (API, orchestrator, worker, agent runtime, gateway, SSO). Database with orgs, projects, environments, jobs, attempts, agents, teams, threads, integrations, schedules. Full auth stack (SSH login, web auth via GoTrue + SSO broker, service principals, custom roles, access groups, project role resolution). RBAC with policy-as-code and default-deny data plane. Persistent environment deployment to K8s with manifest variable interpolation and ingress routing. First-class builds (BuildKit), releases, and pipelines (build -> release -> deploy). Job execution with mclaude/claude/zai/gemini/code/codex harnesses via `eve-agent-cli`. BYOK inference model (apps and agents bring their own LLM API keys via secrets; no platform-managed models or inference proxy). Provider registry + model discovery. Agent/team/thread primitives with repo-first sync and AgentPacks (`x-eve.packs`). Chat gateway with Slack + Nostr integration. Agent runtime (primary harness executor for all agent jobs; org-scoped warm pods). Org filesystem sync + org docs. Document ingestion (file upload -> event -> agent processing -> structured output in org docs; content deduplication via fingerprint). Cloud FS integration (Google Drive per-org OAuth, agent file tools). Per-org OAuth credentials (orgs bring their own Google/Slack app credentials via `oauth_app_configs`). Private endpoints (Tailscale networking for reaching private services from cluster pods). App CLI framework (typed CLI wrappers for agent-to-app API interactions, reducing LLM call waste). Cost tracking (execution receipts, resource classes, budgets, balance ledger). Production hardening (content dedup, dead letter handling, per-phase latency diagnostics, routing decision logging, cost breakdown by agent/team, automatic retry policies, document expiration). Analytics, webhooks, and supervision primitives. Agent app API access (server-side `app_apis` in job hints, `@eve-horizon/auth` SDK). Workflow expansion into job DAGs with `depends_on` step dependencies. Org-aware auth SDK (memberships, org switching, project role resolution via `@eve-horizon/auth-react`). CLI as npm package (`@eve-horizon/cli`) and local `./bin/eh` helpers. K8s local stack via k3d.
 
 ### Pre-Deployment Phase
 
@@ -102,16 +102,21 @@ Eve Horizon is a **job-first platform** that runs AI-powered skills against Git 
 - **Event-driven**: automation routes through an event spine in Postgres.
 - **Skills-based**: reusable capabilities live as `SKILL.md` files in repos; preferred flow via AgentPacks.
 - **Isolated execution**: each job attempt runs in a fresh workspace with a cloned repo.
-- **Staging-first**: default guidance targets staging; local dev is opt-in.
+- **BYOK inference**: no managed models or inference proxy -- harnesses call providers directly via secrets.
 - **Auth-complete**: SSH login, web auth (GoTrue + SSO), service principals, custom roles, access groups, policy-as-code.
+- **Document ingestion**: file upload -> event -> agent processing -> structured output in org docs.
+- **Cloud FS**: Google Drive integration with per-org OAuth, agent file tools.
+- **Private endpoints**: Tailscale networking makes private services reachable from cluster pods.
+- **Staging-first**: default guidance targets staging; local dev is opt-in.
 
 ## Architecture Summary
 
 ```
-User -> CLI -> API -> Orchestrator -> Worker -> eve-agent-cli -> Harness -> Agent
-         |      |            |              |
-Chat -> Gateway +         Postgres      JobWorkspace (runner pods)
-          +-> Agent Runtime (warm pods)
+User -> CLI -> API -> Orchestrator --+--> Agent Runtime --> Harness -> Agent
+         |      |            |      |    (all agent jobs)
+Chat -> Gateway +         Postgres  |
+                                    +--> Worker
+                                         (builds, deploys, pipelines, scripts)
 
 ONLY URL needed: EVE_API_URL
 CLI is a thin wrapper; all control flows through the API.
@@ -120,19 +125,19 @@ CLI is a thin wrapper; all control flows through the API.
 **Services** (6 in the monorepo):
 
 - **API**: single gateway for org/project/job CRUD, secrets, events, runs, auth.
-- **Orchestrator**: polls ready jobs, routes events to pipelines/workflows.
-- **Worker**: clones repo, invokes harness via `eve-agent-cli`, streams JSONL logs.
+- **Orchestrator**: polls ready jobs, routes to agent-runtime or worker based on job type.
+- **Agent Runtime**: executes ALL agent/harness jobs (chat, manual, scheduled) in org-scoped warm pods.
+- **Worker**: executes pipeline actions, scripts, and builds -- does NOT run agent jobs.
 - **Gateway**: routes inbound messages from Slack/Nostr to agents.
-- **Agent Runtime**: org-scoped warm pods for low-latency chat responses.
 - **SSO**: GoTrue + SSO broker for web authentication.
 
 **Key flows**:
 
 1. Create job -> API validates -> stored in DB.
-2. Orchestrator claims ready jobs -> creates JobWorkspace.
-3. Worker invokes selected harness (mclaude/claude/zai/gemini/code/codex) -> streams JSONL logs.
+2. Orchestrator claims ready jobs -> routes by execution type.
+3. Agent jobs -> Agent Runtime invokes harness (mclaude/claude/zai/gemini/code/codex) -> streams JSONL logs.
 4. Chat flow: Slack -> Gateway -> API routes -> jobs + threads -> Agent Runtime executes.
-5. Build flow: pipeline step -> BuildKit -> push images -> release -> deploy to K8s namespace.
+5. Build flow: pipeline step -> Worker -> BuildKit -> push images -> release -> deploy to K8s namespace.
 6. HITL review -> continue or complete.
 
 ## Key Decisions
@@ -148,11 +153,14 @@ CLI is a thin wrapper; all control flows through the API.
 | CLI as thin REST wrapper | Single source of truth, no DB bypass |
 | API as single gateway | CLI needs only `EVE_API_URL` |
 | K8s runtime via k3d | Production-like local testing, runner pods for isolation |
-| Agent runtime (warm pods) | Reduces per-message cold starts for chat workflows |
+| Agent runtime runs ALL agent jobs | Primary harness executor; worker is for builds/pipelines only |
 | Chat gateway + Slack mapping | Multi-tenant `team_id -> org_id` routing |
 | Repo-first agents sync | Deterministic config via `--ref` |
 | Two-repo deploy model | Source builds images, infra repo applies K8s manifests |
 | BuildKit-first builds | Replaced kaniko; reliable in-cluster container builds |
+| BYOK inference (no managed models) | Harnesses call providers directly via secrets; no proxy layer |
+| Per-org OAuth credentials | Orgs bring own Google/Slack app credentials; no cluster-level secrets |
+| Private endpoints (Tailscale) | K8s pods reach Tailscale-only services via egress proxy |
 | GoTrue + SSO broker | Web auth via Supabase-compatible auth, dual-mode API auth |
 | Default-deny data plane | Members/agents/users need explicit group-scoped grants |
 
