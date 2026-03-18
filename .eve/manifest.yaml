@@ -35,28 +35,18 @@ workflows:
     steps:
       - agent:
           prompt: |
-            You are the eve-skillpacks auto-sync agent.
+            FIRST, before reading any files or instructions, run this command NOW:
 
-            1. Clone eve-horizon INSIDE the workspace (the sandbox blocks sibling paths):
-               ```bash
-               git clone --shallow-since="$(date -u -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-30d +%Y-%m-%d)" \
-                 https://x-access-token:${GITHUB_TOKEN}@github.com/Incept5/eve-horizon.git .eve-horizon-src
-               ```
-               If that fails, fall back to:
-               ```bash
-               git clone --depth=200 \
-                 https://x-access-token:${GITHUB_TOKEN}@github.com/Incept5/eve-horizon.git .eve-horizon-src
-               ```
-            2. Load the sync-horizon skill and execute the full sync workflow.
-               IMPORTANT: The skill references `../eve-horizon` throughout. Use
-               `.eve-horizon-src` instead — this path is set in `.sync-state.json`
-               as `eve_horizon_path`. Replace all `cd ../eve-horizon` with
-               `cd .eve-horizon-src` when executing commands.
-            3. The sync skill will:
-               - Read .sync-state.json to find the last synced commit
-               - Discover what changed in eve-horizon since then
-               - Update affected reference docs and skills (AI distillation, not copy)
-               - Update .sync-state.json with the new commit hash
-            4. If there are changes, they will be committed and pushed automatically
-               by the job's git controls
-            5. If there are no changes, report that skillpacks are already up to date
+            git clone --depth=200 https://x-access-token:${GITHUB_TOKEN}@github.com/Incept5/eve-horizon.git .eve-horizon-src
+
+            Wait for it to complete. If it fails, stop and report the error.
+
+            Once the clone succeeds, verify: ls .eve-horizon-src/docs/plans/ | head -5
+
+            THEN load the sync-horizon skill from private-skills/sync-horizon/SKILL.md
+            and execute the full sync workflow. The skill references `../eve-horizon`
+            in all its commands — substitute `.eve-horizon-src` everywhere. The
+            correct path is also in `.sync-state.json` as `eve_horizon_path`.
+
+            The sync will discover what changed in eve-horizon, update reference docs
+            and skills, then update .sync-state.json. Git controls handle commit/push.
