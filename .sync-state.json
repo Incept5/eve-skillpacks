@@ -1,8 +1,15 @@
 {
   "eve_horizon_path": ".eve-horizon-src",
-  "last_synced_commit": "c43c2ba7bddb72ebcb0499aa1e0d7c8067f19f2a",
-  "last_synced_at": "2026-03-18T12:59:00Z",
+  "last_synced_commit": "3291d7851fa19fe021be301cb870635f692cfd21",
+  "last_synced_at": "2026-03-18T17:03:12Z",
   "sync_log": [
+    {
+      "commit": "3291d7851fa19fe021be301cb870635f692cfd21",
+      "commit_short": "3291d78",
+      "synced_at": "2026-03-18T17:03:12Z",
+      "type": "incremental",
+      "summary": "3-commit incremental sync — documented shipped app-onboarding groundwork: org-scoped email invites, org member search permissions, and SSO invite redirect preservation via /auth/exchange. Updated auth references and the auth skill; ignored the new proposed plan as roadmap-only."
+    },
     {
       "commit": "c43c2ba7bddb72ebcb0499aa1e0d7c8067f19f2a",
       "commit_short": "c43c2ba",

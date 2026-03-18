@@ -101,6 +101,27 @@ If no auth method is specified (`--github`, `--ssh-key`, or `--web`), the CLI wa
 
 When the identity authenticates, Eve auto-provisions their account and org membership.
 
+For app-driven onboarding, use the org-scoped invite API instead of the legacy admin invite flow:
+
+```bash
+# Create an org-scoped Supabase invite with a return URL for the app
+curl -X POST "$EVE_API_URL/orgs/org_xxx/invites" \
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "role": "member",
+    "redirect_to": "https://app.example.com/invite/complete",
+    "app_context": { "project_id": "proj_123" }
+  }'
+
+# Search existing org members for an assignee picker
+curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
+  -H "Authorization: Bearer $USER_TOKEN"
+```
+
+Use a user token with `orgs:invite` to create or list these invites and `orgs:members:read` for member lookup. If the invite is auto-applied during the SSO exchange, Eve returns `invite_redirect_to` so the SSO callback can land the user back in the target app even when the email provider strips nested redirect params.
+
 ## Token Minting (Admin)
 
 Mint tokens for bot/service users without SSH login:

@@ -160,7 +160,7 @@ function App() {
 
 1. Check `sessionStorage` for cached token → validate via `GET /auth/me`
 2. Fetch `GET /auth/config` to get `sso_url`
-3. Probe `GET {sso_url}/session` (root-domain cookie) → get fresh token
+3. Probe `GET {sso_url}/session` (root-domain cookie) → get fresh token via Eve `/auth/exchange`
 4. If no session → show login form
 
 ### Token Lifecycle
@@ -172,6 +172,34 @@ function App() {
 | GoTrue refresh token | httpOnly cookie (SSO broker) | 30 days | Re-login |
 
 When the cached access token expires, the bootstrap re-probes the SSO session. If the SSO refresh token is also expired, the user sees the login form. No manual token refresh logic is needed in apps.
+
+### App-Initiated Invite Redirects
+
+Apps can create org-scoped email invites through the Eve API, then rely on the SSO exchange flow to land the invited user back in the app after password setup.
+
+**Required permissions:**
+- `orgs:invite` -- create and list org-scoped invites
+- `orgs:members:read` -- list org members and query the member picker API
+
+**Org-scoped invite API:**
+
+```http
+POST /orgs/:org_id/invites
+GET /orgs/:org_id/invites
+GET /orgs/:org_id/members/search?q=<prefix>
+```
+
+Invite payload fields:
+
+| Field | Purpose |
+|-------|---------|
+| `email` | Invite target |
+| `role` | Org role to grant on acceptance (`owner`, `admin`, `member`) |
+| `send_email` | Send the GoTrue invite email immediately (default `true`) |
+| `redirect_to` | Final app URL after onboarding completes |
+| `app_context` | Opaque JSON for the originating app to persist with the invite |
+
+When an invite is auto-applied during Supabase token exchange, Eve includes `invite_redirect_to` in the exchange response. The SSO callback uses it as a fallback redirect target when the email magic-link flow strips nested `redirect_to` query parameters.
 
 ## Org Awareness (Auth-React)
 

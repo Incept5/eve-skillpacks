@@ -572,6 +572,40 @@ curl -X POST "$EVE_API_URL/auth/invites" \
 curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
+### Org-Scoped Email Invites
+
+Use the org-scoped invite API when an Eve-compatible app needs to invite a user by email, optionally send the Supabase email immediately, and preserve an app return URL through SSO onboarding.
+
+**Permissions:**
+- `orgs:invite` -- create and list org-scoped invites
+- `orgs:members:read` -- list org members and search by email/display-name prefix
+
+**Create an org-scoped invite:**
+```bash
+curl -X POST "$EVE_API_URL/orgs/org_xxx/invites" \
+  -H "Authorization: Bearer $USER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "role": "member",
+    "redirect_to": "https://app.example.com/invite/complete",
+    "app_context": { "project_id": "proj_123" }
+  }'
+```
+
+**List org-scoped invites:**
+```bash
+curl "$EVE_API_URL/orgs/org_xxx/invites" -H "Authorization: Bearer $USER_TOKEN"
+```
+
+**Member picker lookup:**
+```bash
+curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
+  -H "Authorization: Bearer $USER_TOKEN"
+```
+
+`redirect_to` is stored on the invite record. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link.
+
 ---
 
 ## App Auth SDKs
