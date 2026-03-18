@@ -1,8 +1,15 @@
 {
   "eve_horizon_path": ".eve-horizon-src",
-  "last_synced_commit": "b48c37e7e553f56eabaa47c5edeca04ff95c3fe2",
-  "last_synced_at": "2026-03-18T12:00:00Z",
+  "last_synced_commit": "c43c2ba7bddb72ebcb0499aa1e0d7c8067f19f2a",
+  "last_synced_at": "2026-03-18T12:59:00Z",
   "sync_log": [
+    {
+      "commit": "c43c2ba7bddb72ebcb0499aa1e0d7c8067f19f2a",
+      "commit_short": "c43c2ba",
+      "synced_at": "2026-03-18T12:59:00Z",
+      "type": "incremental",
+      "summary": "1-commit incremental sync — Cloud FS per-mount file operations added at the API layer (mount browse by path, file metadata, download, upload, folder creation). Skillpacks updated to capture the new API surface and align Cloud FS examples with the current CLI."
+    },
     {
       "commit": "332486cbe7bb9b73bdcf33e538f36625f90c9834",
       "commit_short": "332486c",

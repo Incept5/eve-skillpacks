@@ -398,7 +398,7 @@ Manifest can reference cloud filesystem mounts (Google Drive) connected at the o
 ```bash
 # Mount a Google Drive folder
 eve cloud-fs mount \
-  --provider google_drive \
+  --provider google-drive \
   --folder-id <drive-folder-id> \
   --mode read_write \
   --label "Engineering Shared Drive"
@@ -407,7 +407,8 @@ eve cloud-fs mount \
 eve cloud-fs list
 
 # Browse files in a mount
-eve cloud-fs browse --mount <mount-id> [--path /subfolder]
+eve cloud-fs ls / --mount <mount-id>
+eve cloud-fs ls /subfolder --mount <mount-id>          # alias: browse
 
 # Search across mounts
 eve cloud-fs search <query> [--mount <mount-id>]
@@ -419,7 +420,7 @@ eve cloud-fs show <mount-id>
 eve cloud-fs update <mount-id> --mode read_only
 
 # Remove a mount
-eve cloud-fs remove <mount-id>
+eve cloud-fs unmount <mount-id>                        # aliases: remove, delete
 ```
 
 Mounts are stored in the `cloud_fs_mounts` table, scoped to org (or optionally project). Each mount links an integration's OAuth credentials to a provider folder with configurable mode (`read_only`, `write_only`, `read_write`) and optional auto-indexing into org docs.

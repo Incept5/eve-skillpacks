@@ -110,10 +110,10 @@ For document-oriented storage, use cloud FS mounts. Each org connects its own Go
 ```bash
 eve integrations configure google-drive --client-id "..." --client-secret "..."
 eve integrations connect google-drive
-eve cloud-fs mount add --org org_xxx --provider google-drive --folder-id <id> --mount-path /drive/shared
+eve cloud-fs mount --org org_xxx --provider google-drive --folder-id <id> --label "Shared Drive"
 ```
 
-Agents access mounted Drive content through `.org/drive/shared/` in their workspace. This is complementary to object store buckets -- use cloud FS for shared documents and collaboration, use object store for app-managed binary assets.
+Apps can browse and search mounted Drive content through Eve's Cloud FS surface (`eve cloud-fs ls`, `eve cloud-fs search`, and the per-mount Cloud FS API routes). This is complementary to object store buckets -- use cloud FS for shared documents and collaboration, use object store for app-managed binary assets.
 
 ### Platform-Injected Variables
 

@@ -165,7 +165,7 @@ Each bucket is provisioned per environment. Auto-injected env vars (per bucket, 
 
 ## Cloud FS (Google Drive)
 
-Cloud FS mounts external cloud storage (Google Drive initially, Box/OneDrive planned) into the org's storage topology. Agents interact with cloud files using Eve resource URIs -- not provider-specific APIs.
+Cloud FS mounts external cloud storage (Google Drive today) into the org's storage topology. Agents and apps interact with cloud files through Eve's Cloud FS APIs and tools instead of provider-specific APIs.
 
 ### Architecture
 
@@ -180,33 +180,53 @@ Mounts link an org's OAuth integration to a specific provider folder. The platfo
 ```bash
 # Mount a Google Drive folder
 eve cloud-fs mount \
-  --provider google_drive \
+  --provider google-drive \
   --folder-id <drive-folder-id> \
   --mode read_write \
   --label "Engineering Shared Drive"
 
 # List / browse / search
 eve cloud-fs list
-eve cloud-fs browse --mount <mount-id> [--path /subfolder]
+eve cloud-fs ls / --mount <mount-id>
+eve cloud-fs ls /subfolder --mount <mount-id>          # alias: browse
 eve cloud-fs search <query> [--mount <mount-id>]
 
 # Manage
 eve cloud-fs show <mount-id>
 eve cloud-fs update <mount-id> --mode read_only
-eve cloud-fs remove <mount-id>
+eve cloud-fs unmount <mount-id>                        # aliases: remove, delete
 ```
 
 ### Mount Configuration
 
 | Field | Description |
 |-------|-------------|
-| `provider` | `google_drive` (future: `box`, `onedrive`, `dropbox`) |
+| `provider` | `google_drive` internally. CLI accepts `google-drive` and normalizes it. |
 | `root_folder_id` | Provider-specific folder ID |
 | `mode` | `read_only`, `write_only`, `read_write` (default) |
 | `auto_index` | Update org docs on file changes (default: `true`) |
 | `label` | Human-friendly display name |
 
 Mounts are org-scoped, optionally project-scoped. Each mount requires an active integration connection (`eve integrations connect google-drive`). Per-org OAuth app credentials are required (see `references/manifest.md`, Per-Org OAuth Configs).
+
+### Per-Mount File Operations API
+
+The March 18, 2026 Cloud FS update added direct per-mount file operations in the API for Drive-backed mounts. These routes are useful for app UIs and service-to-service flows that need to browse a mounted folder, fetch metadata, download files, upload content, or create folders without going through provider SDKs.
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/browse?path=/subdir` | Browse a specific mount by path or `folder_id` |
+| `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/files/:file_id` | Fetch file metadata |
+| `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/files/:file_id/download` | Stream file contents |
+| `POST` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/upload` | Upload a file to a target path |
+| `POST` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/folders` | Create a folder |
+
+Upload details:
+- Requires `cloud_fs:admin`.
+- Send raw file bytes as the request body.
+- Set `X-Cloud-FS-Path: /folder/file.ext` to choose the destination path.
+- Set `Content-Type` to the file MIME type.
+- Read-only mounts reject uploads and folder creation.
 
 ### Events
 

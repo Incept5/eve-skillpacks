@@ -339,13 +339,13 @@ eve integrations configure google-drive \
 
 # Connect and mount a Drive folder
 eve integrations connect google-drive
-eve cloud-fs mount add --org org_xxx \
+eve cloud-fs mount --org org_xxx \
   --provider google-drive \
   --folder-id <drive-folder-id> \
-  --mount-path /drive/shared
+  --label "Shared Drive"
 ```
 
-Agents access mounted content through `.org/drive/shared/` in their workspace. Developers browse and search via CLI.
+Developers browse mounted content with `eve cloud-fs ls` and search it with `eve cloud-fs search`. The mount stores the provider folder ID plus an optional human-readable root-folder path hint; there is no separate CLI `--mount-path` setting.
 
 ## App Object Store
 
