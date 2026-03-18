@@ -28,14 +28,30 @@ workflows:
       harness: codex
       model: gpt-5.3-codex-spark
       reasoning_effort: x-high
+    git:
+      ref: main
+      commit: auto
+      push: on_success
     steps:
       - agent:
           prompt: |
             You are the eve-skillpacks auto-sync agent.
 
-            1. Clone https://github.com/incept5/eve-horizon.git to ../eve-horizon
-               (shallow clone of main is sufficient)
-            2. Load the sync-horizon skill and execute the full sync workflow
+            1. Clone eve-horizon INSIDE the workspace (the sandbox blocks sibling paths):
+               ```bash
+               git clone --shallow-since="$(date -u -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-30d +%Y-%m-%d)" \
+                 https://x-access-token:${GITHUB_TOKEN}@github.com/Incept5/eve-horizon.git .eve-horizon-src
+               ```
+               If that fails, fall back to:
+               ```bash
+               git clone --depth=200 \
+                 https://x-access-token:${GITHUB_TOKEN}@github.com/Incept5/eve-horizon.git .eve-horizon-src
+               ```
+            2. Load the sync-horizon skill and execute the full sync workflow.
+               IMPORTANT: The skill references `../eve-horizon` throughout. Use
+               `.eve-horizon-src` instead — this path is set in `.sync-state.json`
+               as `eve_horizon_path`. Replace all `cd ../eve-horizon` with
+               `cd .eve-horizon-src` when executing commands.
             3. The sync skill will:
                - Read .sync-state.json to find the last synced commit
                - Discover what changed in eve-horizon since then

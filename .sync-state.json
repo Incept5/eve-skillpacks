@@ -1,5 +1,5 @@
 {
-  "eve_horizon_path": "../eve-horizon",
+  "eve_horizon_path": ".eve-horizon-src",
   "last_synced_commit": "b48c37e7e553f56eabaa47c5edeca04ff95c3fe2",
   "last_synced_at": "2026-03-18T12:00:00Z",
   "sync_log": [
