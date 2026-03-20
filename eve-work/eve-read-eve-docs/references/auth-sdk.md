@@ -199,7 +199,7 @@ Invite payload fields:
 | `redirect_to` | Final app URL after onboarding completes |
 | `app_context` | Opaque JSON for the originating app to persist with the invite |
 
-When an invite is auto-applied during Supabase token exchange, Eve includes `invite_redirect_to` in the exchange response. The SSO callback uses it as a fallback redirect target when the email magic-link flow strips nested `redirect_to` query parameters.
+Invite emails now enter through GoTrue's `/verify` path, which lands on the SSO root with the session tokens in the URL hash. When an invite is auto-applied during Supabase token exchange, Eve includes `invite_redirect_to` in the exchange response. The SSO callback uses it as a fallback redirect target when the email flow strips nested `redirect_to` query parameters, then sends invited users through `/set-password` before redirecting back to the app.
 
 ## Org Awareness (Auth-React)
 

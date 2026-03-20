@@ -604,7 +604,7 @@ curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
   -H "Authorization: Bearer $USER_TOKEN"
 ```
 
-`redirect_to` is stored on the invite record. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link.
+`redirect_to` is stored on the invite record. Invite emails should flow through GoTrue's `/verify` endpoint, which returns to the SSO root with tokens in the hash fragment. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link. For invite accepts, the SSO broker establishes the session, routes the user through `/set-password`, then redirects to the final app URL.
 
 ---
 

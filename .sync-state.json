@@ -1,8 +1,15 @@
 {
   "eve_horizon_path": ".eve-horizon-src",
-  "last_synced_commit": "3291d7851fa19fe021be301cb870635f692cfd21",
-  "last_synced_at": "2026-03-18T17:03:12Z",
+  "last_synced_commit": "4721440485f22d22256f598671a4cf11dbc2ade2",
+  "last_synced_at": "2026-03-20T17:02:29Z",
   "sync_log": [
+    {
+      "commit": "4721440485f22d22256f598671a4cf11dbc2ade2",
+      "commit_short": "4721440",
+      "synced_at": "2026-03-20T17:02:29Z",
+      "type": "incremental",
+      "summary": "1-commit incremental sync — documented the fixed org-scoped SSO invite accept flow: GoTrue mailer links now enter via /verify, the SSO broker preserves invite redirect fallbacks, and invited users are sent through /set-password before landing in the target app."
+    },
     {
       "commit": "3291d7851fa19fe021be301cb870635f692cfd21",
       "commit_short": "3291d78",

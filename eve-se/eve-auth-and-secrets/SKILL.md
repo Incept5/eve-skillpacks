@@ -120,7 +120,7 @@ curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
   -H "Authorization: Bearer $USER_TOKEN"
 ```
 
-Use a user token with `orgs:invite` to create or list these invites and `orgs:members:read` for member lookup. If the invite is auto-applied during the SSO exchange, Eve returns `invite_redirect_to` so the SSO callback can land the user back in the target app even when the email provider strips nested redirect params.
+Use a user token with `orgs:invite` to create or list these invites and `orgs:members:read` for member lookup. Invite emails should land on GoTrue's `/verify` path, not the OAuth callback directly. If the invite is auto-applied during the SSO exchange, Eve returns `invite_redirect_to` so the SSO callback can land the user back in the target app even when the email provider strips nested redirect params. Current invite onboarding establishes the SSO session first, then sends the user through `/set-password` before redirecting to the app.
 
 ## Token Minting (Admin)
 
