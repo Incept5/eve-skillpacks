@@ -9,16 +9,61 @@ report() {
   echo "[state-today] $1"
 }
 
+have_rg() {
+  command -v rg >/dev/null 2>&1
+}
+
 assert_no_matches() {
   local pattern=$1
   shift
-  if rg -n "${pattern}" "$@" >/tmp/state-today-rg.out; then
-    echo
-    echo "[FAIL] Found disallowed content for pattern: ${pattern}"
-    cat /tmp/state-today-rg.out
+  local output=""
+
+  if have_rg; then
+    if output=$(rg -n "${pattern}" "$@" 2>/dev/null); then
+      echo
+      echo "[FAIL] Found disallowed content for pattern: ${pattern}"
+      printf '%s\n' "${output}"
+      FAILED=1
+      return
+    fi
+  else
+    local target=$1
+    if [ -d "${target}" ]; then
+      output=$(find "${target}" -type f -name '*.md' -exec grep -nHE "${pattern}" {} + 2>/dev/null || true)
+    else
+      output=$(grep -nHE "${pattern}" "$@" 2>/dev/null || true)
+    fi
+    if [ -n "${output}" ]; then
+      echo
+      echo "[FAIL] Found disallowed content for pattern: ${pattern}"
+      printf '%s\n' "${output}"
+      FAILED=1
+      return
+    fi
+  fi
+
+  report "PASS: no matches for ${pattern}"
+}
+
+assert_heading() {
+  local path=$1
+  local heading=$2
+
+  if have_rg; then
+    if ! rg -n -F "${heading}" "${path}" >/dev/null 2>&1; then
+      echo "[FAIL] Missing heading '${heading}' in ${path}"
+      FAILED=1
+    else
+      report "PASS: ${path} has ${heading}"
+    fi
+    return
+  fi
+
+  if ! grep -nF "${heading}" "${path}" >/dev/null 2>&1; then
+    echo "[FAIL] Missing heading '${heading}' in ${path}"
     FAILED=1
   else
-    report "PASS: no matches for ${pattern}"
+    report "PASS: ${path} has ${heading}"
   fi
 }
 
@@ -29,17 +74,6 @@ assert_file_exists() {
     FAILED=1
   else
     report "PASS: found ${path}"
-  fi
-}
-
-assert_heading() {
-  local path=$1
-  local heading=$2
-  if ! rg -n -F "${heading}" "${path}" >/dev/null; then
-    echo "[FAIL] Missing heading '${heading}' in ${path}"
-    FAILED=1
-  else
-    report "PASS: ${path} has ${heading}"
   fi
 }
 
