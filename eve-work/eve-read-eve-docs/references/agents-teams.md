@@ -37,6 +37,9 @@ agents:
       envs: [staging, production]
       services: [api, web]
       api_specs: [openapi]
+      permissions:                    # extra permissions merged with defaults
+        - projects:write
+        - envdb:write
     policies:
       permission_policy: auto_edit   # auto_edit | never | yolo
       git:
@@ -88,6 +91,27 @@ Resolution order at chat dispatch:
 4. Org default agent fallback
 
 The `@eve agents list` display shows aliases alongside canonical slugs (e.g., `pmbot-pm (-> pm)`).
+
+### Agent Permissions
+
+Agents receive a default set of job token permissions (`jobs:read/write`, `projects:read`, `threads:read/write`, `envdb:read`, `secrets:read`, `builds:read`, `pipelines:read`). Declare extra permissions in `access.permissions` to grant more:
+
+```yaml
+agents:
+  map-generator:
+    skill: map-gen
+    access:
+      permissions:
+        - projects:write
+        - envdb:write
+        - envs:write
+```
+
+Rules:
+- **Additive only** — declared permissions are merged with defaults, never replacing them.
+- **Validated at sync** — unknown permission strings are rejected.
+- **Per-agent** — different agents in the same project can have different permissions.
+- Only applies when minting fresh tokens. Pre-existing/embedded tokens are used as-is.
 
 ### Gateway Discovery Policy
 
