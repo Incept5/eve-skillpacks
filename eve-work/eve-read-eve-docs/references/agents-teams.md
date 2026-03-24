@@ -283,7 +283,21 @@ Warm pods are pre-provisioned org-scoped containers that eliminate cold starts f
 eve agents runtime-status --org org_xxx
 ```
 
-Output: pod name, status (ready/degraded/unhealthy), capacity, last heartbeat.
+Output includes stale detection and summary:
+```
+Pod                  Status           Capacity  Age   Last Heartbeat
+--------------------------------------------------------------------
+eve-agent-runtime-0  healthy (stale)  8         145h  2026-03-18T15:19:04.402Z
+eve-agent-runtime-1  healthy          8         9s    2026-03-24T16:19:27.286Z
+
+Summary: 1 healthy, 1 stale
+```
+
+- **All pods are shown** (stale pods are no longer filtered out — they're marked with `(stale)` instead).
+- **Stale** means the pod hasn't sent a heartbeat within the TTL window (`AGENT_RUNTIME_HEARTBEAT_TTL_MS`, default 45s).
+- **Active jobs** count is shown when available (e.g., `[2 active]` after the heartbeat timestamp).
+
+`eve system status` also renders agent-runtime health with replica count.
 
 Data model: `agent_runtime_pods` (heartbeat + capacity), `agent_placements` (pod selection), `agent_state` (status + heartbeat).
 

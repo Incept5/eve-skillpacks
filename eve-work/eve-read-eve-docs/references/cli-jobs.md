@@ -87,6 +87,8 @@ eve job reject <job-id> [--reason "needs changes"]     # Reject reviewed job
 
 # Monitoring
 eve job follow <job-id>                                 # Stream harness logs (SSE)
+  # Silence detection: warns at 60s/120s with heartbeat context
+  # Heartbeat events silently consumed (tracked, not printed)
 eve job wait <job-id> [--timeout 300]                   # Block until job completes
 eve job watch <job-id>                                  # Combined status + log stream
 eve job runner-logs <job-id>                            # K8s runner pod logs
@@ -113,6 +115,7 @@ Notes:
 - `--claim` on create is the inline-execution pattern: create + claim in one call.
 - `--since` accepts relative time (`1h`, `30m`, `2d`) or ISO timestamps.
 - `--stuck` filters to jobs active longer than expected (default or `--stuck-minutes`).
-- `follow` uses SSE streaming; `watch` combines status polling with log tailing.
+- `follow` uses SSE streaming with built-in silence detection (60s/120s warnings). Heartbeat lifecycle events from the harness are silently tracked but not printed as log lines. `watch` combines status polling with log tailing.
 - `runner-logs` fetches K8s pod logs, useful for debugging harness startup failures.
+- `diagnose` shows heartbeat-aware stuck detection, pod name + live health from agent-runtime, and pre-harness startup timing in the latency waterfall (git clone, credentials, app CLI discovery).
 - `--with-apis` is server-side: the CLI passes `app_apis` in job hints; the server validates APIs exist, generates the instruction block, and appends it to the description. Same behavior for CLI, API, workflow, and SDK job creation paths.

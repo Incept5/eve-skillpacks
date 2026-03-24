@@ -132,12 +132,34 @@ OTEL is enabled when `OTEL_ENABLED=true` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set
 ## Real-Time Monitoring
 
 ```bash
-eve job follow <id>                   # Stream harness logs + live cost totals
+eve job follow <id>                   # Stream harness logs + live cost totals + silence detection
 eve job watch <id>                    # Combined status + logs streaming
 eve job runner-logs <id>              # K8s runner pod stdout/stderr
-eve system logs <service> [--tail 50] # Service logs (api, orchestrator, worker, postgres)
+eve system status                     # Service health including agent runtime + replicas
+eve system logs <service> [--tail 50] # Service logs (api, orchestrator, worker, agent-runtime, postgres)
 eve system events [--limit 50]        # Recent platform events
+eve agents runtime-status --org <id>  # Pod health with stale markers and active job counts
 ```
+
+### Harness Heartbeat + Silence Detection
+
+During job execution, the harness emits heartbeat lifecycle events every 30 seconds. These are used for:
+
+- **`eve job diagnose`**: Shows `Heartbeat: 15s ago (120s into execution)` in the Latest Attempt section. Stuck detection uses heartbeat age instead of raw elapsed time — a heartbeat within 120s means "harness alive" even if there's no log output.
+- **`eve job follow`**: Built-in silence timer warns at 60s and 120s of no output. If heartbeat data is available, the warning differentiates between "harness alive but quiet" and "harness may have stalled".
+- **`eve job logs`**: Heartbeat events appear in the log stream (type `lifecycle_runner`) with `kind: heartbeat`, `elapsed_ms`, `harness`, and `pid`.
+
+### Pre-Harness Startup Lifecycle
+
+The agent-runtime emits lifecycle events for pre-harness phases:
+
+| Phase | Event Type | What It Captures |
+|-------|-----------|------------------|
+| Git clone | `workspace/start` + `workspace/end` | Duration, ref, success/failure with error |
+| Credential write | `secrets/start` + `secrets/end` | Duration, success (token produced?) |
+| App CLI discovery | `workspace/log` | CLI name, availability |
+
+These appear in `eve job diagnose` as part of the latency waterfall. If clone or credential provisioning fails, the error is captured in the lifecycle event.
 
 ## CLI Quick Reference
 

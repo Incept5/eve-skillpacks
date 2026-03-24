@@ -501,16 +501,45 @@ eve job logs <id> --attempt N  # Detailed logs for specific attempt
 
 ### Job Stuck Active
 
-Run `eve job diagnose <id>` and look for "running for Xs - may be stuck". Possible causes: harness hanging, worker crashed without marking attempt failed, network issues.
+Run `eve job diagnose <id>` — the output is heartbeat-aware:
+
+- **Heartbeat recent** (`<120s`): `▶ Harness alive (last heartbeat 15s ago, 291s elapsed)` — the harness is working, just generating output (e.g., long LLM call).
+- **Heartbeat stale** (`>120s`): `⚠ No harness heartbeat for 180s — process may have crashed` — the harness likely crashed. Check `eve job logs <id>`.
+- **No heartbeat data**: Falls back to elapsed-time heuristic (warns after 300s).
+
+The diagnose `Latest Attempt` section shows:
+- **Pod**: Which agent-runtime pod is running the job (e.g., `eve-agent-runtime-0`)
+- **Heartbeat**: Time since last heartbeat and elapsed execution time
+- **Pod health**: Live status from the agent-runtime heartbeat system (for active jobs)
+
+```bash
+eve job diagnose <id>          # Heartbeat-aware stuck detection + pod context
+eve job follow <id>            # Silence warnings at 60s/120s with heartbeat context
+eve job logs <id>              # Includes pre-harness startup events (clone, creds)
+```
+
+`eve job follow` also has built-in silence detection:
+- After **60s** of no output: prints a contextual warning (e.g., "harness alive" if heartbeat is recent, or suggests `eve job diagnose` if no heartbeat data)
+- After **120s**: escalated warning. Heartbeat lifecycle events are silently consumed (not printed as log lines) but tracked for silence detection.
 
 ### System Issues
 
 ```bash
 eve system health              # Quick health check
+eve system status              # Shows all services INCLUDING agent runtime health
 eve system logs api            # API pod logs
 eve system logs orchestrator   # Orchestrator logs
 eve system logs worker         # Worker logs
 eve system logs postgres       # DB logs
+```
+
+`eve system status` renders all services with health indicators:
+```
+Services:
+  API: ✓ healthy (vdev)
+  Orchestrator: ✓ healthy
+  Agent Runtime: ✓ healthy [3 replicas]
+  Worker: ✓ healthy
 ```
 
 If API is unhealthy: check API logs, verify database, confirm `EVE_API_URL`.
@@ -547,7 +576,18 @@ eve job runner-logs <id>
 | `eve job runner-logs <id>` | K8s runner pod stdout/stderr |
 | `eve job wait <id> --verbose` | Status changes while waiting |
 
-Startup errors (clone, workspace, auth) appear in orchestrator/worker/runner logs, not in `follow`.
+Startup lifecycle events (git clone, credential write, app CLI discovery) now appear in `eve job diagnose` as part of the latency breakdown and in `eve job logs`. The latency waterfall shows timing for each phase:
+
+```
+Latency Breakdown:
+  secrets         5ms  ░░░░░░░░░░░░░░░░   0%
+  workspace     552ms  ░░░░░░░░░░░░░░░░   2%
+  hook        4,815ms  ██░░░░░░░░░░░░░░  14%
+  secrets         7ms  ░░░░░░░░░░░░░░░░   0%
+  harness    28,848ms  █████████████░░░  84%
+```
+
+If a clone or credential write fails, the lifecycle `end` event captures `success: false` and the error message.
 
 ### Auth / Secrets Failures
 
