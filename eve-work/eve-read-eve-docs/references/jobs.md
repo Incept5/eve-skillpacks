@@ -439,6 +439,15 @@ eve job logs <job-id> --summary
 
 `--summary` emits only actionable lines: phase transitions, permission rejections, periodic LLM cost/token aggregates, tool names (no I/O), eve-message blocks, errors, and a final summary footer with totals (LLM calls, tokens in/out, cost, tool uses). Cuts hundreds of raw JSONL lines to ~20 lines.
 
+### Active-Job Observability
+
+For active jobs, the CLI now exposes the same signals operators previously had to cross-check in kubectl:
+
+- `eve job diagnose <job-id>` includes the latest attempt pod name from `runtime_meta`, best-effort live pod health from agent-runtime status, and the most recent harness heartbeat age.
+- `eve job follow <job-id>` warns after 60s and 120s of silence. If heartbeat lifecycle events are still arriving, it reports the harness as alive but quiet; otherwise it warns that the run may have stalled.
+- `eve agents runtime-status --org <org-id>` now shows stale pods and active-job counts in the tabular output.
+- `eve system status` now renders agent-runtime health alongside API, orchestrator, worker, and queue state when the backend returns it.
+
 ## Production Hardening
 
 ### Content-Hash Deduplication (Ingest)
@@ -506,6 +515,11 @@ Latency Breakdown:
   ────────────────────────────
   Total               87,040ms
 ```
+
+The same diagnostic view now adds:
+- pod health correlation for active jobs when the latest attempt includes `runtime_meta.pod_name`
+- heartbeat-aware stuck detection (`Harness alive` vs `No harness heartbeat`)
+- pre-harness startup timing visibility, including clone/setup work that previously required pod logs
 
 ### Routing Decision Logging
 

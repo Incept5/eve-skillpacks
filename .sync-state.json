@@ -1,8 +1,15 @@
 {
   "eve_horizon_path": ".eve-horizon-src",
-  "last_synced_commit": "91f4541f836e47dbb2602e9cec72777402a9e71f",
-  "last_synced_at": "2026-03-24T12:30:00Z",
+  "last_synced_commit": "51023b09abd9554f670aaf2212d401f550e4d192",
+  "last_synced_at": "2026-03-24T17:04:11Z",
   "sync_log": [
+    {
+      "commit": "51023b09abd9554f670aaf2212d401f550e4d192",
+      "commit_short": "51023b0",
+      "synced_at": "2026-03-24T17:04:11Z",
+      "type": "incremental",
+      "summary": "11-commit incremental sync — documented shipped job observability improvements (heartbeat-aware `eve job diagnose`/`follow`, agent-runtime pod health in CLI output, `eve system status` agent-runtime rendering) and updated the auth skill to recommend unified `eveAuth()`/`eveIdentityGuard()` with stable per-agent identity claims (`agent_slug`, `{agent_slug}@eve.agent`). Cloud FS changes in this range were bug fixes only, so no skillpack updates were needed beyond verification."
+    },
     {
       "commit": "91f4541f836e47dbb2602e9cec72777402a9e71f",
       "commit_short": "91f4541",

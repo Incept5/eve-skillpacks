@@ -328,18 +328,21 @@ Add Eve SSO login to any Eve-deployed app using two shared packages: `@eve-horiz
 
 Install: `npm install @eve-horizon/auth`
 
-Three exports handle the full backend auth surface:
+Use the unified middleware by default for new apps:
 
 | Export | Behavior |
 |--------|----------|
-| `eveUserAuth()` | Non-blocking middleware. Verifies RS256 token via JWKS, checks org membership, attaches `req.eveUser: { id, email, orgId, role }`. Passes through silently on missing/invalid tokens. |
-| `eveAuthGuard()` | Returns 401 if `req.eveUser` not set. Place on protected routes. |
+| `eveAuth()` | Non-blocking middleware. Verifies user or agent tokens and attaches normalized identity at `req.eveIdentity`. |
+| `eveIdentityGuard()` | Returns 401 if `req.eveIdentity` is not set. Place on protected routes. |
 | `eveAuthConfig()` | Handler returning `{ sso_url, eve_api_url, ... }` from auto-injected env vars. Frontend fetches this to discover SSO. |
+| `eveAuthMe()` | `/auth/me` handler for the React SDK and custom clients. |
 
-Additional exports for agent/service scenarios:
+Keep the legacy split middleware only for apps that explicitly want user-only or agent-only handling:
 
 | Export | Behavior |
 |--------|----------|
+| `eveUserAuth()` | User-only non-blocking middleware. Attaches `req.eveUser: { id, email, orgId, role }`. |
+| `eveAuthGuard()` | Returns 401 if `req.eveUser` is not set. |
 | `eveAuthMiddleware()` | Blocking middleware for agent/job tokens. Attaches `req.agent` with full `EveTokenClaims`. Returns 401 on failure. |
 | `verifyEveToken(token)` | JWKS-based local verification (15-min cache). Returns `EveTokenClaims`. |
 | `verifyEveTokenRemote(token)` | HTTP verification via `/auth/token/verify`. Always current. |
@@ -347,27 +350,34 @@ Additional exports for agent/service scenarios:
 **Express setup** (~3 lines):
 
 ```typescript
-import { eveUserAuth, eveAuthGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
+import { eveAuth, eveIdentityGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
 
-app.use(eveUserAuth());
+app.use(eveAuth());
 app.get('/auth/config', eveAuthConfig());
 app.get('/auth/me', eveAuthMe());               // Full response for React SDK
-app.use('/api', eveAuthGuard());
+app.use('/api', eveIdentityGuard());
 ```
 
-**NestJS setup** -- apply `eveUserAuth()` globally in `main.ts`, then use a thin guard wrapper:
+`req.eveIdentity` normalizes both token types:
+
+- User token: `id`, `email`, `orgId`, `role`, `permissions`, `isAgent: false`
+- Agent/job token: `jobId`, `agentSlug`, stable `email` as `{agent_slug}@eve.agent`, `permissions`, `isAgent: true`
+
+Use `agentSlug` or the stable agent email for RLS, audit logs, and app-level routing. Do not key agent identity off `{job_id}@eve.agent`; that older pattern was per-job and unstable.
+
+**NestJS setup**: apply `eveAuth()` globally in `main.ts`, then use a thin guard wrapper:
 
 ```typescript
 // main.ts
-import { eveUserAuth } from '@eve-horizon/auth';
-app.use(eveUserAuth());
+import { eveAuth } from '@eve-horizon/auth';
+app.use(eveAuth());
 
 // auth.guard.ts -- thin NestJS adapter
 @Injectable()
 export class EveGuard implements CanActivate {
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest();
-    if (!req.eveUser) throw new UnauthorizedException();
+    if (!req.eveIdentity) throw new UnauthorizedException();
     return true;
   }
 }
@@ -382,14 +392,17 @@ export class AuthConfigController {
 }
 ```
 
-**Verification strategies**: `eveUserAuth()` defaults to `'local'` (JWKS, cached 15 min). Use `strategy: 'remote'` for immediate membership freshness at ~50ms latency per request.
+**Verification strategies**: `eveAuth()` and `eveUserAuth()` default to `'local'` (JWKS, cached 15 min). Use `strategy: 'remote'` for immediate membership freshness at ~50ms latency per request.
 
-**Custom role mapping**: If your app needs roles beyond Eve's `owner/admin/member`, bridge after `eveUserAuth()`:
+**Custom role mapping**: If your app needs roles beyond Eve's `owner/admin/member`, bridge after `eveAuth()`:
 
 ```typescript
 app.use((req, _res, next) => {
-  if (req.eveUser) {
-    req.user = { ...req.eveUser, appRole: req.eveUser.role === 'member' ? 'viewer' : 'admin' };
+  if (req.eveIdentity && !req.eveIdentity.isAgent) {
+    req.user = {
+      ...req.eveIdentity,
+      appRole: req.eveIdentity.role === 'member' ? 'viewer' : 'admin',
+    };
   }
   next();
 });
