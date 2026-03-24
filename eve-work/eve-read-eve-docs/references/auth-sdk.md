@@ -12,7 +12,7 @@
 
 ## Ask If Missing
 - Confirm whether the app is backend-only (Express/NestJS) or includes a React frontend.
-- Confirm whether the app needs user auth (`eveUserAuth`) or agent/job auth (`eveAuthMiddleware`).
+- Confirm whether the app needs user-only auth (`eveUserAuth`), agent-only auth (`eveAuthMiddleware`), or unified auth for both (`eveAuth`).
 - Confirm the target org ID and whether `EVE_SSO_URL` / `EVE_API_URL` are already injected.
 
 Two shared packages that eliminate auth boilerplate in Eve-compatible apps.
@@ -61,11 +61,13 @@ app.use('/api', eveAuthGuard());                            // Protect all API r
 
 | Export | Type | Purpose |
 |--------|------|---------|
-| `eveUserAuth(options?)` | Middleware | Verify user token, check org membership, attach `req.eveUser` |
+| `eveAuth(options?)` | Middleware | **Recommended.** Unified auth for both user and agent tokens, attach `req.eveIdentity` |
+| `eveIdentityGuard()` | Middleware | Return 401 if `req.eveIdentity` not set |
+| `eveUserAuth(options?)` | Middleware | User-only: verify user token, check org membership, attach `req.eveUser` |
 | `eveAuthGuard()` | Middleware | Return 401 if `req.eveUser` not set |
 | `eveAuthConfig()` | Handler | Serve `{ sso_url, eve_api_url, ... }` from env vars |
 | `eveAuthMe(options?)` | Handler | Serve `/auth/me` with full user claims (memberships + project role) |
-| `eveAuthMiddleware(options?)` | Middleware | Agent/job token verification (blocking), attach `req.agent` |
+| `eveAuthMiddleware(options?)` | Middleware | Agent-only: blocking token verification, attach `req.agent` |
 | `verifyEveToken(token, url?)` | Function | JWKS-based local verification (15-min cache) |
 | `verifyEveTokenRemote(token, url?)` | Function | HTTP verification via `/auth/token/verify` |
 
@@ -85,7 +87,74 @@ This lets you mix public and protected routes on the same app — apply `eveUser
 - `strategy?: 'local' | 'remote'` -- verification strategy
 - `projectHeader?: string` -- request header name containing a project ID (e.g. `'x-eve-project-id'`). When set, proxies to Eve API to resolve the user's project-level role.
 
-**`eveAuthMiddleware()`** is blocking — returns 401 immediately on any verification failure. Use for agent-facing APIs where every request must be authenticated.
+**`eveAuthMiddleware()`** is blocking — returns 401 immediately on any verification failure. Use for agent-only APIs where every request must be authenticated.
+
+### Unified Auth: `eveAuth()` (Recommended for New Apps)
+
+Use `eveAuth()` when your app serves both browser users AND agent API calls. It handles both token types and normalizes identity into a single `req.eveIdentity` object.
+
+```typescript
+import { eveAuth, eveIdentityGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
+
+app.use(eveAuth());                                         // Parse any Eve token
+app.get('/auth/config', eveAuthConfig());                   // SSO discovery
+app.get('/auth/me', eveAuthMe());                           // React SDK /auth/me
+app.get('/protected', eveIdentityGuard(), (req, res) => {   // Both users and agents
+  if (req.eveIdentity.isAgent) {
+    // Agent-specific logic — req.eveIdentity.agentSlug, .jobId, .permissions
+  } else {
+    // User-specific logic — req.eveIdentity.email, .role
+  }
+});
+```
+
+**`eveAuth()`** is non-blocking (like `eveUserAuth`). It sets `req.eveIdentity` for:
+- **User tokens** (`type: 'user'`): resolves org membership, sets `isAgent: false`
+- **Job tokens** (`type: 'job'`): uses job claims directly, sets `isAgent: true` with agent identity
+
+```typescript
+interface EveIdentity {
+  id: string;                    // User ID or actor user ID
+  email: string;                 // Real email (users) or {agent_slug}@eve.agent (agents)
+  orgId: string;                 // Organization scope
+  role: 'owner' | 'admin' | 'member';
+  isAgent: boolean;              // True for agent/job tokens
+  agentSlug?: string;            // Which agent is calling (agents only)
+  jobId?: string;                // Job ID (agents only)
+  projectId?: string;            // Project ID (agents only)
+  permissions?: string[];        // Granted permissions (agents only)
+}
+```
+
+**When to use which middleware:**
+
+| Middleware | Use case | Token types | Blocking? |
+|-----------|----------|-------------|-----------|
+| `eveAuth()` | Apps serving both users and agents | User + Job | No |
+| `eveUserAuth()` | User-only web apps | User only | No |
+| `eveAuthMiddleware()` | Agent-only APIs | Any | Yes (401) |
+
+### Agent Identity in Job Tokens
+
+Job tokens now include `agent_slug` and a stable `email` claim when the job targets a specific agent:
+
+```json
+{
+  "type": "job",
+  "sub": "user_01abc...",
+  "user_id": "user_01abc...",
+  "org_id": "org_Incept5",
+  "project_id": "proj_01xyz...",
+  "job_id": "eden-08c64625",
+  "agent_slug": "map-generator",
+  "email": "map-generator@eve.agent",
+  "permissions": ["jobs:read", "jobs:write", "projects:read", ...]
+}
+```
+
+- `agent_slug` identifies which agent is calling — stable across jobs
+- `email` is `{agent_slug}@eve.agent` — stable per agent, usable for RLS policies and audit
+- Both fields are absent for jobs that don't target a specific agent
 
 ### Verification Strategies
 
@@ -109,6 +178,7 @@ interface EveTokenClaims {
   }>;
   project_id?: string;
   job_id?: string;
+  agent_slug?: string;        // Job tokens: agent identity (e.g. "map-generator")
   permissions?: string[];
   is_admin?: boolean;
   role?: string;

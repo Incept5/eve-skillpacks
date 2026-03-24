@@ -612,7 +612,7 @@ curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
 
 For adding Eve SSO login to deployed apps, use the shared auth packages:
 
-- **`@eve-horizon/auth`** -- Backend middleware (Express). Provides `eveUserAuth()` (non-blocking token verification + org membership check), `eveAuthGuard()` (401 on unauthenticated), `eveAuthConfig()` (auth discovery endpoint), `eveAuthMe()` (full `/auth/me` handler with memberships + project role), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()` functions. Also provides `eveAuthMiddleware()` for agent/job token verification (blocking, attaches `req.agent` with full `EveTokenClaims`).
+- **`@eve-horizon/auth`** -- Backend middleware (Express). **Recommended**: `eveAuth()` (unified, handles both user and agent tokens, attaches `req.eveIdentity` with `isAgent` boolean) + `eveIdentityGuard()`. Also provides `eveUserAuth()` (user-only), `eveAuthGuard()`, `eveAuthConfig()`, `eveAuthMe()`, `eveAuthMiddleware()` (agent-only, blocking), and lower-level `verifyEveToken()`/`verifyEveTokenRemote()`. Agent job tokens now include `agent_slug` and stable `email` (`{agent_slug}@eve.agent`) claims for agent identity.
 - **`@eve-horizon/auth-react`** -- Frontend SDK (React). Provides `<EveAuthProvider>` (with optional `projectId` prop for project role resolution), `useEveAuth()` hook (with `orgs`, `activeOrg`, `switchOrg`), `<EveLoginGate>`, `<EveLoginForm>`, and `createEveClient()` fetch wrapper. Also exposes `getStoredToken()`/`storeToken()`/`clearToken()` for direct `sessionStorage` access.
 
 ### Auto-Injected Environment Variables
