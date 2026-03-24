@@ -269,7 +269,13 @@ $ echo $?
 
 ## Agent Integration
 
-### Agent YAML
+### Auto-Discovery (Zero Config)
+
+The platform automatically scans the manifest for services with `x-eve.cli` or `x-eve.api_spec` declarations. Every agent job in the project gets those CLIs on PATH — no explicit `with_apis` needed. Just declare the CLI in the manifest and all agents see it.
+
+### Explicit `with_apis` (Optional)
+
+Use `with_apis` to restrict which APIs a specific agent or workflow step sees. When provided, it overrides auto-discovery:
 
 ```yaml
 # agents.yaml
@@ -277,12 +283,12 @@ agents:
   my-agent:
     skill: my-skill
     with_apis:
-      - service: api          # triggers CLI setup automatically
+      - service: api          # explicit: only this service
 ```
 
 ### Agent Instruction Block
 
-When `with_apis: [api]` is resolved and the service has a CLI, the instruction block tells the agent:
+When app APIs are resolved (via auto-discovery or explicit `with_apis`) and a service has a CLI, the instruction block tells the agent:
 
 ```
 **Available App APIs** (env vars injected by platform):

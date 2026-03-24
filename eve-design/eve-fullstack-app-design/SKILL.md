@@ -557,20 +557,44 @@ workflows:
 
 Event sources include: GitHub webhooks, Slack events, system events (deploy, build, ingest), cron schedules, and manual triggers. See `eve-pipelines-workflows` for trigger syntax and `references/events.md` for the full event catalog.
 
-## App CLI Framework
+## App CLI Framework — The Eve Way
 
-Apps can ship agent-friendly CLIs that replace raw REST/curl interactions. Declare the CLI in the manifest:
+**Every app with an API should ship a CLI.** This is the Eve way — agents interact with app data through CLI commands, not raw REST calls. A CLI gives agents discoverable, auth-transparent, type-safe access to your app's domain. It reduces LLM calls per operation from 3-5 (curl) to 1 (CLI command), eliminates URL construction and JSON quoting, and surfaces domain-specific error messages instead of HTTP status codes.
+
+### Why CLI-First Matters
+
+When a coding agent needs to read or write app data, it faces a choice: construct a curl command with the right URL, auth header, and JSON body — or run `eden projects list --json`. The CLI approach wins on every dimension:
+
+| Dimension | CLI | Raw REST |
+|-----------|-----|----------|
+| Auth | Invisible (`EVE_JOB_TOKEN` read automatically) | Manual header construction |
+| URL | None (CLI knows the service URL) | Build from `EVE_APP_API_URL_*` |
+| Discoverability | `myapp --help` | Read OpenAPI spec or docs |
+| Errors | Domain-specific messages | HTTP status codes |
+| LLM cost | 1 call per operation | 3-5 calls per operation |
+
+### Declare the CLI in the Manifest
 
 ```yaml
 services:
   api:
     x-eve:
+      api_spec:
+        type: openapi
       cli:
-        name: myapp
-        bin: cli/bin/myapp
+        name: myapp              # Binary name on $PATH
+        bin: cli/bin/myapp       # Pre-bundled executable (repo-bundled mode)
 ```
 
-The platform symlinks the bundled binary onto `$PATH` in agent workspaces. Agents invoke `myapp --help` to discover capabilities, eliminating URL construction, auth headers, and JSON quoting. See `eve-manifest-authoring` for declaration details and `references/app-cli.md` for the full implementation pattern.
+The platform auto-discovers services with `x-eve.cli` from the manifest and makes them available on `$PATH` for all agent jobs in the project — no explicit `with_apis` needed. Just declare the CLI in the manifest and every agent gets it. Agents run `myapp --help` to discover capabilities. See `eve-manifest-authoring` for declaration details and `references/app-cli.md` for the full implementation pattern (bundling, env var contract, testing).
+
+### Design Guidance
+
+1. **Build the CLI early.** Don't wait until the API is "done." Start the CLI alongside the first API endpoints. Agents will use it immediately.
+2. **Mirror the API surface.** Every REST endpoint should have a CLI subcommand. `GET /items` → `myapp items list`, `POST /items` → `myapp items create --file data.json`.
+3. **Support `--json` everywhere.** Default output is human-readable tables; `--json` gives machine-readable output for agent pipelines.
+4. **Bundle as a single file.** Use esbuild to produce a self-contained Node.js script committed to the repo. Zero startup latency.
+5. **Point agent skills at the CLI.** Skill instructions should say "Use `myapp items list`", never "curl the API at..."
 
 ## App Undeploy/Delete Lifecycle
 
@@ -796,6 +820,14 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - [ ] `createEveClient` used for authenticated API calls from frontend
 - [ ] Platform-injected auth env vars used (`EVE_SSO_URL`, `EVE_ORG_ID`)
 - [ ] Eve roles mapped to app roles in one place (bridge middleware), not scattered across controllers
+
+**App CLI (the Eve way):**
+- [ ] App API wrapped in a domain CLI (e.g., `eden projects list`)
+- [ ] CLI declared in manifest via `x-eve.cli` with `name` and `bin`
+- [ ] CLI bundled as single-file executable (esbuild for Node.js)
+- [ ] CLI reads `EVE_APP_API_URL_{SERVICE}` and `EVE_JOB_TOKEN` automatically
+- [ ] All CLI commands support `--json` for machine-readable output
+- [ ] Agent skill references CLI commands, not raw curl/REST calls
 
 **Observability:**
 - [ ] Services expose health endpoints

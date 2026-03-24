@@ -125,16 +125,20 @@ Control which agents are visible and directly addressable from external chat gat
 
 Resolution order: pack `gateway.default_policy` (base, defaults to `none`) -> agent `gateway.policy` -> project overlay.
 
-### App API Access (`with_apis`)
+### App API Access (`with_apis` + Auto-Discovery)
 
-Agents that need to call app-published APIs declare `with_apis` in their config or in workflow definitions. When a service also declares `x-eve.cli`, the platform makes the CLI available on `$PATH` automatically.
+**CLI-first is the Eve way.** When an app has an API, wrap it in a CLI and declare it via `x-eve.cli` in the manifest. Agents should use CLI commands (`myapp items list`) instead of raw REST calls (`curl "$EVE_APP_API_URL_API/items"`). CLIs handle auth, URL construction, and error formatting transparently — reducing LLM calls per operation from 3-5 to 1. If you're building an app and an agent needs to interact with it, build a CLI.
+
+**Auto-discovery**: The platform automatically scans the manifest for services with `x-eve.cli` or `x-eve.api_spec` declarations and injects them into every agent job. No explicit `with_apis` is needed — if your manifest declares a CLI, all agents in the project get it on PATH automatically.
+
+**Explicit `with_apis`** still works and takes priority when declared. Use it to restrict which APIs a specific agent or workflow step sees:
 
 ```yaml
 agents:
   data-agent:
     skill: data-processing
     with_apis:
-      - service: api
+      - service: api          # explicit: only this service
 ```
 
 The agent receives:

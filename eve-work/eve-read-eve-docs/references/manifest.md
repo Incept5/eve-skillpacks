@@ -337,7 +337,9 @@ x-eve:
 - **Repo-bundled** (primary): CLI is a pre-built single-file executable in the repo (e.g., esbuild bundle). Platform runs `chmod +x` and adds to PATH after clone. Zero additional latency.
 - **Image-based**: CLI is distributed via Docker init container (same pattern as toolchains). Platform pulls the image and copies the binary to a shared volume. Adds 2-5s startup latency.
 
-When an agent job has `with_apis: [api]` and the service declares `x-eve.cli`, the agent receives:
+**Auto-discovery**: The platform automatically scans the manifest for services with `x-eve.cli` or `x-eve.api_spec` and injects them into every agent job. No explicit `with_apis` needed — just declare the CLI here and all agents get it on PATH.
+
+When app APIs are resolved (via auto-discovery or explicit `with_apis`), the agent receives:
 - The CLI on `$PATH` (ready to run)
 - `EVE_APP_API_URL_{SERVICE}` env var (for CLI internal use)
 - `EVE_JOB_TOKEN` for auth (CLI reads this automatically)

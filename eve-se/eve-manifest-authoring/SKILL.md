@@ -255,7 +255,9 @@ x-eve:
 
 ## App CLI Framework
 
-Declare an agent-friendly CLI for a service. The platform makes the CLI available on `$PATH` in agent workspaces when the job uses `with_apis`.
+**Recommended for every app with an API.** Wrap your service API in a CLI and register it here. Agents strongly prefer CLI commands over raw REST — CLIs handle auth, URL construction, and error formatting transparently. This is the Eve way: coding agents should build a CLI in the repo and register it in the manifest rather than having agents call APIs directly.
+
+The platform auto-discovers services with `x-eve.cli` or `x-eve.api_spec` from the manifest and makes them available on `$PATH` for all agent jobs in the project — no explicit `with_apis` needed. Just declare the CLI here and all agents get it.
 
 ```yaml
 services:
