@@ -238,6 +238,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | `storage` | object | Persistent volume configuration |
 | `managed` | object | Managed DB config (requires `role: managed_db`) |
 | `object_store` | object | App object store bucket declarations |
+| `permissions` | array | Additional permissions for the service's `EVE_SERVICE_TOKEN` |
 
 Notes:
 - `x-eve.role: job` makes a service runnable as a one-off job (migrations, seeds).
@@ -289,6 +290,31 @@ Injected env vars (per bucket, uppercased name):
 - `STORAGE_FORCE_PATH_STYLE` — `true` for MinIO, omitted for AWS S3
 
 Visibility `public` sets the bucket ACL for anonymous GET access (suitable for static assets).
+
+### Service Token Permissions
+
+Every deployed service receives an auto-injected `EVE_SERVICE_TOKEN` with **read-only defaults**. Services that need write access must declare additional permissions:
+
+```yaml
+services:
+  api:
+    x-eve:
+      permissions: [jobs:write, events:write, threads:write]
+```
+
+**Default permissions** (always included, no declaration needed):
+`projects:read`, `jobs:read`, `threads:read`, `envs:read`, `secrets:read`, `builds:read`, `pipelines:read`, `agents:read`, `events:read`
+
+**Common write permissions to opt in to:**
+
+| Permission | Use Case |
+|-----------|----------|
+| `jobs:write` | Create or update jobs (e.g., trigger workflows) |
+| `events:write` | Emit app events (e.g., `question.answered`) |
+| `threads:write` | Create or reply to threads |
+| `envdb:write` | Write to managed databases via API |
+
+Declared permissions are **merged** with defaults — you only need to list the additional write scopes your service needs.
 
 ### API Spec Schema
 
@@ -738,9 +764,9 @@ platform value with an empty string when the secret isn't configured.
 | `EVE_PUBLIC_API_URL` | Public API URL (if configured) | Optional |
 | `EVE_SSO_URL` | SSO URL (if configured) | Optional |
 
-The service token carries default permissions: `events:write`, `projects:read`,
-`jobs:read`, `threads:read`, `threads:write`. Apps can use it to emit events,
-read project config, and interact with threads without manual secret setup.
+The service token carries **read-only default permissions** (`projects:read`,
+`jobs:read`, `threads:read`, etc.). Apps that need write access must declare
+additional permissions via `x-eve.permissions` — see [Service Token Permissions](#service-token-permissions).
 
 User-defined env vars in the manifest override platform vars, so only declare
 `EVE_*` vars if you need a different value than the platform default.
