@@ -280,6 +280,33 @@ Steps without their own `with_apis` inherit from the workflow level.
 
 Trigger validation runs during `eve project sync` (not just `eve manifest validate`), so malformed triggers are surfaced immediately.
 
+### Conditional Steps
+
+Steps can declare a `condition` that's evaluated when dependencies complete. If false, the step is skipped without running an agent.
+
+```yaml
+workflows:
+  smart-edit:
+    steps:
+      - name: triage
+        agent: { name: fast-triage }
+      - name: deep-analysis
+        depends_on: [triage]
+        condition: "triage.status == 'complex'"
+        agent: { name: deep-analyzer }
+```
+
+**Condition format:** `step_name.status == 'value'` or `step_name.status != 'value'`.
+Evaluates against `result_json.eve.status` of the referenced step.
+
+**Rules:**
+- Referenced step must exist in the workflow and be in `depends_on`
+- Skipped steps are marked `done` with `close_reason: 'condition_not_met'`
+- Downstream steps that depend on a skipped step still become eligible
+- Condition validation runs at sync time (format, reference, dependency checks)
+
+**Use case — triage escalation:** A fast agent (low reasoning) classifies task complexity. An expert agent (high reasoning) only runs for complex tasks. Simple tasks are handled entirely by the triage step.
+
 **Response format** includes `step_jobs`:
 
 ```json

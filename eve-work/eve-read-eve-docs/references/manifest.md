@@ -671,6 +671,7 @@ workflows:
 |-------|------|-------------|
 | `steps[].name` | string | Unique step identifier (required when using `depends_on`) |
 | `steps[].depends_on` | string[] | Step names this step blocks on |
+| `steps[].condition` | string | Conditional execution: `step.status == 'value'` (skip step if false) |
 | `steps[].agent.name` | string | Per-step agent override |
 | `with_apis` | string[] | API names attached to the workflow (workflow-level or per-step) |
 
@@ -682,6 +683,9 @@ workflows:
 - Invalid GitHub event type → warning.
 - Unknown system event type → warning.
 - Cron trigger with missing schedule → warning.
+- Invalid condition format → warning.
+- Condition references non-existent step → warning.
+- Condition step not in `depends_on` → warning.
 
 **Pack workflow merging**: When packs define workflows, they are merged into the
 repo manifest before sync (single POST). Pack workflows overlay repo-manifest
