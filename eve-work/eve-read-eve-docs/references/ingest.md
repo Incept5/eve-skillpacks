@@ -249,11 +249,18 @@ Wire this to a workflow trigger to run processing jobs:
 workflows:
   document-processing:
     trigger:
-      event: system.doc.ingest
+      system:
+        event: doc.ingest    # matches system.doc.ingest events
     steps:
       - name: process
-        type: job
-        agent: doc-processor
+        agent:
+          name: doc-processor
+```
+
+To manually test with input (e.g., to pass ingest context):
+
+```bash
+eve workflow run document-processing --input '{"payload":{"ingest_id":"ing_xxx","file_name":"doc.pdf"}}'
 ```
 
 ## Common Patterns

@@ -119,7 +119,16 @@ eve event show <event-id>
 # Emit a custom event
 eve event emit --type manual.test --source manual --payload '{"k":"v"}'
 eve event emit --type app.deploy-check --source app --env staging --branch main
+
+# System events: type is auto-prefixed with source
+# --type doc.ingest --source system → stored as system.doc.ingest
+eve event emit --type doc.ingest --source system --payload '{"ingest_id":"ing_xxx","file_name":"doc.pdf"}'
 ```
+
+**Event type auto-prefixing**: When `--source` is `system`, `github`, or `slack`, the CLI
+auto-prefixes the type if it doesn't already start with `{source}.`. For example,
+`--type doc.ingest --source system` becomes `system.doc.ingest`. This matches the
+internal convention where events are stored with fully-qualified types.
 
 API endpoints:
 
