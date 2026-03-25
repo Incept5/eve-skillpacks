@@ -718,6 +718,29 @@ eve manifest validate                   # Schema + secret validation without syn
 
 Use `eve manifest validate` for pre-flight checks against a local manifest or the latest synced version. Required keys follow standard scope resolution rules.
 
+### Platform-Injected Environment Variables
+
+The deployer automatically injects these env vars into every deployed service.
+**Do NOT redeclare them as `${secret.*}` in the manifest** — that overrides the
+platform value with an empty string when the secret isn't configured.
+
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `EVE_API_URL` | Platform API URL (K8s in-cluster) | Auto-resolved |
+| `EVE_PROJECT_ID` | Project TypeID | Auto-resolved |
+| `EVE_ORG_ID` | Org TypeID | Auto-resolved |
+| `EVE_ENV_NAME` | Environment name (e.g., `sandbox`) | Auto-resolved |
+| `EVE_SERVICE_TOKEN` | 90-day JWT (type: `service`) | Minted per-deploy, refreshed automatically |
+| `EVE_PUBLIC_API_URL` | Public API URL (if configured) | Optional |
+| `EVE_SSO_URL` | SSO URL (if configured) | Optional |
+
+The service token carries default permissions: `events:write`, `projects:read`,
+`jobs:read`, `threads:read`, `threads:write`. Apps can use it to emit events,
+read project config, and interact with threads without manual secret setup.
+
+User-defined env vars in the manifest override platform vars, so only declare
+`EVE_*` vars if you need a different value than the platform default.
+
 ### Secret Interpolation
 
 Interpolate secrets in environment variables:
