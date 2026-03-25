@@ -138,6 +138,28 @@ GET  /projects/{project_id}/events         # List events (filters: type, source,
 GET  /projects/{project_id}/events/{id}    # Get event details
 ```
 
+## Trigger Evaluation Metadata
+
+Events record trigger evaluation results for observability:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `trigger_match_count` | int? | Number of triggers that matched (0 = no match, null = not yet processed) |
+| `triggers_evaluated` | json? | Array of `{type, name, matched, reason?}` for each trigger checked |
+
+```bash
+# Show trigger evaluation details
+eve event show <event-id>
+# Output includes:
+#   Triggers:    matched 1 of 3 evaluated
+#   Trigger Evaluations:
+#     ✓ workflow:ingestion-pipeline
+#     ✗ workflow:alignment-check (type_mismatch)
+#     ✗ pipeline:deploy (source_mismatch)
+```
+
+This makes it immediately clear whether an event triggered anything and exactly why other triggers didn't match. Mismatch reasons include: `source_mismatch`, `type_mismatch`, `branch_mismatch`, `action_mismatch`, `no_trigger`, `manual_trigger`.
+
 ## Trigger Routing
 
 The orchestrator polls pending events, matches them against manifest triggers, and creates pipeline runs or workflow jobs.

@@ -674,10 +674,18 @@ workflows:
 | `steps[].agent.name` | string | Per-step agent override |
 | `with_apis` | string[] | API names attached to the workflow (workflow-level or per-step) |
 
-**Validation** (`eve manifest validate` checks workflow dependency graphs):
+**Validation** (`eve manifest validate` and `eve project sync` check workflows):
 - Duplicate step names → error.
 - Cyclic dependencies → error (reports cycle path).
 - Invalid `depends_on` references → error.
+- Trigger with no recognized type → warning.
+- Invalid GitHub event type → warning.
+- Unknown system event type → warning.
+- Cron trigger with missing schedule → warning.
+
+**Pack workflow merging**: When packs define workflows, they are merged into the
+repo manifest before sync (single POST). Pack workflows overlay repo-manifest
+workflows — pack definitions take precedence on name collision.
 
 See `references/pipelines-workflows.md` for expansion behavior, response format, and job tree view.
 

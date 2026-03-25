@@ -269,10 +269,16 @@ workflows:
 
 Steps without their own `with_apis` inherit from the workflow level.
 
-**Validation rules** (enforced by `eve manifest validate`):
+**Validation rules** (enforced by `eve manifest validate` and `eve project sync`):
 - Duplicate step names → error.
 - Cyclic dependencies → error (reports the cycle path).
 - Invalid `depends_on` references (non-existent step name) → error.
+- Trigger with no recognized type key → warning.
+- Invalid GitHub event type (not `push` or `pull_request`) → warning.
+- Unknown system event type → warning (advisory, custom events allowed).
+- Cron trigger with missing schedule → warning.
+
+Trigger validation runs during `eve project sync` (not just `eve manifest validate`), so malformed triggers are surfaced immediately.
 
 **Response format** includes `step_jobs`:
 
