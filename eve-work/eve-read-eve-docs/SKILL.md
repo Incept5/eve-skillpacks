@@ -179,6 +179,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Set up staged team dispatch (council) | `references/agents-teams.md` | Team config, staged flag, lead/member coordination |
 | Configure per-step `with_apis` in workflows | `references/pipelines-workflows.md`, `references/manifest.md` | Step overrides, API injection, workflow-level defaults |
 | Resolve project roles in auth SDK | `references/auth-sdk.md`, `references/secrets-auth.md` | Project role claim, `X-Eve-Project-Id` header, middleware config |
+| Configure custom domains for deployed apps | `references/cli.md`, `references/manifest.md`, `references/deploy-debug.md` | Domain registration, DNS verification, TLS activation |
 | Diagnose a failure from symptoms | `references/troubleshooting.md`, `references/deploy-debug.md` | Root cause, fix command, recovery path |
 
 ## Hard Rules

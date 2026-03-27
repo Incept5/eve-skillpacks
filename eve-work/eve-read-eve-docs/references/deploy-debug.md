@@ -70,9 +70,17 @@ Namespace: eve-{orgSlug}-{projectSlug}-{env}
 
 Domain resolution: 1) manifest `x-eve.ingress.domain`, 2) `EVE_DEFAULT_DOMAIN`, 3) no ingress if neither set. Local dev uses `lvh.me` (resolves to 127.0.0.1). Production: set `EVE_DEFAULT_DOMAIN=apps.yourdomain.com`.
 
+### Custom Domain Ingresses
+
+Apps can bring their own domains via `x-eve.ingress.domains`. Each custom domain gets a separate K8s Ingress resource labeled `eve.custom_domain=true`. During deploy, the deployer checks DNS (A/CNAME) against `EVE_PLATFORM_INGRESS_IP`/`EVE_PLATFORM_INGRESS_HOSTNAME`. If DNS is verified, the Ingress is applied and cert-manager provisions a per-domain TLS cert via HTTP-01. Unverified domains stay in `pending_dns` — use `eve domain verify <hostname>` to check and activate later.
+
+Stale custom domain ingresses (removed from manifest) are garbage-collected on re-deploy via label selector. The `custom_domains` database table tracks lifecycle states: `pending_dns`, `dns_verified`, `cert_provisioning`, `active`, `dns_error`, `cert_error`, `removed`.
+
 ### Ingress TLS
 
 Use cert-manager for automatic TLS on app ingresses. Set `EVE_DEFAULT_TLS_CLUSTER_ISSUER` (e.g., `letsencrypt-prod`) to enable per-host certs via cert-manager annotations. Optionally set `EVE_DEFAULT_TLS_SECRET` for a wildcard cert or `EVE_DEFAULT_INGRESS_CLASS` for a specific ingress controller.
+
+**Custom domains ignore `EVE_DEFAULT_TLS_SECRET`** — wildcard certs don't cover user-owned FQDNs. They always use `cert-manager.io/cluster-issuer` with HTTP-01 challenges. If the ClusterIssuer only has DNS-01 solvers, add an HTTP-01 solver for non-platform hostnames.
 
 ## Private Endpoints (Tailscale)
 

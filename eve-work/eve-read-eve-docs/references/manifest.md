@@ -231,7 +231,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | Field | Type | Description |
 |-------|------|-------------|
 | `role` | string | `component` (default), `worker`, `job`, or `managed_db` |
-| `ingress` | object | `{ public: true\|false, port: number, alias?: string }` |
+| `ingress` | object | `{ public: true\|false, port: number, alias?: string, domains?: string[] }` |
 | `api_spec` | object | Single API spec registration |
 | `api_specs` | array | Multiple API spec registrations |
 | `cli` | object | App CLI declaration (see CLI Declaration below) |
@@ -251,6 +251,7 @@ Notes:
 - `spec_path` is supported only for local `file://` repos.
 - If a service exposes ports and the cluster domain is configured, Eve creates ingress by default. Set `x-eve.ingress.public: false` to disable.
 - `ingress.alias` creates a vanity hostname: `{alias}.{domain}` instead of the default `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`. Useful for user-facing apps that need a clean URL.
+- `ingress.domains` brings your own domain names (e.g., `["limelee.com", "www.limelee.com"]`). Each domain gets a separate K8s Ingress with per-domain TLS via cert-manager HTTP-01. Max 10 per service. Domains under the platform domain are rejected — use `alias` instead. All three ingress types (primary, alias, custom domain) coexist and route to the same backend.
 
 ### Managed DB Services
 
@@ -987,6 +988,28 @@ If a service exposes ports and the cluster domain is configured, Eve creates ing
 Set `x-eve.ingress.public: false` to disable.
 
 URL pattern: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`
+
+### Custom Domains
+
+Bring your own domain by adding `domains` to the ingress config:
+
+```yaml
+services:
+  web:
+    x-eve:
+      ingress:
+        public: true
+        alias: myapp              # myapp.eh1.incept5.dev (platform subdomain)
+        domains:
+          - myapp.com             # custom domain (A record)
+          - www.myapp.com         # custom domain (CNAME)
+```
+
+**Lifecycle**: `pending_dns` → `dns_verified` → `cert_provisioning` → `active`. Domains are registered during `eve project sync`, bound to environments during deploy. DNS must resolve to the platform ingress before the Ingress resource is created. Use `eve domain verify <hostname>` to check and activate.
+
+**DNS**: Apex domains (`myapp.com`) require an A record pointing to the platform ingress IP. Subdomains (`www.myapp.com`) can use a CNAME to the platform ingress hostname.
+
+**TLS**: Custom domains use `cert-manager.io/cluster-issuer` (HTTP-01 challenge), NOT the platform wildcard cert (`EVE_DEFAULT_TLS_SECRET`). The ClusterIssuer must support HTTP-01 challenges.
 
 ## App Undeploy & Delete
 

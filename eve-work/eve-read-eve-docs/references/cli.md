@@ -142,6 +142,25 @@ Notes:
 - Endpoints create in-cluster K8s services that proxy to Tailscale hostnames, making private infrastructure reachable from Eve jobs.
 - After registering, use the returned `cluster_url` in secrets: `eve secrets set LLM_BASE_URL "${cluster_url}/v1" --scope org`.
 
+## Domains (Custom Ingress Domains)
+
+Bring your own domain for Eve-deployed apps. Domains are declared in the manifest under `x-eve.ingress.domains` and registered during `eve project sync`. DNS must point to the platform ingress before activation.
+
+```bash
+eve domain list [--project <id>] [--json]                  # List custom domains for a project
+eve domain verify <hostname> [--project <id>]              # Check DNS and show activation status
+eve domain status <hostname> [--project <id>]              # Show domain detail
+eve domain remove <hostname> [--project <id>] [--json]     # Remove a custom domain
+```
+
+Notes:
+- Domains are registered via manifest sync or the API (`POST /projects/:id/domains`). Phase 1 is manifest-first — no `eve domain add` CLI command yet.
+- Each domain gets its own K8s Ingress with cert-manager TLS via HTTP-01 challenge.
+- `eve domain verify` shows DNS instructions: A record for apex domains, CNAME for subdomains.
+- Platform subdomains (e.g., `foo.eh1.incept5.dev`) are rejected — use `ingress.alias` instead.
+- Max 10 custom domains per project (configurable via `EVE_MAX_CUSTOM_DOMAINS_PER_PROJECT`).
+- Hostname is globally unique — first project to claim wins.
+
 ## Ingest (Document Ingestion)
 
 Upload documents for processing. The CLI handles the three-step flow (create record, upload to presigned URL, confirm).
