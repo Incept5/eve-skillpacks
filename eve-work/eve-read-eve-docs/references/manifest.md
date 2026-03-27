@@ -155,7 +155,9 @@ Key patterns:
 
 ```yaml
 schema: eve/compose/v2          # optional schema identifier
-project: my-project             # optional slug
+name: my-project                # project name (preferred)
+description: "Short description" # optional project description
+project: my-project             # legacy alias for name (either works)
 registry:                        # optional container registry
 services:                        # required
 environments:                    # optional
@@ -164,6 +166,8 @@ workflows:                       # optional
 versioning:                      # optional
 x-eve:                           # optional Eve extensions
 ```
+
+Use `name` as the top-level project identifier. `project` is accepted as a legacy alias but `name` is preferred for new manifests.
 
 Unknown fields are allowed for forward compatibility.
 
@@ -227,7 +231,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | Field | Type | Description |
 |-------|------|-------------|
 | `role` | string | `component` (default), `worker`, `job`, or `managed_db` |
-| `ingress` | object | `{ public: true\|false, port: number }` |
+| `ingress` | object | `{ public: true\|false, port: number, alias?: string }` |
 | `api_spec` | object | Single API spec registration |
 | `api_specs` | array | Multiple API spec registrations |
 | `cli` | object | App CLI declaration (see CLI Declaration below) |
@@ -246,6 +250,7 @@ Notes:
 - `spec_url` can be relative (resolved against service URL) or absolute.
 - `spec_path` is supported only for local `file://` repos.
 - If a service exposes ports and the cluster domain is configured, Eve creates ingress by default. Set `x-eve.ingress.public: false` to disable.
+- `ingress.alias` creates a vanity hostname: `{alias}.{domain}` instead of the default `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`. Useful for user-facing apps that need a clean URL.
 
 ### Managed DB Services
 
@@ -678,7 +683,8 @@ Workflows support multi-step DAGs that expand into child jobs at invocation time
 workflows:
   ingestion-pipeline:
     with_apis:
-      - coordinator
+      - service: coordinator
+        description: Coordinator API for orchestration
     steps:
       - name: ingest
         agent:
@@ -699,7 +705,7 @@ workflows:
 | `steps[].depends_on` | string[] | Step names this step blocks on |
 | `steps[].condition` | string | Conditional execution: `step.status == 'value'` (skip step if false) |
 | `steps[].agent.name` | string | Per-step agent override |
-| `with_apis` | string[] | API names attached to the workflow (workflow-level or per-step) |
+| `with_apis` | object[] | API specs attached to the workflow — `{ service, description }` (workflow-level or per-step) |
 
 **Validation** (`eve manifest validate` and `eve project sync` check workflows):
 - Duplicate step names → error.
@@ -782,6 +788,17 @@ environment:
 
 Also supported (runtime interpolation): `${ENV_NAME}`, `${PROJECT_ID}`, `${ORG_ID}`, `${ORG_SLUG}`, `${COMPONENT_NAME}`, `${SSO_URL}`, `${secret.KEY}`, `${managed.<service>.<field>}`.
 
+### Internal Service URLs
+
+Apps with multiple services often need to call their own API internally (e.g., to emit events back to themselves). Use `${ENV_NAME}` with K8s service DNS naming:
+
+```yaml
+environment:
+  MY_API_URL: "http://${ENV_NAME}-api:3000"
+```
+
+The pattern is `${ENV_NAME}-{service_key}:{port}`. This resolves to the in-cluster service address — no ingress, no CORS, no public exposure. Essential for apps that trigger workflows via their own API.
+
 ## Manifest Defaults (`x-eve.defaults`)
 
 Default job settings applied on creation (job fields override defaults). Default environment should be **staging** unless explicitly overridden:
@@ -836,6 +853,25 @@ x-eve:
           reasoning_effort: x-high
 ```
 
+For pack-distributed profiles, define them in `eve/x-eve.yaml` and import via `pack.yaml`:
+
+```yaml
+# eve/x-eve.yaml
+version: 1
+agents:
+  profiles:
+    coordinator:
+      - harness: claude
+        model: sonnet
+        reasoning_effort: medium
+    expert:
+      - harness: claude
+        model: sonnet
+        reasoning_effort: high
+```
+
+Profiles in `eve/x-eve.yaml` are distributed with the pack. Profiles in the manifest are project-local only.
+
 ## AgentPacks (`x-eve.packs` + `x-eve.install_agents`)
 
 AgentPacks import agent/team/chat config and skills from pack repos. Packs are
@@ -856,6 +892,39 @@ Notes:
 - Remote pack sources require a 40-char git SHA `ref`.
 - Packs can be full AgentPacks (`eve/pack.yaml`) or skills-only packs.
 - Local packs use relative paths (resolved from repo root).
+
+### Full AgentPack Descriptor (`eve/pack.yaml`)
+
+A full AgentPack declares its resources via an `imports` map and optional gateway defaults:
+
+```yaml
+# eve/pack.yaml
+version: 1
+id: my-pack
+imports:
+  agents: eve/agents.yaml
+  teams: eve/teams.yaml
+  workflows: eve/workflows.yaml
+  chat: eve/chat.yaml
+  x_eve: eve/x-eve.yaml
+gateway:
+  default_policy: none
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | number | Schema version (currently `1`) |
+| `id` | string | Unique pack identifier |
+| `imports` | object | Map of resource type to relative YAML file path |
+| `imports.agents` | string | Agent definitions file |
+| `imports.teams` | string | Team definitions file |
+| `imports.workflows` | string | Workflow definitions (merged with manifest workflows at sync) |
+| `imports.chat` | string | Chat route definitions |
+| `imports.x_eve` | string | Harness profiles and agent config |
+| `gateway` | object | Gateway defaults for the pack |
+| `gateway.default_policy` | string | Default gateway policy for pack agents (`none`, `discoverable`, `routable`) |
+
+All `imports` paths are relative to the pack root. Only declare the imports your pack needs — all fields are optional.
 
 ### Pack Lock File
 

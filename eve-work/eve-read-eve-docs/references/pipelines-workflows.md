@@ -190,7 +190,7 @@ Pipeline steps of type `build` create build specs and runs. On failure:
 
 ## Workflow Definitions
 
-Workflows are defined in the manifest and invoked as jobs.
+Workflows are defined in the manifest and invoked as jobs. For pack distribution, also define workflows in `eve/workflows.yaml` and reference it from `eve/pack.yaml` via `imports.workflows`. Pack workflows are merged with manifest workflows at sync time — pack definitions take precedence on name collision.
 
 ```yaml
 workflows:
@@ -211,7 +211,8 @@ Workflows compile to a full job DAG at invocation time. A multi-step workflow cr
 workflows:
   ingestion-pipeline:
     with_apis:
-      - coordinator
+      - service: coordinator
+        description: Coordinator API for orchestration
     steps:
       - name: ingest
         agent:
@@ -254,15 +255,18 @@ Individual workflow steps can override the workflow-level `with_apis` declaratio
 workflows:
   pipeline:
     with_apis:
-      - coordinator
+      - service: coordinator
+        description: Coordinator API for orchestration
     steps:
       - name: ingest
         agent: { name: ingestion }
-        # Inherits with_apis: [coordinator] from workflow level
+        # Inherits with_apis from workflow level
       - name: transform
         with_apis:
-          - coordinator
-          - analytics
+          - service: coordinator
+            description: Coordinator API for orchestration
+          - service: analytics
+            description: Analytics API for data processing
         agent: { name: transformer }
         # Uses its own with_apis, overriding workflow level
 ```

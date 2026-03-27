@@ -38,13 +38,15 @@ npm install @eve-horizon/auth-react
 ## Quick-Start: Backend (Express)
 
 ```typescript
-import { eveUserAuth, eveAuthGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
+import { eveAuth, eveIdentityGuard, eveAuthConfig, eveAuthMe } from '@eve-horizon/auth';
 
-app.use(eveUserAuth());                                     // Parse tokens (non-blocking)
+app.use(eveAuth());                                         // Parse any Eve token (non-blocking)
 app.get('/auth/config', eveAuthConfig());                   // Serve SSO discovery
 app.get('/auth/me', eveAuthMe());                           // Full /auth/me for React SDK
-app.use('/api', eveAuthGuard());                            // Protect all API routes
+app.use('/api', eveIdentityGuard());                        // Protect all API routes
 ```
+
+Use `eveAuth()` for apps serving both users and agents (most Eve apps). It normalizes both token types into `req.eveIdentity`. See `auth-sdk.md` for the full middleware comparison.
 
 ## Quick-Start: Frontend (React)
 
@@ -79,7 +81,9 @@ function Dashboard() {
 
 | Export | Type | Description |
 |--------|------|-------------|
-| `eveUserAuth(options?)` | Middleware | Verify user token, check org, attach `req.eveUser` (non-blocking) |
+| `eveAuth(options?)` | Middleware | **Recommended.** Unified auth for user + agent tokens, attach `req.eveIdentity` (non-blocking) |
+| `eveIdentityGuard()` | Middleware | Return 401 if `req.eveIdentity` not set |
+| `eveUserAuth(options?)` | Middleware | User-only token verification, attach `req.eveUser` (non-blocking) |
 | `eveAuthGuard()` | Middleware | Return 401 if `req.eveUser` not set |
 | `eveAuthConfig()` | Handler | Serve `{ sso_url, eve_api_url, ... }` from env vars |
 | `eveAuthMe(options?)` | Handler | Full `/auth/me` — memberships + project role for React SDK |

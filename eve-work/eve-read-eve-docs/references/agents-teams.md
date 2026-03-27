@@ -28,6 +28,7 @@ version: 1
 agents:
   mission-control:
     slug: mission-control           # org-unique, ^[a-z0-9][a-z0-9-]*$
+    name: "Mission Control"         # human-readable display name
     alias: mc                       # optional short name for chat addressing
     description: "Primary orchestration agent"
     skill: eve-orchestration        # required
@@ -48,12 +49,38 @@ agents:
     with_apis:
       - service: api
         description: App REST API for reading and writing data
+    context:
+      memory:
+        agent: shared
+        categories: [decisions, conventions, context]
+        max_items: 20
+      threads:
+        coordination: true
+        max_messages: 30
     gateway:
       policy: routable               # none | discoverable | routable
       clients: [slack]               # omit = all providers
     schedule:
       heartbeat_cron: "*/15 * * * *"
 ```
+
+### Agent Context
+
+The `context` block gives an agent access to shared memory and coordination thread history across invocations.
+
+```yaml
+context:
+  memory:
+    agent: shared              # memory scope: "shared" (team-wide) or agent slug (private)
+    categories: [decisions, conventions, context]  # filter memory categories
+    max_items: 20              # max memory items injected into prompt
+  threads:
+    coordination: true         # inject recent coordination thread messages
+    max_messages: 30           # max thread messages injected
+```
+
+- `memory` provides persistent recall across jobs. Use `agent: shared` for team-wide memory or the agent's own slug for private memory.
+- `threads.coordination: true` injects recent messages from the team coordination thread, giving the agent awareness of ongoing discussions.
 
 ### Agent Slug Rules
 
