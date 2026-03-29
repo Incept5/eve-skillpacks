@@ -1005,7 +1005,7 @@ services:
           - www.myapp.com         # custom domain (CNAME)
 ```
 
-**Lifecycle**: `pending_dns` → `dns_verified` → `cert_provisioning` → `active`. Domains are registered during `eve project sync`, bound to environments during deploy. DNS must resolve to the platform ingress before the Ingress resource is created. Use `eve domain verify <hostname>` to check and activate.
+**Lifecycle**: `pending_dns` → `dns_verified` → `cert_provisioning` → `active`. Domains are auto-registered during `eve project sync`, bound to environments during deploy. After setting up DNS, run `eve domain verify <hostname>` — it performs real DNS resolution server-side and transitions the status to `dns_verified`. Redeploy to create the Ingress and provision the TLS cert.
 
 **DNS**: Apex domains (`myapp.com`) require an A record pointing to the platform ingress IP. Subdomains (`www.myapp.com`) can use a CNAME to the platform ingress hostname.
 

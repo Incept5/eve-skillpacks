@@ -148,15 +148,15 @@ Bring your own domain for Eve-deployed apps. Domains are declared in the manifes
 
 ```bash
 eve domain list [--project <id>] [--json]                  # List custom domains for a project
-eve domain verify <hostname> [--project <id>]              # Check DNS and show activation status
+eve domain verify <hostname> [--project <id>]              # Verify DNS resolution and update status
 eve domain status <hostname> [--project <id>]              # Show domain detail
 eve domain remove <hostname> [--project <id>] [--json]     # Remove a custom domain
 ```
 
 Notes:
-- Domains are registered via manifest sync or the API (`POST /projects/:id/domains`). Phase 1 is manifest-first — no `eve domain add` CLI command yet.
+- Domains are auto-registered during `eve project sync` from the manifest `x-eve.ingress.domains` field. No manual registration needed.
 - Each domain gets its own K8s Ingress with cert-manager TLS via HTTP-01 challenge.
-- `eve domain verify` shows DNS instructions: A record for apex domains, CNAME for subdomains.
+- `eve domain verify` performs real DNS resolution server-side — it checks A/CNAME records against platform ingress and transitions status from `pending_dns` to `dns_verified` if DNS is correct. After verification, redeploy to activate.
 - Platform subdomains (e.g., `foo.eh1.incept5.dev`) are rejected — use `ingress.alias` instead.
 - Max 10 custom domains per project (configurable via `EVE_MAX_CUSTOM_DOMAINS_PER_PROJECT`).
 - Hostname is globally unique — first project to claim wins.

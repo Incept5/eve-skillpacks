@@ -72,7 +72,7 @@ Domain resolution: 1) manifest `x-eve.ingress.domain`, 2) `EVE_DEFAULT_DOMAIN`, 
 
 ### Custom Domain Ingresses
 
-Apps can bring their own domains via `x-eve.ingress.domains`. Each custom domain gets a separate K8s Ingress resource labeled `eve.custom_domain=true`. During deploy, the deployer checks DNS (A/CNAME) against `EVE_PLATFORM_INGRESS_IP`/`EVE_PLATFORM_INGRESS_HOSTNAME`. If DNS is verified, the Ingress is applied and cert-manager provisions a per-domain TLS cert via HTTP-01. Unverified domains stay in `pending_dns` — use `eve domain verify <hostname>` to check and activate later.
+Apps can bring their own domains via `x-eve.ingress.domains`. Domains are auto-registered during manifest sync and also by the deployer before binding. Each custom domain gets a separate K8s Ingress resource labeled `eve.custom_domain=true`. During deploy, the deployer checks DNS (A/CNAME) against `EVE_PLATFORM_INGRESS_IP`/`EVE_PLATFORM_INGRESS_HOSTNAME`. If DNS is verified, the Ingress is applied and cert-manager provisions a per-domain TLS cert via HTTP-01. Unverified domains stay in `pending_dns` — use `eve domain verify <hostname>` to perform real DNS resolution and transition to `dns_verified`, then redeploy to activate.
 
 Stale custom domain ingresses (removed from manifest) are garbage-collected on re-deploy via label selector. The `custom_domains` database table tracks lifecycle states: `pending_dns`, `dns_verified`, `cert_provisioning`, `active`, `dns_error`, `cert_error`, `removed`.
 
