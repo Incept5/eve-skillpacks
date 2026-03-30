@@ -72,14 +72,20 @@ The `context` block gives an agent access to shared memory and coordination thre
 context:
   memory:
     agent: shared              # memory scope: "shared" (team-wide) or agent slug (private)
-    categories: [decisions, conventions, context]  # filter memory categories
+    categories: [learnings, decisions, conventions, context, user]  # filter memory categories
     max_items: 20              # max memory items injected into prompt
+    max_age: 30d               # optional: only include entries updated within this window
+  docs:
+    - path: /agents/my-agent/skills/
+      recursive: true          # load skill docs for on-demand procedures
   threads:
     coordination: true         # inject recent coordination thread messages
     max_messages: 30           # max thread messages injected
 ```
 
 - `memory` provides persistent recall across jobs. Use `agent: shared` for team-wide memory or the agent's own slug for private memory.
+- **Memory categories**: `learnings` (discoveries), `decisions` (choices with rationale), `conventions` (project patterns), `context` (environment facts), `runbooks` (operational procedures), `user` (user-specific preferences and interaction history).
+- `docs` loads org doc paths into `.eve/context/docs/` at session start. Use for skill libraries and shared knowledge.
 - `threads.coordination: true` injects recent messages from the team coordination thread, giving the agent awareness of ongoing discussions.
 
 ### Agent Slug Rules
