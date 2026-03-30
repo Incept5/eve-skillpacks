@@ -84,6 +84,36 @@ eve analytics env-health --org org_xxx
 
 `--window` accepts relative durations: `7d`, `24h`, `30d`.
 
+## Platform Sentinel
+
+Platform Sentinel is the platform-side environment health monitor. It is separate from org analytics:
+
+- `eve analytics env-health --org <org_id>`: org-scoped aggregate counts only
+- `eve system env-health`: cross-org detailed snapshot for `system_admin`
+
+```bash
+eve system env-health [--status critical] [--limit 100] [--json]
+eve system settings sentinel.enabled --json
+eve system settings sentinel.slack.integration_id --json
+eve system settings sentinel.slack.channel_id --json
+```
+
+`eve system env-health` returns:
+
+| Field | Meaning |
+|---|---|
+| `summary.total` | Number of tracked environments |
+| `summary.healthy/degraded/critical` | Current health counts |
+| `environments[].issues_json` | Active issue list (`image_pull_backoff`, `crash_loop_backoff`, `high_restarts`, `pending_too_long`) |
+| `environments[].consecutive_degraded_ticks` | How many watchdog ticks the environment has stayed non-healthy |
+| `environments[].actions_taken_json` | Circuit-breaker actions such as `scale_to_zero` |
+
+Sentinel delivery behaviour:
+- Outbound alerts are suppressed unless `sentinel.enabled=true`
+- Slack delivery uses `sentinel.slack.integration_id` + `sentinel.slack.channel_id`
+- Recovery and circuit-break alerts bypass the normal dedup window
+- The watchdog can keep populating environment health rows even when Slack delivery is not configured
+
 ## Cost Tracking
 
 Eve tracks costs through execution receipts, resource classes, per-job budgets, and an org balance ledger.

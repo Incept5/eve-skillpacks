@@ -700,6 +700,8 @@ eve system config                                       # Show system configurat
 eve system settings                                     # List all settings
 eve system settings get <key>                           # Get setting value
 eve system settings set <key> <value>                   # Set setting value
+eve system env-health [--status <healthy|degraded|critical>] [--limit 100] [--json]
+                                                     # Cross-org environment health report (system_admin)
 
 eve system orchestrator status                          # Orchestrator state
 eve system orchestrator set-concurrency <n>             # Set job concurrency
@@ -711,6 +713,15 @@ eve system logs <service> [--tail 50]                   # Service logs
 eve system pods                                         # K8s pod status
 eve system events [--limit 50]                          # Recent platform events
 ```
+
+Notes:
+- `eve system env-health` is the platform-wide sentinel view. It returns the latest health check row per environment, including issue details, degraded tick counters, and any circuit-breaker actions.
+- `eve analytics env-health --org <org_id>` remains the org-scoped aggregate view. Use `eve system env-health` when you need cross-org detail as a `system_admin`.
+- Sentinel configuration is stored in system settings:
+  - `sentinel.enabled`
+  - `sentinel.slack.integration_id`
+  - `sentinel.slack.channel_id`
+- The inbound Slack responder also requires the gateway deployment env var `EVE_SENTINEL_CHANNEL_ID` to match `sentinel.slack.channel_id`.
 
 ## Local Stack (k3d)
 

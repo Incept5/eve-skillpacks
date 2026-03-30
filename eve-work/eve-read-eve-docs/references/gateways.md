@@ -138,6 +138,33 @@ For `message` (no mention):
 
 Responses delivered via Slack Web API (`chat.postMessage`), threaded to the originating message.
 
+### Platform Sentinel Channel Routing
+
+The gateway has one special-case Slack routing path for Platform Sentinel.
+
+- If `EVE_SENTINEL_CHANNEL_ID` is set and an inbound Slack message arrives in that channel, the gateway does **not** send the message through normal agent routing.
+- Instead it calls the API responder endpoint:
+
+```text
+POST /internal/platform-respond
+```
+
+- The API returns markdown text, and the gateway sends that text back to the same Slack channel/thread.
+
+Supported responder keywords:
+
+| Keyword | Result |
+|---------|--------|
+| `health`, `status` | Full platform health report |
+| `degraded`, `issues` | Only degraded/critical environments |
+| `resources`, `report` | Current alias of the health report |
+| `help`, `cmds`, `commands` | Command help text |
+
+Operational notes:
+- `EVE_SENTINEL_CHANNEL_ID` is a deployment-time env var on the gateway, not a dynamic DB lookup.
+- Keep it aligned with the system setting `sentinel.slack.channel_id`.
+- Outbound sentinel alerts still use the normal gateway delivery path (`/internal/deliver`); the special routing above is only for inbound messages in the sentinel channel.
+
 ### Interactive Endpoint
 
 `POST /gateway/providers/slack/interactive` handles Slack interactive components (buttons, modals, menus).
