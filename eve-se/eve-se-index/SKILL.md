@@ -34,6 +34,7 @@ Eve SE is for app developers using Eve to deploy and run their apps. It does not
 | Troubleshoot failures | `eve-troubleshooting` |
 | Keep repo aligned with platform | `eve-repo-upkeep` |
 | Web UI testing with agent-browser | `eve-web-ui-testing-agent-browser` |
+| Author verification plans for an app | `eve-verification-plans` |
 | Design an agent-native app | `eve-agent-native-design` (eve-design pack) |
 
 ## Default Workflow (Local -> Staging)

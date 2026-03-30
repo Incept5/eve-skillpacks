@@ -60,8 +60,25 @@ eve-skillpacks/
 │   │   └── SKILL.md
 │   ├── eve-pipelines-workflows/
 │   │   └── SKILL.md
-│   └── eve-repo-upkeep/
-│       └── SKILL.md
+│   ├── eve-repo-upkeep/
+│   │   └── SKILL.md
+│   ├── eve-web-ui-testing-agent-browser/
+│   │   ├── SKILL.md
+│   │   ├── references/
+│   │   └── templates/
+│   └── eve-verification-plans/
+│       ├── SKILL.md
+│       ├── references/
+│       │   ├── test-plan-format.md
+│       │   ├── eve-conformance-checks.md
+│       │   ├── fixture-patterns.md
+│       │   ├── deploy-cycle-patterns.md
+│       │   ├── ui-verification-patterns.md
+│       │   └── agent-verification-patterns.md
+│       └── templates/
+│           ├── 00-smoke-test-plan.md
+│           ├── scenario-test-plan.md
+│           └── upload-ingest-test-plan.md
 └── eve-work/              # General work patterns
     ├── README.md
     ├── eve-read-eve-docs/
