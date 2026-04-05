@@ -64,6 +64,11 @@ triggers:
   - agent cli
   - cli for agents
   - cli wrapper
+  - eve wiki
+  - llm wiki
+  - wiki pattern
+  - knowledge base
+  - wiki maintenance
 ---
 
 # Eve Read Docs (Load First)
@@ -112,6 +117,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Observability, cost tracking, receipts, and analytics: `references/observability.md`
 - Database provisioning, migrations, SQL, and managed DB operations: `references/database-ops.md`
 - Symptom-first troubleshooting across auth, secrets, deploy, jobs, and builds: `references/troubleshooting.md`
+- LLM Wiki pattern, wiki-maintaining agents, knowledge base architecture, near-instant indexing: `references/llm-wiki.md`
 
 ## Index
 
@@ -143,6 +149,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy.
 - `references/app-cli.md` -- App CLI framework: manifest declaration, env var contract, bundling, distribution, implementation patterns.
 - `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues.
+- `references/llm-wiki.md` -- LLM Wiki pattern: two-layer substrate, agent workflow, near-instant indexing, operations (ingest/query/lint/bulk), relationship to Company as Intelligence.
 
 ## Intent Coverage Matrix
 

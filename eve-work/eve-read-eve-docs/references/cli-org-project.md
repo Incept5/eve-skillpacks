@@ -130,6 +130,31 @@ eve docs stale --org org_xxx [--overdue-by 7d]             # Find docs past revi
 eve docs review --org org_xxx --path /pm/features/FEAT-123.md \
   --next-review 30d                                        # Mark reviewed, set next review
 eve docs delete --org org_xxx --path /pm/features/FEAT-123.md
+
+eve docs patch --org org_xxx --path /wiki/state.yaml \
+  --replace "health: green" "health: amber"                  # Search and replace
+eve docs patch --org org_xxx --path /wiki/state.yaml \
+  --append "## New Section"                                  # Append to end
+eve docs patch --org org_xxx --path /wiki/state.yaml \
+  --insert-after "signals:" $'\n  - paging active'           # Insert after anchor
+eve docs patch --org org_xxx --path /wiki/state.yaml \
+  --operations '[{"op":"replace","search":"old","replace":"new"}]'  # JSON ops
+
+eve docs diff --org org_xxx --path /wiki/state.yaml           # Latest vs previous
+eve docs diff --org org_xxx --path /wiki/state.yaml --from 1 --to 5  # Specific versions
+eve docs diff --org org_xxx --path /wiki/state.yaml --unified  # Unified format
+
+eve docs list --org org_xxx --path /wiki --tree                # Human-readable hierarchy
+eve docs list --org org_xxx --path /wiki --tree --json         # Nested JSON tree
+
+eve docs search --org org_xxx --query "error rate" \
+  --path /world-model --context 3                             # Path prefix + context lines
+
+eve docs write-dir --org org_xxx --source ./wiki-pages \
+  --path-prefix /operating-model                              # Bulk write from directory
+eve docs sync --org org_xxx --source ./wiki \
+  --path-prefix /operating-model --dry-run --delete           # Safe sync with dry-run
+eve docs watch --org org_xxx --path /world-model --since now   # Stream doc change events
 ```
 
 Notes:
@@ -137,6 +162,13 @@ Notes:
 - `--expires-in` and `--expires-at` are mutually exclusive.
 - `stale` returns documents whose `review_due` has passed. Use `--overdue-by` to filter by staleness threshold.
 - `search --mode semantic` uses vector similarity; `hybrid` combines text + semantic.
+- `patch` supports three operation types: `replace` (search+replace), `append`, `insert_after`. Mutually exclusive with `--operations` JSON.
+- `diff` defaults to latest vs previous version. Use `--from`/`--to` for specific versions.
+- `list --tree` renders a hierarchical directory tree instead of flat paths.
+- `search --path` filters results to a prefix. `--context N` includes N surrounding lines from each matched document.
+- `write-dir` maps local files to doc paths under `--path-prefix`.
+- `sync --dry-run` reports changes without mutating. `--delete` removes remote docs not found locally (never default).
+- `watch` polls org events for `system.doc.created|updated|deleted`, filtered by `--path` prefix. Outputs NDJSON.
 
 ## FS Sync (Org Filesystem)
 
