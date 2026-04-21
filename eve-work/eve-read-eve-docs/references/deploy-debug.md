@@ -5,6 +5,45 @@
 - You need environment-specific diagnostics or service status during incident response.
 - You need K8s architecture behavior for local or staging deployments.
 
+## Deploy Error Classes (DeployFailure kinds)
+
+The deployer classifies deploy failures and writes the kind to both the attempt
+log (`error_context.kind`) and `environments.last_deploy_failure_json`. CLI
+commands (`eve pipeline logs`, `eve job diagnose`, `eve env show`) render the
+kind plus a "Next step" hint. Kinds:
+
+| Kind | Cause | Next step |
+|------|-------|-----------|
+| `k8s_api_error` | Kubernetes API returned an unexpected error | Share attempt_id with support; full body is in the log. |
+| `manifest_invalid` | K8s rejected the manifest (400/422) or manifest drift vs ref | `eve manifest validate`; if drift, `eve project sync --ref <sha>`. |
+| `image_pull_error` | `ImagePullBackOff` / `ErrImagePull` | Check `imagePullSecret` and image digest; run `eve env diagnose`. |
+| `app_crash_loop` | Container exits non-zero on start | `eve env logs <project> <env> <service> --previous`. |
+| `readiness_timeout` | Pods up but not passing readiness probes | Check `eve env diagnose`; review probe definitions. |
+| `dependency_timeout` | `depends_on` service never became healthy | `eve env logs <project> <env> <dep-service>`. |
+| `ingress_conflict` | Another env owns the hostname (first-bind-wins) | `eve domain list`; `eve domain transfer <host> --to <env>`. |
+
+When a deploy applies the manifest but fails to reach readiness, `eve env show`
+reports `Current Release` with `(last ready)` and a separate `Last Applied`
+line flagged `DRIFT — cluster differs from last-ready`. Both are persisted in
+`environments.current_release_id` (last ready / rollback base) and
+`last_applied_release_id` (actually in the cluster).
+
+## Custom Domain Ownership
+
+Custom domains are env-scoped with **first-bind-wins** semantics. The first env
+to deploy with a hostname under `x-eve.ingress.domains` owns it; later deploys
+of other envs that reference the same hostname log `owned by environment "<A>"`
+and skip rendering the ingress. Move ownership with:
+
+```
+eve domain list                                      # hostname → env mapping
+eve domain transfer <host> --to <env>                # DB-only ownership move
+eve env deploy <losing-env>                          # removes stale ingress
+eve env deploy <new-owner-env>                       # creates new ingress
+```
+
+`eve domain unbind <host>` clears the binding without picking a new owner.
+
 ## Load Next
 - `references/cli.md` for command-based diagnostics.
 - `references/pipelines-workflows.md` if the issue is pipeline-triggered.

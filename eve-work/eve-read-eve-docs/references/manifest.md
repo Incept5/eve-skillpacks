@@ -252,6 +252,7 @@ Notes:
 - If a service exposes ports and the cluster domain is configured, Eve creates ingress by default. Set `x-eve.ingress.public: false` to disable.
 - `ingress.alias` creates a vanity hostname: `{alias}.{domain}` instead of the default `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`. Useful for user-facing apps that need a clean URL.
 - `ingress.domains` brings your own domain names (e.g., `["limelee.com", "www.limelee.com"]`). Each domain gets a separate K8s Ingress with per-domain TLS via cert-manager HTTP-01. Max 10 per service. Domains under the platform domain are rejected — use `alias` instead. All three ingress types (primary, alias, custom domain) coexist and route to the same backend.
+- **Domain ownership is env-scoped with first-bind-wins**: a hostname declared in the base manifest is claimed by the **first environment to deploy with it**. Subsequent deploys of other environments that reference the same hostname skip rendering the ingress and log `owned by environment "<A>"`. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or scope the hostname per-env via `environments.<env>.overrides`. Do NOT expect the same `ingress.domains` block to produce ingresses in every env — only the owning env gets it.
 
 ### Managed DB Services
 

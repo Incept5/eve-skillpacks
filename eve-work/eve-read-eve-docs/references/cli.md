@@ -147,10 +147,12 @@ Notes:
 Bring your own domain for Eve-deployed apps. Domains are declared in the manifest under `x-eve.ingress.domains` and registered during `eve project sync`. DNS must point to the platform ingress before activation.
 
 ```bash
-eve domain list [--project <id>] [--json]                  # List custom domains for a project
-eve domain verify <hostname> [--project <id>]              # Verify DNS resolution and update status
-eve domain status <hostname> [--project <id>]              # Show domain detail
-eve domain remove <hostname> [--project <id>] [--json]     # Remove a custom domain
+eve domain list [--env <name>] [--project <id>] [--json]                # List custom domains (filterable by env)
+eve domain verify <hostname> [--project <id>]                           # Verify DNS resolution and update status
+eve domain status <hostname> [--project <id>]                           # Show domain detail (including owning env)
+eve domain transfer <hostname> --to <env> [--project <id>] [--json]     # Move ownership to another env in the same project
+eve domain unbind <hostname> [--project <id>] [--json]                  # Clear env binding; next deploy claims it
+eve domain remove <hostname> [--project <id>] [--json]                  # Remove the custom domain entirely
 ```
 
 Notes:
@@ -160,6 +162,7 @@ Notes:
 - Platform subdomains (e.g., `foo.eh1.incept5.dev`) are rejected — use `ingress.alias` instead.
 - Max 10 custom domains per project (configurable via `EVE_MAX_CUSTOM_DOMAINS_PER_PROJECT`).
 - Hostname is globally unique — first project to claim wins.
+- **Env-scoped, first-bind-wins**: within a project, a hostname is owned by the first env to deploy with it. Other envs that reference the same hostname log `owned by environment "<A>"` and skip rendering the ingress. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or `eve domain unbind <host>` to clear and let the next deploy claim it. `eve domain list` shows `HOSTNAME | SERVICE | ENV | STATUS | VERIFIED` so you can see who owns what.
 
 ## Ingest (Document Ingestion)
 
