@@ -489,6 +489,7 @@ backwards compatibility, resolution falls back to the manifest if agent config i
 **API:**
 - `GET /harnesses` -- list all harnesses with auth status
 - `GET /harnesses/{name}` -- single harness details
+- `POST /projects/{project_id}/harness-profile/validate` -- dry-run an inline harness profile override and/or env overrides against project auth and secret availability without creating a job
 
 **Response shape:**
 ```json
@@ -506,6 +507,8 @@ backwards compatibility, resolution falls back to the manifest if agent config i
 **CLI:**
 - `eve harness list` -- auth availability
 - `eve harness list --capabilities` -- auth + model + reasoning support
+- `eve harness validate --project <id> --profile-file profile.json` -- validate an inline profile override
+- `eve harness validate --project <id> --env-override KEY=${secret.NAME}` -- validate secret-backed env overrides
 - `eve agents config --json` -- project policy + profile resolution
 
 ---

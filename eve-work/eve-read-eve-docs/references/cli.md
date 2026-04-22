@@ -347,11 +347,13 @@ eve skills install [source] [--skip-installed]          # Install skill packs
 ```bash
 eve harness list [--capabilities] [--org <id>] [--project <id>]
 eve harness get <name> [--org <id>] [--project <id>]
+eve harness validate --project <id> [--profile-file profile.json] [--env-override KEY=VALUE] [--json]
 ```
 
 Notes:
 - `--capabilities` shows model support, reasoning levels, streaming, and tool use.
 - `harness get` shows variants, auth status, and capability matrix.
+- `harness validate` dry-runs an inline `harness_profile_override` and/or `env_overrides` against project secrets and harness auth without creating a job or invoking a model. Use repeated `--env-override KEY=VALUE`; `${secret.KEY}` placeholders report resolved/missing scope without exposing values.
 
 ## Database (Environment DBs)
 
