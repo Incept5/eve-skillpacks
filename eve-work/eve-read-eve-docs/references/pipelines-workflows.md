@@ -311,6 +311,60 @@ Evaluates against `result_json.eve.status` of the referenced step.
 
 **Use case — triage escalation:** A fast agent (low reasoning) classifies task complexity. An expert agent (high reasoning) only runs for complex tasks. Simple tasks are handled entirely by the triage step.
 
+### Per-Step Harness Overrides (Template Expressions)
+
+Workflow steps can choose their brain per-invocation using `${inputs.<key>}` and
+`${event.payload.<path>}` template expressions. Useful when the same workflow
+must run with a different model/harness depending on who triggered it.
+
+```yaml
+workflows:
+  classify:
+    # Declare workflow inputs. `from:` pulls from the triggering event's payload;
+    # `default:` is used when the payload field is absent.
+    inputs:
+      brain:
+        from: event.payload.meta.brain
+        default: planner
+    steps:
+      - name: classify
+        agent:
+          name: classifier
+        # Templated reference to a named profile in x-eve.agents.profiles.
+        harness_profile: "${inputs.brain}"
+
+  per-brand:
+    inputs:
+      brand:
+        from: event.payload.meta.brand
+    steps:
+      - name: run
+        agent:
+          name: worker
+        # Inline bundle — per-field templates. Unknown-ref fields fall back to
+        # the agent's default profile at dispatch with a warning log.
+        harness_profile_override:
+          harness: zai
+          model: "glm-4.6-${inputs.brand}"
+```
+
+**Grammar (intentionally tiny):**
+- `${inputs.<key>}` — a single declared input or a caller-supplied ad-hoc input.
+- `${event.payload.<dotted.path>}` — walks the event's raw payload.
+- No operators, no function calls, no array indexing.
+
+**Precedence at dispatch:** `harness_profile_override` (workflow_template) beats
+`harness_profile` (string_ref) beats the agent's declared `harness_profile`
+(agent_default). The `harness_profile_source` enum on `jobs` and `job_attempts`
+records which branch applied.
+
+**Validation:**
+- `eve manifest validate` / `eve project sync` reject malformed templates and
+  `${inputs.<undeclared>}` references at sync time.
+- Event-payload refs are accepted structurally — the payload shape is only known
+  at runtime, so missing fields cause a fallback (with a warning log), not an
+  error.
+
 **Response format** includes `step_jobs`:
 
 ```json
