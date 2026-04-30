@@ -251,6 +251,28 @@ eve integrations test <integration_id> --org <org_id>
 - **Signing secret**: Verifies inbound webhook signatures. Each org's signing secret is stored in `oauth_app_configs.config_json` and set during `eve integrations configure slack --signing-secret "..."`. The gateway reads it from the integration's enriched `settings_json`.
 - **Bot token**: `xoxb-...` for outbound messages, stored in integration `tokens_json`
 
+### Non-Chat Slack Notifications
+
+Jobs and workflows that did not originate in Slack can send one-way channel
+notifications through Eve:
+
+```bash
+eve notifications send \
+  --project <project_id_or_slug> \
+  --channel eve-horizon-notifications \
+  --message "Workflow complete"
+```
+
+This calls `POST /projects/:project_id/notifications/send`, requires
+`notifications:send`, resolves the org Slack integration server-side, and posts
+with the stored bot token. The token is never exposed to the job. Pass
+`--integration-id <id>` when an org has multiple active Slack workspaces.
+
+Channel may be a Slack channel ID (`C...`, `G...`, `D...`) or a channel name
+with or without `#`. Name lookup uses `channels:read` and `groups:read`; posting
+uses `chat:write` and optionally `chat:write.public` for public channels where
+the app has not been invited.
+
 ### Required Bot Events
 
 | Event | Purpose |
@@ -388,6 +410,7 @@ Lifecycle:
 | `eve integrations slack install-url --org <org> [--ttl 7d]` | Generate shareable Slack install link |
 | `eve integrations slack connect --org <org> --team-id <id> --token <token>` | Connect Slack (manual fallback) |
 | `eve integrations update <id> --org <org> --setting key=value` | Update settings |
+| `eve notifications send --project <project> --channel <name-or-id> --message <text>` | Send a project-scoped Slack channel notification |
 | **Identity** | |
 | `eve identity link slack --org <org>` | Self-service identity link |
 | `eve org membership-requests list --org <org>` | List pending requests |

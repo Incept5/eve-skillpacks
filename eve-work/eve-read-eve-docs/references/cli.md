@@ -476,6 +476,12 @@ eve integrations slack connect --org org_xxx --team-id T123
   --token xoxb-test [--tokens-json '{}'] [--status]
 eve integrations slack install-url --org org_xxx [--ttl 24h] # Generate shareable Slack install link
 
+# Project-scoped outbound notifications
+eve notifications send --project proj_xxx
+  --channel eve-horizon-notifications
+  --message "Workflow complete"
+  [--integration-id int_xxx] [--thread <ts>] [--json]
+
 # Default agent slug (org-wide fallback)
 eve org update org_xxx --default-agent mission-control
 
@@ -501,6 +507,7 @@ Notes:
 - `--external-email` can also be passed inside `--metadata` as `external_email` for backward compat.
 - `integrations update` patches individual settings on an existing integration (e.g. changing `admin_channel_id`).
 - `integrations slack install-url` generates a time-limited install link for sharing with workspace admins. Use `--ttl` to control expiry (default: server-controlled).
+- `notifications send` posts a one-way Slack notification through the org integration without exposing raw Slack tokens. It requires `notifications:send` on the project/job token.
 - Supported providers: `google-drive`, `slack`. The BYOA flow is: `setup-info` (get URLs/scopes) -> `configure` (register credentials) -> `connect` (initiate OAuth).
 
 Slack commands (run inside Slack):
@@ -862,6 +869,7 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Releases** | `resolve`, `delete`, `prune` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs`, `delete` |
 | **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
+| **Notifications** | `send` |
 | **Environments** | `create`, `deploy`, `undeploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
 | **FS** | `sync` (`init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor`), `share`, `shares`, `revoke`, `publish`, `public-paths` |
 | **Secrets** | `list`, `show`, `set`, `delete`, `import`, `validate`, `ensure`, `export` |

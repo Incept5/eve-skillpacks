@@ -273,6 +273,31 @@ workflows:
 
 Steps without their own `with_apis` inherit from the workflow level.
 
+### Non-Chat Workflow Notifications
+
+Workflow steps that need to announce completion to Slack should use
+`eve notifications send`; do not read integrations or handle raw Slack bot
+tokens in the job:
+
+```bash
+eve notifications send \
+  --project <project_id_or_slug> \
+  --channel eve-horizon-notifications \
+  --message "Published PR: https://github.com/org/repo/pull/123"
+```
+
+The command calls `POST /projects/:project_id/notifications/send` and requires
+the step's job token to include `notifications:send`. Grant that permission to
+the publishing agent in `agents.yaml`:
+
+```yaml
+agents:
+  publisher:
+    access:
+      permissions:
+        - notifications:send
+```
+
 **Validation rules** (enforced by `eve manifest validate` and `eve project sync`):
 - Duplicate step names → error.
 - Cyclic dependencies → error (reports the cycle path).
@@ -413,6 +438,7 @@ eve workflow show <project> <name>
 eve workflow run <project> <name> --input '{"k":"v"}'
 eve workflow invoke <project> <name> --input '{"k":"v"}'
 eve workflow logs <job-id>
+eve notifications send --project <project> --channel <name-or-id> --message <text>
 ```
 
 ## Triggers
@@ -530,4 +556,5 @@ GET  /pipeline-runs/{run_id}/steps/{name}/stream
 GET  /projects/{project_id}/workflows
 GET  /projects/{project_id}/workflows/{name}
 POST /projects/{project_id}/workflows/{name}/invoke?wait=true|false
+POST /projects/{project_id}/notifications/send
 ```

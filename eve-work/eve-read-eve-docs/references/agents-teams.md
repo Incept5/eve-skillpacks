@@ -138,6 +138,7 @@ agents:
         - projects:write
         - envdb:write
         - envs:write
+        - notifications:send   # allow eve notifications send from jobs
 ```
 
 Rules:
@@ -145,6 +146,7 @@ Rules:
 - **Validated at sync** — unknown permission strings are rejected.
 - **Per-agent** — different agents in the same project can have different permissions.
 - Only applies when minting fresh tokens. Pre-existing/embedded tokens are used as-is.
+- `notifications:send` is the least-privilege grant for non-chat Slack/channel notifications from workflow jobs.
 
 ### Gateway Discovery Policy
 
@@ -408,6 +410,11 @@ Rate limiting:
 Progress updates reuse the same delivery pipeline as final results (`POST /internal/.../chat/deliver` with `progress: true`). They are stored as `thread_messages` with `job_id = NULL` (bypassing the outbound idempotency constraint).
 
 Works for both single-agent chat jobs and team dispatch child jobs. Non-chat jobs only relay to the coordination thread.
+
+For non-chat workflow/job notifications to a Slack channel, use
+`eve notifications send --project <project> --channel <name-or-id> --message <text>`
+from an agent with `notifications:send`. This path is separate from
+chat-originated outbound delivery and does not expose the Slack bot token.
 
 ## Supervision
 
