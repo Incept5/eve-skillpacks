@@ -171,6 +171,46 @@ Use `name` as the top-level project identifier. `project` is accepted as a legac
 
 Unknown fields are allowed for forward compatibility.
 
+## Workflow References
+
+For large workflows, keep `.eve/manifest.yaml` small and reference repo-local
+workflow files:
+
+```yaml
+workflows:
+  alltrack-make-plan:
+    $ref: .eve/workflows/alltrack-make-plan
+```
+
+Recommended layout:
+
+```text
+.eve/workflows/alltrack-make-plan/
+  workflow.yaml
+  prompts/
+    plan.md
+    review.md
+```
+
+When `$ref` points to a directory, `eve project sync` and
+`eve manifest validate` load `workflow.yaml` or `workflow.yml` from that
+directory. `$ref` can also point directly to a `.yaml` or `.yml` workflow
+file. References are resolved locally by the CLI before sync; direct API sync
+rejects unresolved `$ref` values.
+
+Workflow files can keep long prompts in Markdown files:
+
+```yaml
+steps:
+  - name: plan
+    agent:
+      name: alltrack-planner
+      prompt_file: prompts/plan.md
+```
+
+`prompt_file` paths are resolved relative to the workflow file directory, read
+verbatim, and expanded into `agent.prompt` in the stored manifest.
+
 ## Registry
 
 ```yaml

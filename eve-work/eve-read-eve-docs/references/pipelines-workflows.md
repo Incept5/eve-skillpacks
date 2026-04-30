@@ -203,6 +203,45 @@ workflows:
           prompt: "Audit error logs and summarize anomalies"
 ```
 
+### Workflow Files and Prompt Files
+
+Large workflows can be split into repo-local files. Keep one directory per
+workflow and reference it from the manifest:
+
+```text
+.eve/workflows/
+  alltrack-make-plan/
+    workflow.yaml
+    prompts/
+      plan.md
+      review.md
+```
+
+```yaml
+workflows:
+  alltrack-make-plan:
+    $ref: .eve/workflows/alltrack-make-plan
+```
+
+If `$ref` points to a directory, `eve project sync` and
+`eve manifest validate` load `workflow.yaml` or `workflow.yml` from that
+directory. `$ref` may also point directly to a YAML workflow file. References
+are expanded before sync; the API stores the expanded workflow and rejects
+unresolved `$ref` values.
+
+In `workflow.yaml`, use `agent.prompt_file` for long Markdown prompts:
+
+```yaml
+steps:
+  - name: plan
+    agent:
+      name: alltrack-planner
+      prompt_file: prompts/plan.md
+```
+
+Prompt files are resolved relative to the workflow file directory, read
+verbatim, and expanded into `agent.prompt`.
+
 ### Multi-Step Workflow Expansion
 
 Workflows compile to a full job DAG at invocation time. A multi-step workflow creates 1 root container job + N child step jobs with dependency ordering.
