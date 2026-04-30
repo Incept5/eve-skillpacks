@@ -19,6 +19,10 @@ triggers:
   - eve builds
   - eve releases
   - eve deploy
+  - eve observability
+  - eve traces
+  - eve env logs
+  - eve env diagnose
   - eve filesystem
   - eve fs sync
   - eve object store
@@ -114,7 +118,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification, project role resolution, and org awareness: `references/auth-sdk.md`
 - Build agent-friendly CLIs for app APIs, manifest declaration, bundling, distribution, env var contract: `references/app-cli.md`
 - OAuth app credentials (BYOA), Google Drive mounts, cloud FS browse/search, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, integrations, Slack connect, GitHub setup, identity linking, membership requests: `references/integrations.md`
-- Observability, cost tracking, receipts, and analytics: `references/observability.md`
+- Observability, request diagnostics, service logs, traces, cost tracking, receipts, and analytics: `references/observability.md`
 - Database provisioning, migrations, SQL, and managed DB operations: `references/database-ops.md`
 - Symptom-first troubleshooting across auth, secrets, deploy, jobs, and builds: `references/troubleshooting.md`
 - LLM Wiki pattern, wiki-maintaining agents, knowledge base architecture, near-instant indexing: `references/llm-wiki.md`
@@ -145,7 +149,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/eve-sdk.md` -- Eve SDK overview: packages, install, quick-start patterns, token flow, backend/frontend exports, environment variables.
 - `references/auth-sdk.md` -- Eve Auth SDK deep-dive: middleware behavior, verification strategies, token types, SSO session bootstrap, NestJS patterns, project role resolution, org awareness, migration guide.
 - `references/integrations.md` -- OAuth app credentials (BYOA), Google Drive cloud FS mounts, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, external integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
-- `references/observability.md` -- Correlation IDs, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
+- `references/observability.md` -- Correlation IDs, app service logs, request diagnostics, traces, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
 - `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy.
 - `references/app-cli.md` -- App CLI framework: manifest declaration, env var contract, bundling, distribution, implementation patterns.
 - `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues.
@@ -160,6 +164,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Submit and monitor work | `references/cli-jobs.md`, `references/jobs.md` | Job IDs, phase transitions, attempt logs |
 | Build/deploy a version | `references/cli-pipelines.md`, `references/builds-releases.md`, `references/pipelines-workflows.md` | Pipeline run ID, build/release artifacts, deployment trace |
 | Recover from runtime issues | `references/cli-deploy-debug.md`, `references/deploy-debug.md`, `references/cli-jobs.md` | Diagnose output, recovery target, mitigation command plan |
+| Trace a deployed app request | `references/observability.md`, `references/cli-deploy-debug.md`, `references/deploy-debug.md` | Request logs, deploy metadata, K8s events, audit rows, trace spans |
 | Inspect platform behavior or events | `references/events.md`, `references/agents-teams.md` | Canonical event stream view, routing path |
 | Install/update skills for agents | `references/skills-system.md`, `references/overview.md` | Installed pack/skill set and resolution order |
 | Monitor costs, receipts, or analytics | `references/observability.md`, `references/cli.md` | Receipt breakdown, analytics counters, cost totals |
