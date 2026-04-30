@@ -22,6 +22,19 @@ kind plus a "Next step" hint. Kinds:
 | `dependency_timeout` | `depends_on` service never became healthy | `eve env logs <project> <env> <dep-service>`. |
 | `ingress_conflict` | Another env owns the hostname (first-bind-wins) | `eve domain list`; `eve domain transfer <host> --to <env>`. |
 
+For request-specific failures after an app is deployed, use the CLI-first
+request ladder:
+
+```bash
+eve env diagnose <project> <env> --request req_01h... --window 120 --json
+eve env logs <project> <env> <service> --follow --filter req_id=req_01h...
+eve traces query --project <project> --request-id req_01h... --json
+```
+
+`env diagnose --request` keeps "not found" as structured empty data with
+warnings, not a command failure. Optional audit-log rows are included when a
+service declares `x-eve.audit_log_table`.
+
 When a deploy applies the manifest but fails to reach readiness, `eve env show`
 reports `Current Release` with `(last ready)` and a separate `Last Applied`
 line flagged `DRIFT — cluster differs from last-ready`. Both are persisted in

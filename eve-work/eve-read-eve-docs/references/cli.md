@@ -825,6 +825,9 @@ Quick reference:
 - `eve job follow <id>` -- stream harness logs in real time
 - `eve job runner-logs <id>` -- K8s pod logs for startup failures
 - `eve env diagnose <project> <env>` -- environment health + K8s events
+- `eve env diagnose <project> <env> --request <id> --json` -- request-level logs, events, deploy metadata, audit rows, and traces
+- `eve env logs <project> <env> <service> --follow --filter req_id=<id>` -- stream app-service logs with structured filters
+- `eve traces query --project <project> --request-id <id> --json` -- query trace spans without console access
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
 - `eve system health` -- platform-wide health check
 

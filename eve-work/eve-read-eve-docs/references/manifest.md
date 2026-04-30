@@ -243,6 +243,8 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | `managed` | object | Managed DB config (requires `role: managed_db`) |
 | `object_store` | object | App object store bucket declarations |
 | `permissions` | array | Additional permissions for the service's `EVE_SERVICE_TOKEN` |
+| `audit_log_table` | string | Optional table queried by `eve env diagnose --request` |
+| `request_id_column` | string | Optional request ID column for audit logs (default `request_id`) |
 
 Notes:
 - `x-eve.role: job` makes a service runnable as a one-off job (migrations, seeds).
@@ -253,6 +255,7 @@ Notes:
 - `ingress.alias` creates a vanity hostname: `{alias}.{domain}` instead of the default `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`. Useful for user-facing apps that need a clean URL.
 - `ingress.domains` brings your own domain names (e.g., `["limelee.com", "www.limelee.com"]`). Each domain gets a separate K8s Ingress with per-domain TLS via cert-manager HTTP-01. Max 10 per service. Domains under the platform domain are rejected — use `alias` instead. All three ingress types (primary, alias, custom domain) coexist and route to the same backend.
 - **Domain ownership is env-scoped with first-bind-wins**: a hostname declared in the base manifest is claimed by the **first environment to deploy with it**. Subsequent deploys of other environments that reference the same hostname skip rendering the ingress and log `owned by environment "<A>"`. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or scope the hostname per-env via `environments.<env>.overrides`. Do NOT expect the same `ingress.domains` block to produce ingresses in every env — only the owning env gets it.
+- `audit_log_table` is optional. When set, `eve env diagnose --request <id>` runs a read-only query against that table using `request_id_column` and returns matching rows verbatim. Query failures become warnings in the diagnose response.
 
 ### Managed DB Services
 

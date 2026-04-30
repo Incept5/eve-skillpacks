@@ -36,12 +36,18 @@ eve env show <project> <env>
 eve env services <project> <env>                        # List running services
 eve env health <project> <env>                          # Health check
 eve env diagnose <project> <env> [--events]             # Full diagnostic + K8s events
+eve env diagnose <project> <env> --request <id> --json  # Request-level logs/events/deploy/traces
 
 # Logs
-eve env logs <project> <env>
+eve env logs <project> <env> <service>
   [--since 5m] [--tail 100] [--grep "error"]
+  [--follow] [--filter req_id=req_01h...] [--filter level=error]
   [--pod <name>] [--container <name>]
   [--previous] [--all-pods]
+
+# Traces
+eve traces query --project <project> --request-id <id> --json
+eve traces query --project <project> --service <service> --since 5m --error
 
 # Recovery
 eve env rollback <env> --release <id|tag|previous>      # Roll back to a known release
@@ -79,6 +85,9 @@ Quick reference:
 - `eve job follow <id>` -- stream harness logs in real time
 - `eve job runner-logs <id>` -- K8s pod logs for startup failures
 - `eve env diagnose <project> <env>` -- environment health + K8s events
+- `eve env diagnose <project> <env> --request <id> --json` -- one request across logs, events, deploy metadata, audit rows, and traces
+- `eve env logs <project> <env> <service> --follow --filter req_id=<id>` -- live app-service logs with structured filters
+- `eve traces query --project <project> --request-id <id> --json` -- trace spans without console access
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
 
 ## Local Stack (k3d)

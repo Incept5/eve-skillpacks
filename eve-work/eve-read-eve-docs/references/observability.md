@@ -30,6 +30,20 @@ Standard structured log fields:
 
 Job execution lifecycle events are also written to `execution_logs` with correlation fields in the lifecycle `meta` object.
 
+For deployed app services, use environment logs and request diagnostics:
+
+```bash
+eve env logs <project> <env> <service> --follow --since 30
+eve env logs <project> <env> <service> --grep req_01h...
+eve env logs <project> <env> <service> --filter req_id=req_01h... --filter level=error
+eve env diagnose <project> <env> --request req_01h... --window 120 --json
+```
+
+`eve env logs --filter k=v` is repeatable, ANDs filters together, and matches
+JSON log fields exactly. Dotted paths such as `req.path=/api/items` read nested
+JSON fields. `--follow` streams through the API using SSE and emits pod-change
+notifications when a matching pod rolls.
+
 ## Execution Receipts
 
 Receipts capture timing, token usage, and cost breakdowns per attempt. Assembled from lifecycle events plus `llm.call` usage events.
@@ -159,10 +173,29 @@ OTEL is enabled when `OTEL_ENABLED=true` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set
 | `OTEL_DISABLED` | `true` -- hard disable (overrides OTEL_ENABLED) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector endpoint (e.g. `http://otel-collector:4318`) |
 
+Request trace lookup requires apps to stamp `request_id` on the active span.
+Use the shared helper from `@eve/shared`:
+
+```ts
+import { stampCurrentRequestId } from '@eve/shared';
+
+stampCurrentRequestId(requestId);
+```
+
+Agents can query traces without AWS console access:
+
+```bash
+eve traces query --project proj_xxx --request-id req_01h... --json
+eve traces query --project proj_xxx --trace-id 1-abcdef...
+eve traces query --project proj_xxx --service api --since 5m --error
+eve traces query --project proj_xxx --service api --route "POST /api/items" --since 1h --p99
+```
+
 ## Real-Time Monitoring
 
 ```bash
 eve job follow <id>                   # Stream harness logs + live cost totals + silence detection
+eve env logs <project> <env> <service> --follow --since 30 # Stream app service logs
 eve job watch <id>                    # Combined status + logs streaming
 eve job runner-logs <id>              # K8s runner pod stdout/stderr
 eve system status                     # Service health including agent runtime + replicas
@@ -196,6 +229,9 @@ These appear in `eve job diagnose` as part of the latency waterfall. If clone or
 | Intent | Command |
 |---|---|
 | Trace a request | Check `x-eve-correlation-id` in response headers |
+| Diagnose app request | `eve env diagnose <project> <env> --request <id> --json` |
+| Stream app logs | `eve env logs <project> <env> <service> --follow --filter req_id=<id>` |
+| Query traces | `eve traces query --project <id> --request-id <id> --json` |
 | Job cost receipt | `eve job receipt <id>` |
 | Compare job costs | `eve job compare <id1> <id2>` |
 | Org analytics | `eve analytics summary --org <id> --window 7d` |
