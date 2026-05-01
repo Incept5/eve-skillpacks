@@ -91,5 +91,7 @@ eve workflow show <project> <name>
 eve workflow run [project] <name> --input '{"k":"v"}'   # Start async, return job-id
 eve workflow invoke [project] <name> --input '{"k":"v"}'  # Start and poll for result
   [--no-wait]                                           # Return immediately
+eve workflow retry <root-job-id> --failed                # Retry failed/upstream-failed tail
+eve workflow retry <root-job-id> --from <step-name>      # Retry named step + downstream tail
 eve workflow logs <job-id> [--attempt <n>] [--after <cursor>]
 ```

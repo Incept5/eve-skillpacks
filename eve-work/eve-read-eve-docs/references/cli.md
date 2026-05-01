@@ -868,7 +868,7 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel`, `delete`, `prune` |
 | **Releases** | `resolve`, `delete`, `prune` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs`, `delete` |
-| **Workflows** | `list`, `show`, `run`, `invoke`, `logs` |
+| **Workflows** | `list`, `show`, `run`, `invoke`, `retry`, `logs` |
 | **Notifications** | `send` |
 | **Environments** | `create`, `deploy`, `undeploy`, `list`, `show`, `services`, `health`, `diagnose`, `logs`, `rollback`, `reset`, `recover`, `suspend`, `resume`, `delete` |
 | **FS** | `sync` (`init`, `status`, `logs`, `pause`, `resume`, `disconnect`, `mode`, `conflicts`, `resolve`, `doctor`), `share`, `shares`, `revoke`, `publish`, `public-paths` |

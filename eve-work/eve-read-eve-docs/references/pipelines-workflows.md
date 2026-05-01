@@ -476,9 +476,19 @@ eve workflow list [project]
 eve workflow show <project> <name>
 eve workflow run <project> <name> --input '{"k":"v"}'
 eve workflow invoke <project> <name> --input '{"k":"v"}'
+eve workflow retry <root-job-id> --failed
+eve workflow retry <root-job-id> --from <step-name>
 eve workflow logs <job-id>
 eve notifications send --project <project> --channel <name-or-id> --message <text>
 ```
+
+Workflow retry is a recovery path for terminal multi-step workflow roots. It
+clones already-materialized current step jobs, so original input values, git
+controls, resource refs, harness settings, and API hints are preserved.
+`--failed` retries failed/upstream-failed current steps; `--from <step-name>`
+retries that step and downstream dependents. Superseded jobs remain in the tree
+with retry metadata, while replacement jobs receive rewired dependency edges so
+prior-step result injection reads from the correct predecessor.
 
 ## Triggers
 

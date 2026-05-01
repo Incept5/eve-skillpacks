@@ -482,6 +482,14 @@ Policy fields (in `hints.retry`):
 
 On failure, the orchestrator checks the retry policy. If retries remain and the error is retryable, it creates a new attempt with `trigger_type = 'auto_retry'` and sets `defer_until` for backoff. When retries are exhausted, the job gets `failure_disposition = 'failed'`.
 
+Manual workflow-step retry is separate from per-job auto-retry. Use
+`eve workflow retry <root-job-id> --failed` after a workflow root reaches a
+terminal state and a failed/upstream-failed tail should be retried without
+rerunning successful predecessor steps. Use `--from <step-name>` to rerun a
+named step and its downstream dependents. Eve creates replacement child jobs,
+marks the replaced step jobs superseded in `hints`, and rewires dependencies to
+the current replacement jobs.
+
 Workflow steps support retry in the manifest:
 
 ```yaml
