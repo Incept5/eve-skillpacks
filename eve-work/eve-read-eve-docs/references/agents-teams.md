@@ -280,8 +280,35 @@ routes:
 ### Route Matching
 
 - `match` is a regex tested against message text.
+- Optional `providers` and `account_ids` predicates narrow a route to specific chat origins, for example `providers: [app]` and `account_ids: [open-design]`.
 - First match wins; fallback to `default_route` if none match.
 - Target prefixes: `agent:<key>`, `team:<key>`, `workflow:<name>`, `pipeline:<name>`.
+
+## Embedded App Conversations
+
+Eve-hosted apps should use the project-scoped conversations facade instead of rebuilding chat dispatch, thread mapping, and streaming.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/projects/{project_id}/conversations` | Find or create an Eve thread for an app-supplied `app_key` |
+| `GET` | `/projects/{project_id}/conversations/{app_key}` | Resolve app key to thread id, metadata, current target, and last message |
+| `POST` | `/projects/{project_id}/conversations/{app_key}/turns` | Append a user turn and route it |
+| `GET` | `/projects/{project_id}/conversations/{app_key}/stream` | SSE stream with snapshot, message/progress events, heartbeats, and `Last-Event-ID` replay |
+| `GET` | `/projects/{project_id}/conversations/{app_key}/messages` | Polling catch-up and replay |
+
+Conversations use provider `app`; `account_id` is the `app_id`. Thread keys are stored as `app:{app_id}:sha256:{hash}` while raw `app_key`, `app_id`, and product metadata are preserved in thread metadata.
+
+Write endpoints require `chat:write`; read, messages, and stream endpoints require `threads:read`. Backend-proxied apps can forward with a service principal token; direct browser apps use an Eve user token. App service tokens must opt into `chat:write`.
+
+Targets:
+- Omitted target: first turn uses `chat.yaml` route matching; later turns continue the stored thread target.
+- `{ kind: "route", route_id }`: dispatches a specific route.
+- `{ kind: "agent", agent_slug }`: direct agent dispatch; the agent must be `gateway.policy: routable` and allow client `app` when `gateway.clients` is set.
+- `{ kind: "team", team_id }`: team dispatch with the same lead gateway-policy checks as gateway chat.
+
+Use `@eve-horizon/chat` for fetch/SSE handling and `@eve-horizon/chat-react` for React panes.
+
+Stream events use `thread_messages.id` as the SSE event id. Reconnect by passing `Last-Event-ID` directly or `resumeFrom` through `@eve-horizon/chat`; the API replays rows strictly after that message id. Progress updates are stored as `kind: progress` thread messages and include the originating `job_id` when emitted by chat jobs.
 
 ## Syncing Configuration
 
@@ -407,7 +434,7 @@ Rate limiting:
 - Coordination thread (internal): 1 message per 5 seconds, no cap.
 - Chat delivery (external): 1 message per 30 seconds, max 10 per job. Progress text is capped at 500 characters.
 
-Progress updates reuse the same delivery pipeline as final results (`POST /internal/.../chat/deliver` with `progress: true`). They are stored as `thread_messages` with `job_id = NULL` (bypassing the outbound idempotency constraint).
+Progress updates reuse the same delivery pipeline as final results (`POST /internal/.../chat/deliver` with `progress: true`). They are stored as `thread_messages` with `kind = 'progress'` and the originating `job_id` when available; final-result idempotency is scoped to `kind = 'message'`.
 
 Works for both single-agent chat jobs and team dispatch child jobs. Non-chat jobs only relay to the coordination thread.
 

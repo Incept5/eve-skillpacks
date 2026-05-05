@@ -312,12 +312,14 @@ ws://gateway:4820/?token=<jwt>
 ```
 
 Features:
-- JWT auth in WebSocket handshake
+- JWT auth in WebSocket handshake using Eve JWKS verification (`RS256`, `exp`, `nbf`, `kid`)
 - Heartbeat ping/pong (30s interval)
 - Thread continuity across reconnections
 - Multi-tab support (same user, multiple connections)
 
 Registration: configured as an integration with `provider: webchat`.
+
+Use provider `app` and the conversations facade for same-origin embedded app panes. Use `webchat` only when a direct browser-to-gateway WebSocket is required. Use provider `api` for generic REST-originated chat clients without browser push.
 
 ## Chat Simulation
 
