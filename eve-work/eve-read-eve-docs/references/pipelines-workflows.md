@@ -275,7 +275,42 @@ workflows:
 
 ### Resource Propagation Between Steps
 
-All workflow steps receive the parent workflow's `resource_refs`. Resources are hydrated into `.eve/resources/` in each step's workspace automatically. Previously only the first step received resources; now every step gets them.
+All workflow steps receive the invocation `resource_refs` by default, including
+steps with `depends_on`. Resources are hydrated into `.eve/resources/` in each
+step's workspace automatically.
+
+Control access with `resource_refs` at workflow level or step level:
+
+```yaml
+workflows:
+  create-design:
+    resource_refs: inherit   # optional default; "all" is an alias
+    steps:
+      - name: read-sources
+        agent: { name: designer }
+      - name: publish
+        depends_on: [read-sources]
+        resource_refs: none
+        agent: { name: publisher }
+
+  scoped-review:
+    resource_refs: [brief, design-system]
+    steps:
+      - name: review
+        agent: { name: reviewer }
+```
+
+Accepted values:
+- `inherit` / `all`: pass all invocation refs.
+- `none`: pass no invocation refs.
+- string array: pass refs whose `name`, `label`, `mount_path`, `uri`, or `metadata.name` matches a selector.
+- object form: `{ mode: selected, include: [...] }`.
+
+Step-level `resource_refs` overrides workflow-level `resource_refs`. The root
+workflow job still records the full invocation refs for audit. The invoke
+response includes `step_jobs[].resource_refs` with the effective mode, source
+(`default`, `workflow`, or `step`), inherited count, selected count, selectors,
+and missing selectors.
 
 ### Prior Step Result Injection
 
@@ -436,9 +471,23 @@ records which branch applied.
   "job_id": "proj-abc12345",
   "status": "active",
   "step_jobs": [
-    {"job_id": "proj-abc12345.1", "step_name": "ingest"},
-    {"job_id": "proj-abc12345.2", "step_name": "extract", "depends_on": ["ingest"]},
-    {"job_id": "proj-abc12345.3", "step_name": "review", "depends_on": ["extract"]}
+    {
+      "job_id": "proj-abc12345.1",
+      "step_name": "ingest",
+      "resource_refs": {"mode": "inherit", "source": "default", "count": 2, "inherited_count": 2}
+    },
+    {
+      "job_id": "proj-abc12345.2",
+      "step_name": "extract",
+      "depends_on": ["ingest"],
+      "resource_refs": {"mode": "inherit", "source": "default", "count": 2, "inherited_count": 2}
+    },
+    {
+      "job_id": "proj-abc12345.3",
+      "step_name": "review",
+      "depends_on": ["extract"],
+      "resource_refs": {"mode": "none", "source": "step", "count": 0, "inherited_count": 2}
+    }
   ]
 }
 ```

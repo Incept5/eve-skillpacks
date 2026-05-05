@@ -750,7 +750,42 @@ workflows:
 | `steps[].depends_on` | string[] | Step names this step blocks on |
 | `steps[].condition` | string | Conditional execution: `step.status == 'value'` (skip step if false) |
 | `steps[].agent.name` | string | Per-step agent override |
+| `steps[].resource_refs` | string \| string[] \| object | Step resource policy; overrides workflow-level policy |
+| `resource_refs` | string \| string[] \| object | Default invocation resource policy for all workflow steps |
 | `with_apis` | object[] | API specs attached to the workflow — `{ service, description }` (workflow-level or per-step) |
+
+`resource_refs` controls which invocation resources are hydrated into each
+step workspace:
+
+```yaml
+workflows:
+  create-design:
+    resource_refs: inherit  # default; "all" also works
+    steps:
+      - name: read-sources
+        agent: { name: designer }
+      - name: publish
+        depends_on: [read-sources]
+        resource_refs: none
+        agent: { name: publisher }
+
+  scoped-review:
+    resource_refs:
+      mode: selected
+      include: [brief, design-system]
+    steps:
+      - name: review
+        agent: { name: reviewer }
+```
+
+Allowed values:
+- `inherit` / `all`: pass all invocation refs to each step.
+- `none`: pass no invocation refs.
+- string array: select refs by `name`, `label`, `mount_path`, `uri`, or `metadata.name`.
+- object form: `{ mode: selected, include: [...] }`.
+
+Step-level policy overrides workflow-level policy. If omitted everywhere, every
+step inherits all invocation refs, including dependent steps.
 
 **Validation** (`eve manifest validate` and `eve project sync` check workflows):
 - Duplicate step names → error.

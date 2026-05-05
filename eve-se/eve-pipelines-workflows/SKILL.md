@@ -147,6 +147,12 @@ This pattern enables promotion workflows where you build once in a lower environ
 
 - Define workflows under `workflows` in the manifest.
 - `db_access` is honored when present (`read_only`, `read_write`).
+- Invocation `resource_refs` are available to every workflow step by default,
+  including dependent steps. Use workflow-level `resource_refs` to set a default
+  policy and step-level `resource_refs` to override it:
+  - `inherit` / `all`: pass all invocation refs.
+  - `none`: pass no refs.
+  - `[brief, design-system]`: pass only matching ref `name`, `label`, `mount_path`, `uri`, or `metadata.name`.
 - Invoke manually:
   - `eve workflow list`
   - `eve workflow show <project> <name>`
