@@ -334,18 +334,25 @@ services:
 
 Buckets are provisioned during deploy, tracked in environment diagnostics, and
 fail deploy if the platform cannot create the bucket, apply public-read policy,
-or inject the required storage connection env vars. Some local MinIO versions
-reject S3 bucket CORS APIs with `NotImplemented`; k3d deploys warn and continue
-in that case so bucket env vars still reach the app.
+or inject the required storage connection env vars. Local k3d MinIO uses
+server-wide CORS (`MINIO_API_CORS_ALLOW_ORIGIN=*`) instead of the S3 per-bucket
+CORS API. Wildcard CORS works for browser presigned URL flows; restrictive
+origins are recorded in diagnostics but are not enforced per bucket by local
+MinIO.
 
 Injected env vars (per bucket, uppercased name):
 - `STORAGE_ENDPOINT` — MinIO/S3 endpoint
 - `STORAGE_REGION`
 - `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` — storage credentials injected for the app
-- `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads`)
+- `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging)
 - `STORAGE_FORCE_PATH_STYLE` — `true` for MinIO, omitted for AWS S3
 
 Visibility `public` sets the bucket ACL for anonymous GET access (suitable for static assets).
+
+AWS staging trust model: apps share one app-bucket IAM principal scoped to
+`eh1-eve-app-*`. It cannot access `eh1-eve-internal`, org filesystem buckets
+under `eh1-eve-org-*`, or non-Eve buckets, but it does not isolate app buckets
+from each other. Per-app IRSA is the production follow-up.
 
 ### Service Token Permissions
 

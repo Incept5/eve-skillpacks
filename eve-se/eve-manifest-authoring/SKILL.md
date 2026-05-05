@@ -351,9 +351,9 @@ Developers browse mounted content with `eve cloud-fs ls` and search it with `eve
 
 ## App Object Store
 
-> **Status: Schema exists, provisioning logic pending.** The database schema (`storage_buckets` table) and bucket naming convention are implemented. Automatic provisioning from the manifest is not yet wired.
-
-Declare app-scoped object storage buckets in the manifest. Each bucket is provisioned per environment with credentials injected as environment variables.
+Declare app-scoped object storage buckets in the manifest. Each bucket is
+provisioned per environment during deploy, tracked in `eve env diagnose`, and
+credentials are injected as environment variables.
 
 ```yaml
 services:
@@ -366,7 +366,9 @@ services:
           - name: avatars
             visibility: public
             cors:
-              allowed_origins: ["*"]
+              origins: ["*"]
+              methods: [GET, PUT, HEAD]
+              max_age_seconds: 3600
 ```
 
 ### Auto-Injected Storage Environment Variables
@@ -376,16 +378,22 @@ When object store buckets are provisioned, these env vars are injected into the 
 | Variable | Description |
 |----------|-------------|
 | `STORAGE_ENDPOINT` | S3-compatible endpoint URL |
-| `STORAGE_ACCESS_KEY` | Access key for the bucket |
-| `STORAGE_SECRET_KEY` | Secret key for the bucket |
-| `STORAGE_BUCKET` | Physical bucket name |
-| `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO (local dev), `false` for cloud |
+| `STORAGE_REGION` | Storage region |
+| `STORAGE_ACCESS_KEY_ID` | App-facing access key |
+| `STORAGE_SECRET_ACCESS_KEY` | App-facing secret key |
+| `STORAGE_BUCKET_<NAME>` | Physical bucket name for each logical bucket |
+| `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO local dev, omitted for AWS S3 |
+
+On AWS staging, apps currently share one app-bucket IAM principal scoped to
+`eh1-eve-app-*`. It cannot access platform internal buckets or org filesystem
+buckets, but it does not isolate app buckets from each other. Per-app IRSA is
+the production follow-up.
 
 ### Design Rules
 
 - **One bucket per concern.** Separate `uploads` from `avatars` from `exports`.
 - **Set visibility intentionally.** Only buckets serving public assets should be `visibility: public`.
-- **Use CORS for browser uploads.** Set `cors.allowed_origins` when the frontend uploads directly via presigned URLs.
+- **Use CORS for browser uploads.** Set `cors.origins` and `cors.methods` when the frontend uploads directly via presigned URLs.
 - **Bucket names must be unique** within a service. The platform derives the physical bucket name from the project, environment, and logical name.
 
 For detailed storage layer documentation, see the `eve-read-eve-docs` skill: `references/object-store-filesystem.md`.

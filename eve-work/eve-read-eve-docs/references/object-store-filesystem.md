@@ -156,9 +156,11 @@ services:
 Each bucket is provisioned per environment during deploy and appears in
 `eve env diagnose` under storage buckets. If Eve object storage is not
 configured, or bucket/policy setup fails, deploy fails before the app pod
-starts. Some local MinIO versions reject S3 bucket CORS APIs with
-`NotImplemented`; k3d deploys warn and continue in that case so bucket env vars
-still reach the app.
+starts. Local k3d MinIO uses server-wide CORS
+(`MINIO_API_CORS_ALLOW_ORIGIN=*`) because MinIO does not reliably support the
+S3 per-bucket CORS API. Wildcard app bucket CORS works for browser presigned
+URL flows; restrictive origins are recorded in diagnostics but are not enforced
+per bucket by local MinIO.
 
 Auto-injected env vars (per bucket, uppercased name):
 
@@ -167,8 +169,14 @@ Auto-injected env vars (per bucket, uppercased name):
 | `STORAGE_ENDPOINT` | S3-compatible endpoint |
 | `STORAGE_REGION` | Storage region |
 | `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | Storage credentials injected for the app |
-| `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads`) |
+| `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging) |
 | `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO, omitted for AWS S3 |
+
+Trust model: AWS staging currently injects one shared app-bucket IAM principal
+scoped to the deployment app-bucket prefix (`eh1-eve-app-*`). It cannot access
+the platform internal bucket, org filesystem buckets (`eh1-eve-org-*`), or
+non-Eve buckets, but it does not isolate app buckets from each other. Per-app
+IAM isolation through IRSA is the follow-up production model.
 
 ## Cloud FS (Google Drive)
 
