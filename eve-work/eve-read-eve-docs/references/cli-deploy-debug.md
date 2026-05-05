@@ -68,7 +68,7 @@ eve env delete <project> <env> [--force]                # Destroy environment
 Notes:
 - If a pipeline is configured, `eve env deploy` triggers that pipeline. Use `--direct` to bypass.
 - Deploy accepts either `--ref` (git SHA) or `--release-tag` (named release) -- provide exactly one.
-- When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is automatically synced to the API (POST'd with git SHA and branch) before deploying. If no local manifest is found, the server-side manifest is used as-is.
+- When `--repo-dir` points to a repo containing `.eve/manifest.yaml`, the manifest is expanded (`workflows.*.$ref` and `agent.prompt_file`) and automatically synced to the API before deploying. If no local manifest is found, the server-side manifest is used as-is.
 - **Auto-creation**: `eve env deploy` auto-creates the environment if it is defined in `manifest.environments` but does not yet exist in the database.
 - Deploy error messages list environments defined in the manifest if the provided target name is invalid.
 - `env show` displays ingress aliases (custom domain mappings) when present.

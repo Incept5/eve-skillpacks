@@ -332,10 +332,16 @@ services:
             visibility: public
 ```
 
+Buckets are provisioned during deploy, tracked in environment diagnostics, and
+fail deploy if the platform cannot create the bucket, apply public-read policy,
+or inject the required storage connection env vars. Some local MinIO versions
+reject S3 bucket CORS APIs with `NotImplemented`; k3d deploys warn and continue
+in that case so bucket env vars still reach the app.
+
 Injected env vars (per bucket, uppercased name):
 - `STORAGE_ENDPOINT` — MinIO/S3 endpoint
 - `STORAGE_REGION`
-- `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` — per-deployment scoped credentials
+- `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` — storage credentials injected for the app
 - `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads`)
 - `STORAGE_FORCE_PATH_STYLE` — `true` for MinIO, omitted for AWS S3
 

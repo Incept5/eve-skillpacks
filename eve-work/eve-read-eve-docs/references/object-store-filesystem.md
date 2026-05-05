@@ -153,13 +153,20 @@ services:
               origins: ["*"]
 ```
 
-Each bucket is provisioned per environment. Auto-injected env vars (per bucket, uppercased name):
+Each bucket is provisioned per environment during deploy and appears in
+`eve env diagnose` under storage buckets. If Eve object storage is not
+configured, or bucket/policy setup fails, deploy fails before the app pod
+starts. Some local MinIO versions reject S3 bucket CORS APIs with
+`NotImplemented`; k3d deploys warn and continue in that case so bucket env vars
+still reach the app.
+
+Auto-injected env vars (per bucket, uppercased name):
 
 | Variable | Description |
 |----------|-------------|
 | `STORAGE_ENDPOINT` | S3-compatible endpoint |
 | `STORAGE_REGION` | Storage region |
-| `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | Per-deployment scoped credentials |
+| `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | Storage credentials injected for the app |
 | `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads`) |
 | `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO, omitted for AWS S3 |
 

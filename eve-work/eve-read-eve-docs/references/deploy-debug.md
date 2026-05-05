@@ -349,8 +349,10 @@ If `environments.<env>.pipeline` is set, `eve env deploy` triggers that pipeline
 When `--repo-dir` points to a repository containing `.eve/manifest.yaml`, the CLI automatically syncs the manifest to the API before deploying. This eliminates the separate `eve project sync` step:
 
 1. CLI reads `.eve/manifest.yaml` from the repo directory.
-2. POSTs the manifest YAML with the current git SHA and branch to sync.
-3. Uses the returned manifest hash for the deploy request.
+2. Expands workflow `$ref` entries and `agent.prompt_file` prompts, matching
+   `eve project sync`.
+3. POSTs the expanded manifest YAML with the resolved git SHA and branch to sync.
+4. Uses the returned manifest hash for the deploy request.
 
 If no `.eve/manifest.yaml` exists in the repo directory, the CLI falls back to fetching the latest manifest hash from the server (previous behavior).
 
