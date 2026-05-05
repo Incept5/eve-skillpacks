@@ -27,6 +27,11 @@ triggers:
   - eve fs sync
   - eve object store
   - eve sdk
+  - eve chat sdk
+  - eve conversation sdk
+  - eve embedded conversation
+  - eve conversations
+  - eve app conversations
   - eve auth sdk
   - eve sso
   - eve integrations
@@ -107,14 +112,14 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - Job lifecycle, scheduling, execution debugging, agent-native monitoring, production hardening, and per-job HOME isolation: `references/jobs.md`
 - Build, release, and deployment behavior: `references/builds-releases.md` + `references/deploy-debug.md`
 - Private endpoints (Tailscale), worker toolchain-on-demand, and app undeploy/delete: `references/deploy-debug.md`
-- Agents, teams, chat routing, agent aliases, staged dispatch, chat delivery, and chat progress: `references/agents-teams.md` + `references/gateways.md`
+- Agents, teams, chat routing, embedded app conversations, agent aliases, staged dispatch, chat delivery, and chat progress: `references/agents-teams.md` + `references/gateways.md`
 - Secrets, auth, access control, identity providers, BYOK model credentials, and per-org OAuth credential storage: `references/secrets-auth.md`
 - Skills installation, packs, and resolution order: `references/skills-system.md`
 - Harness selection, sandbox policy, BYOK model setup, shared invoke, toolchain-on-demand, and chat harness profiles: `references/harnesses.md`
 - Object store, org filesystem sync, share tokens, public paths, GCS storage, and cloud FS (Google Drive): `references/object-store-filesystem.md`
 - Document ingestion (upload, processing, download, callbacks): `references/ingest.md`
 - Document ingestion pipeline (end-to-end flow, agentpack, media processing, chat files): `references/document-ingestion.md`
-- Eve SDK overview, install, quick-start, token flow, exports: `references/eve-sdk.md`
+- Eve SDK overview, install, quick-start, token flow, embedded conversations, chat SDKs, exports: `references/eve-sdk.md`
 - Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification, project role resolution, and org awareness: `references/auth-sdk.md`
 - Build agent-friendly CLIs for app APIs, manifest declaration, bundling, distribution, env var contract: `references/app-cli.md`
 - OAuth app credentials (BYOA), Google Drive mounts, cloud FS browse/search, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, integrations, Slack connect, GitHub setup, identity linking, membership requests: `references/integrations.md`
@@ -131,7 +136,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/events.md` -- **Event type catalog** (all sources + payloads) and **trigger syntax** (github, slack, system, cron, manual).
 - `references/jobs.md` -- Job lifecycle, phases, CLI, git/workspace controls, scheduling hints, agent-native monitoring, production hardening, per-job HOME isolation.
 - `references/builds-releases.md` -- Build system (specs, runs, artifacts), releases, deploy model, promotion patterns.
-- `references/agents-teams.md` -- Agent/team/chat YAML schemas, sync flow, slug rules, agent aliases, staged team dispatch, chat outbound delivery, chat progress updates, dispatch modes, coordination threads.
+- `references/agents-teams.md` -- Agent/team/chat YAML schemas, sync flow, slug rules, embedded app conversations, agent aliases, staged team dispatch, chat outbound delivery, chat progress updates, dispatch modes, coordination threads.
 - `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, auto-trigger, event/app triggers, workflow input forwarding, step optimization, per-step `with_apis`, build-release-deploy pattern.
 - `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync, service principals, access visibility, custom roles, policy-as-code, BYOK model credentials, per-org OAuth credential storage.
 - `references/skills-system.md` -- Skills format, skills.txt, install flow, discovery priority.
@@ -146,7 +151,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 - `references/object-store-filesystem.md` -- Object store, org filesystem sync protocol, share tokens, public paths, app buckets, access control, native GCS storage, cloud FS (Google Drive mounts).
 - `references/ingest.md` -- Document ingest lifecycle: upload, processing, download URLs, callbacks, CORS, event integration.
 - `references/document-ingestion.md` -- Document ingestion pipeline: end-to-end flow, ingest:// URI scheme, agentpack, media processing (ffmpeg + whisper), chat file materialization, integration points.
-- `references/eve-sdk.md` -- Eve SDK overview: packages, install, quick-start patterns, token flow, backend/frontend exports, environment variables.
+- `references/eve-sdk.md` -- Eve SDK overview: auth + chat packages, install, quick-start patterns, token flow, embedded conversation pane, backend/frontend exports, environment variables.
 - `references/auth-sdk.md` -- Eve Auth SDK deep-dive: middleware behavior, verification strategies, token types, SSO session bootstrap, NestJS patterns, project role resolution, org awareness, migration guide.
 - `references/integrations.md` -- OAuth app credentials (BYOA), Google Drive cloud FS mounts, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, external integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
 - `references/observability.md` -- Correlation IDs, app service logs, request diagnostics, traces, execution receipts, cost tracking, analytics, OTEL config, provider discovery.
@@ -174,6 +179,7 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Configure ingest agentpack or media processing | `references/document-ingestion.md`, `references/agents-teams.md` | Pack import, profile selection, media tool availability |
 | Understand how Slack files reach agents | `references/document-ingestion.md`, `references/gateways.md` | Chat file flow, attachment index, workspace layout |
 | Add SSO auth to an app or verify tokens | `references/eve-sdk.md`, `references/auth-sdk.md`, `references/secrets-auth.md` | SDK setup code, token verification, SSO flow |
+| Add an embedded agent conversation pane | `references/eve-sdk.md`, `references/agents-teams.md`, `references/gateways.md` | Conversation API shape, SDK setup code, route policy, stream resume behavior |
 | Configure OAuth app credentials or connect Google Drive | `references/integrations.md` | BYOA config status, mount IDs, browse/search results |
 | Connect Slack/GitHub or resolve external identities | `references/integrations.md`, `references/agents-teams.md` | Integration status, identity binding, membership requests |
 | Build an agent-friendly CLI for an app API | `references/app-cli.md`, `references/manifest.md` | CLI source, esbuild bundle, manifest declaration, tested commands |

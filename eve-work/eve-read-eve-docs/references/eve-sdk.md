@@ -2,12 +2,15 @@
 
 ## Use When
 - You need to add authentication to an Eve-deployed app (backend, frontend, or fullstack).
+- You need to embed an Eve thread-backed agent conversation pane in an app.
 - You need to know which SDK packages exist and what they export.
 - You need the quick-start install and wiring pattern for a new app.
 - You need to understand the token flow between browser, backend, and Eve platform.
 
 ## Load Next
 - `references/auth-sdk.md` for deep auth coverage: middleware behavior, verification strategies, token types, NestJS patterns, session bootstrap sequence, migration guide.
+- `references/agents-teams.md` for embedded conversation endpoints, route predicates, and gateway policies.
+- `references/gateways.md` for choosing `app`, `api`, or `webchat` provider identity.
 - `references/secrets-auth.md` for platform auth model, identity providers, and access control.
 - `references/manifest.md` for environment variable interpolation in manifests.
 
@@ -15,15 +18,18 @@
 - Confirm whether the app is backend-only, frontend-only, or fullstack.
 - Confirm the backend framework (Express or NestJS).
 - Confirm whether the app serves browser users, agent jobs, or both.
+- For embedded conversations, confirm the Eve project id, `app_id`, and product-level `app_key` convention.
 
 ## Overview
 
-The Eve SDK is two npm packages that eliminate auth boilerplate in Eve-deployed apps.
+The Eve SDK packages eliminate auth and embedded conversation boilerplate in Eve-deployed apps.
 
 | Package | Runtime | Purpose |
 |---------|---------|---------|
 | `@eve-horizon/auth` | Node.js (Express / NestJS) | Token verification, org membership, route protection |
 | `@eve-horizon/auth-react` | Browser (React) | SSO session management, login UI, token cache |
+| `@eve-horizon/chat` | Browser / Node.js | Embedded conversation client, bearer fetch, SSE parser, server proxy helper |
+| `@eve-horizon/chat-react` | Browser (React) | Conversation provider, hooks, and minimal panes |
 
 ## Install
 
@@ -33,6 +39,9 @@ npm install @eve-horizon/auth
 
 # Frontend
 npm install @eve-horizon/auth-react
+
+# Embedded conversations
+npm install @eve-horizon/chat @eve-horizon/chat-react
 ```
 
 ## Quick-Start: Backend (Express)
@@ -102,6 +111,18 @@ function Dashboard() {
 | `createEveClient(baseUrl?)` | Function | Fetch wrapper with automatic Bearer injection |
 | `getStoredToken()` / `storeToken()` / `clearToken()` | Functions | Direct sessionStorage access |
 
+## Chat Exports
+
+| Package | Export | Description |
+|---------|--------|-------------|
+| `@eve-horizon/chat` | `createConversationClient()` | Browser/Node client for ensure, get, send, messages, and stream |
+| `@eve-horizon/chat/server` | `EveConversationsClient` | Server-side helper for backend-proxied turns |
+| `@eve-horizon/chat/server` | `forwardTurn()` | Apply enrichment/rejection hooks before forwarding a turn |
+| `@eve-horizon/chat-react` | `EveConversationProvider` | React state provider for one app conversation |
+| `@eve-horizon/chat-react` | `useEveConversation()` | Hook exposing conversation state, `ensure`, `send`, and `reconnect` |
+| `@eve-horizon/chat-react` | `EveConversationPane` | Headless render-prop pane |
+| `@eve-horizon/chat-react` | `EveConversationDefaultPane` | Minimal styled conversation pane |
+
 ## Environment Variables
 
 Auto-injected by the Eve deployer into every deployed app. No manual configuration needed.
@@ -147,6 +168,42 @@ import { EveAuthProvider, EveLoginGate, createEveClient } from '@eve-horizon/aut
 
 const client = createEveClient('/api');
 const res = await client.fetch('/data');
+```
+
+### Embedded Conversation Pane
+
+Use Eve threads as the durable conversation record for an app-owned object. The SDK calls the project conversations facade and streams snapshot, message, progress, and heartbeat events.
+
+```tsx
+import { EveConversationProvider, EveConversationDefaultPane } from '@eve-horizon/chat-react';
+
+function DesignerChat({ projectId, conversationId, token }: {
+  projectId: string;
+  conversationId: string;
+  token: string;
+}) {
+  return (
+    <EveConversationProvider
+      baseUrl="/api/eve"
+      projectId={projectId}
+      appKey={`open-design:${projectId}:${conversationId}`}
+      appId="open-design"
+      getToken={() => token}
+    >
+      <EveConversationDefaultPane />
+    </EveConversationProvider>
+  );
+}
+```
+
+Backend-proxied apps can use `@eve-horizon/chat/server` with a service token to enrich or reject turns before forwarding them to Eve.
+
+Conversation streams are fetch-based SSE. Each `message` or `progress` event carries `eventId` from `thread_messages.id`; pass the last seen id back as `resumeFrom` to replay without gaps:
+
+```typescript
+for await (const event of conversation.stream({ resumeFrom: lastEventId })) {
+  if (event.eventId) lastEventId = event.eventId;
+}
 ```
 
 ### SSE Authentication
