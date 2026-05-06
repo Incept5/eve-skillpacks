@@ -210,9 +210,11 @@ The Tailscale K8s Operator must be installed once per cluster (k3d, staging, pro
 ## Stable Egress
 
 Different problem from Private Endpoints. Stable egress gives an **opted-in
-service** a fixed public IP and endpoint-independent UDP NAT for **outbound**
-traffic — typically to allow vendor IP allow-listing or fix UDP hole-punching
-that AWS NAT Gateway breaks.
+service** endpoint-independent UDP NAT mappings on outbound traffic —
+typically to fix UDP hole-punching, STUN-discovered NAT traversal, or any
+vendor protocol that depends on a stable source-port across destinations.
+The cluster NAT Gateway breaks all of these because it does symmetric
+port translation.
 
 Opt in from the manifest:
 
@@ -229,30 +231,49 @@ no-op and logs a warning.
 
 ### How It Works
 
-The platform deployer injects a `eve-stable-egress` sidecar into the pod when
-`networking.egress: stable` is set on EKS. The sidecar runs Tailscale in
-**kernel mode** (not userspace) so the pod's default route is rewritten — apps
-need no proxy awareness. Egress flows:
+There is no sidecar, no Secret, no tunnel. On EKS opt-in, the platform
+deployer renders the pod with `hostNetwork: true` and schedules it onto a
+dedicated managed node group whose nodes have their own associated public
+IPv4. Traffic exits through the node's primary ENI directly to the Internet
+Gateway, which performs **1:1 NAT** (port preserved across destinations).
 
 ```
-app container → eve-stable-egress sidecar (kernel Tailscale, pod netns)
-              → WireGuard tunnel
-              → EC2 stable-egress exit node (public subnet, fixed EIP)
-              → vendor / Internet
+app container (hostNetwork: true)
+  ↓ binds in the node netns, pod IP = node primary IP
+node primary ENI (10.0.x.y)
+  ↓ Internet Gateway 1:1 NAT
+node public IPv4 (54.x.y.z) → vendor / Internet
 ```
+
+Cluster prerequisites (handled by infra repo):
+- `eks-egress-pool` Terraform module provisions the node group with the
+  `eve.io/egress-pool=stable` label and matching `NoSchedule` taint.
+- `egress-snat-bypass` DaemonSet inserts an early-RETURN rule above the AWS
+  VPC CNI's MASQUERADE in `AWS-SNAT-CHAIN-0`, so hostNetwork traffic is
+  not re-NAT'd with `--random-fully` (which would otherwise restore
+  symmetric NAT).
+- Worker deployment has `EVE_COMPUTE_MODEL=eks` set so the deployer's
+  hostNetwork render path activates on opt-in.
 
 ### Verifying Injection
 
 ```bash
-# Sidecar must exist on the pod for any service that opted in
-kubectl -n <ns> get pod -l eve.component=<service> \
-  -o jsonpath='{.items[0].spec.containers[*].name}'
-# Expect: <service> eve-stable-egress
+# Pod has hostNetwork + dnsPolicy + egress-pool selector + EVE_NETWORK_EGRESS
+kubectl -n <ns> get pod -l eve.component=<service> -o yaml \
+  | grep -E 'hostNetwork|dnsPolicy|egress-pool|EVE_NETWORK_EGRESS'
+# Expect: hostNetwork: true, dnsPolicy: ClusterFirstWithHostNet,
+#         eve.io/egress-pool: stable, EVE_NETWORK_EGRESS env var present.
+
+# Pod IP matches the egress node's primary IP
+kubectl -n <ns> get pod -l eve.component=<service> -o wide
+kubectl get nodes -l eve.io/egress-pool=stable -o wide
 ```
 
 ### Verifying Egress Behavior
 
-The diagnostic helper in the infra repo runs three checks:
+The diagnostic helper in the infra repo runs three checks from a single
+local UDP socket — same-socket STUN is the only valid way to classify
+endpoint-independent vs address-and-port-dependent NAT.
 
 ```bash
 INFRA=../incept5-eve-infra
@@ -264,18 +285,20 @@ Read the output:
 
 | Check | Pass | Fail |
 |-------|------|------|
-| `egress public IP` | Equals the stable-egress EIP from `terraform output stable_egress_public_ip`. | Equals the cluster NAT Gateway EIP — sidecar isn't taking the default route. Check sidecar logs. |
-| STUN binding ports | Same external port across all three STUN servers. Endpoint-independent NAT. | Different ports per server. Symmetric / address-and-port-dependent NAT — exit node NAT config is wrong. Stop and fix before opting more apps in. |
+| `egress public IP` | Equals the egress node's `EXTERNAL-IP` (`kubectl get nodes -l eve.io/egress-pool=stable`). | Equals the cluster NAT Gateway EIP — pod isn't actually running with hostNetwork or isn't on an egress node. Verify scheduling. |
+| STUN classification | `endpoint-independent (good)` — same external port across all three STUN servers, equal to the local socket port. | `address/port-dependent` — `egress-snat-bypass` DaemonSet is missing or its rule got evicted by a CNI restart. |
 | UDP/53 to 1.1.1.1 | OK in <100 ms. | UDP egress broken entirely. Different problem. |
 
 ### Common Failure Modes
 
 | Symptom | Likely Cause |
 |---------|--------------|
-| `Service '<name>' opted into networking.egress=stable on EKS but worker config is missing` at deploy time | Platform stable egress not provisioned. Set `stable_egress_enabled=true` in the infra repo with auth keys from Tailscale, then `terraform apply` and redeploy the worker overlay. |
-| Sidecar crash-loops with `tailscale up` errors | Auth key consumed/expired. Rotate `tailscale_app_egress_auth_key` in `secrets.auto.tfvars` (use **reusable + ephemeral**, not single-use). |
-| Egress IP still equals the cluster NAT GW EIP | Sidecar running but not capturing default route. Check `kubectl logs <pod> -c eve-stable-egress` — look for `userspace networking` warnings (means kernel mode failed; usually a missing `/dev/net/tun` mount or capability). |
-| Vendor relay still times out but STUN passes | NAT semantics are correct now; the remaining issue is app/vendor-specific (firewall on vendor side, app-level retry, etc.). Reopen the protocol diagnosis at app level. |
+| Pod stuck `Pending` with event `0/N nodes are available: ... eve.io/egress-pool selector unsatisfied` | Egress node group is not provisioned. Set `stable_egress_enabled = true` in the infra repo, then `terraform apply`. |
+| Pod renders without `hostNetwork: true` | Worker is missing `EVE_COMPUTE_MODEL=eks`. Render falls through to the no-op path. Re-roll the worker overlay. |
+| Render error: `Phase 1 requires replicas=1` | Multi-replica hostNetwork services are Phase 2 (need anti-affinity + cluster-wide port-collision validation). Set `replicas: 1` for now. |
+| Render error: `port(s) ... in the Kubernetes NodePort range (30000-32767)` | EKS node SG opens NodePort range from `0.0.0.0/0` for NLB traffic. Pick a service port outside that range. |
+| Egress IP equals the egress node's EXTERNAL-IP, but STUN ports differ across servers | `egress-snat-bypass` DaemonSet not running on the egress node. Check `kubectl -n eve get pods -l app.kubernetes.io/name=egress-snat-bypass` and inspect `iptables -t nat -L AWS-SNAT-CHAIN-0` on the node — there should be an early `RETURN` rule for the node's primary IP, before the SNAT. |
+| Vendor relay still times out but STUN passes | NAT semantics are correct; the remaining issue is app/vendor-specific (firewall on vendor side, expired credentials, decommissioned relay host, app-level retry). Reopen the protocol diagnosis at app level. |
 
 ## Worker Image Registry
 

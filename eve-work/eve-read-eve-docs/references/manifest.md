@@ -357,10 +357,11 @@ from each other. Per-app IRSA is the production follow-up.
 
 ### Stable Egress (`x-eve.networking.egress`)
 
-Opt a service into platform-managed stable egress. Use when an app needs a
-**fixed public IP** or **endpoint-independent UDP source-port mappings** —
-typically camera relays, peer-to-peer / hole-punched UDP protocols, or any
-vendor that allow-lists by source IP.
+Opt a service into platform-managed stable egress. Use when an app needs
+**endpoint-independent UDP source-port mappings** — typically camera relays,
+peer-to-peer / hole-punched UDP protocols, STUN-discovered NAT traversal, or
+vendors that won't tolerate the cluster NAT Gateway's symmetric port
+rewriting.
 
 ```yaml
 services:
@@ -373,24 +374,35 @@ services:
 | Value | Behavior |
 |-------|----------|
 | `nat` (default) | Existing path: AWS NAT Gateway on EKS, normal local networking on k3d. |
-| `stable` | EKS only: the worker injects a kernel-mode Tailscale sidecar (`eve-stable-egress`) that routes the pod's outbound traffic through a shared platform-managed exit-node EC2 host with a fixed Elastic IP. On k3d, accepted and logged as a no-op. |
+| `stable` | EKS only: the deployer schedules the pod onto the dedicated `eve.io/egress-pool=stable` node group with `hostNetwork: true` and `dnsPolicy: ClusterFirstWithHostNet`. Traffic exits via the node's own public IPv4 / Internet Gateway, with 1:1 NAT that preserves the kernel-chosen source port across destinations. On k3d, accepted and logged as a no-op. |
 
-**Pod shape on EKS when opted in:**
-- `eve-stable-egress` sidecar with `tailscale/tailscale:stable`, `NET_ADMIN` + `NET_RAW`, `/dev/net/tun` (hostPath), and `tailscale-state` (emptyDir).
-- App container gets `EVE_NETWORK_EGRESS=stable` and `EVE_STABLE_EGRESS_EXIT_NODE=<hostname>` for awareness.
-- Namespace receives a `eve-stable-egress-client` Secret with the tailnet auth key (worker-managed, mirrored from the platform secret).
+**Pod shape on EKS when opted in (no sidecar, no Secret):**
+- `hostNetwork: true`, `dnsPolicy: ClusterFirstWithHostNet`.
+- `nodeSelector: { eve.io/egress-pool: stable }` and a matching toleration.
+- App container gets `EVE_NETWORK_EGRESS=stable`.
+- Single container, no extra volumes, no privileged caps.
+
+**Phase 1 limits (deployer fail-fasts at render time):**
+- `replicas` must be `1`. Multi-replica hostNetwork services need pod
+  anti-affinity + cluster-wide port-collision validation, which is Phase 2.
+- Service ports must be **outside** the Kubernetes NodePort range
+  (30000–32767). The EKS node SG opens that range from `0.0.0.0/0` for NLB
+  traffic, so a hostNetwork pod listening there would be unintentionally
+  public.
 
 **Operational notes:**
-- The platform must have stable egress enabled (`stable_egress_enabled = true` in
-  the infra repo) before any app can opt in. If the worker is missing
-  `EVE_STABLE_EGRESS_EXIT_NODE` / `EVE_STABLE_EGRESS_TS_AUTHKEY`, render
-  fails before any apply — the deployment never reaches the cluster.
-- Sidecar requires `NET_ADMIN`, `NET_RAW`, and `/dev/net/tun`. Visible in the
-  rendered Deployment manifest. Limit to services that genuinely need it.
-- Verify with `eve env diagnose <project> <env>` (sidecar appears in the pod
-  spec) and the `udp-diag.py` helper in `incept5-eve-infra/scripts/stable-egress/`
-  (run inside the pod to confirm the egress IP equals the exit-node EIP and
-  STUN binding is endpoint-independent).
+- Each opt-in pod inherits the IP of the egress node it's scheduled on.
+  Phase 1 ships a single-AZ, single-instance pool — node replacement /
+  upgrade gives a new public IP. Apps that rely on STUN auto-reconnect
+  (pvscam-class) tolerate this; vendors that allow-list source IPs do not.
+  Phase 2 introduces a pre-allocated EIP pool.
+- `NetworkPolicy` does not apply to hostNetwork pods — closed-egress
+  policies on the namespace are silently bypassed.
+- Verify with `eve env diagnose <project> <env>` (the rendered pod has
+  `hostNetwork: true` + the `eve.io/egress-pool` selector) and the
+  `udp-diag.py` helper in `incept5-eve-infra/scripts/stable-egress/`
+  (run inside the pod; same-socket STUN should report
+  `endpoint-independent (good)`).
 
 ### Service Token Permissions
 
