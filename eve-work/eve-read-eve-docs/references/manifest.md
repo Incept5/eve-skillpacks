@@ -282,6 +282,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | `storage` | object | Persistent volume configuration |
 | `managed` | object | Managed DB config (requires `role: managed_db`) |
 | `object_store` | object | App object store bucket declarations |
+| `networking` | object | `{ egress: 'nat' \| 'stable' }` (default `nat`). See Stable Egress below. |
 | `permissions` | array | Additional permissions for the service's `EVE_SERVICE_TOKEN` |
 | `audit_log_table` | string | Optional table queried by `eve env diagnose --request` |
 | `request_id_column` | string | Optional request ID column for audit logs (default `request_id`) |
@@ -353,6 +354,43 @@ AWS staging trust model: apps share one app-bucket IAM principal scoped to
 `eh1-eve-app-*`. It cannot access `eh1-eve-internal`, org filesystem buckets
 under `eh1-eve-org-*`, or non-Eve buckets, but it does not isolate app buckets
 from each other. Per-app IRSA is the production follow-up.
+
+### Stable Egress (`x-eve.networking.egress`)
+
+Opt a service into platform-managed stable egress. Use when an app needs a
+**fixed public IP** or **endpoint-independent UDP source-port mappings** —
+typically camera relays, peer-to-peer / hole-punched UDP protocols, or any
+vendor that allow-lists by source IP.
+
+```yaml
+services:
+  api:
+    x-eve:
+      networking:
+        egress: stable      # 'nat' (default) | 'stable'
+```
+
+| Value | Behavior |
+|-------|----------|
+| `nat` (default) | Existing path: AWS NAT Gateway on EKS, normal local networking on k3d. |
+| `stable` | EKS only: the worker injects a kernel-mode Tailscale sidecar (`eve-stable-egress`) that routes the pod's outbound traffic through a shared platform-managed exit-node EC2 host with a fixed Elastic IP. On k3d, accepted and logged as a no-op. |
+
+**Pod shape on EKS when opted in:**
+- `eve-stable-egress` sidecar with `tailscale/tailscale:stable`, `NET_ADMIN` + `NET_RAW`, `/dev/net/tun` (hostPath), and `tailscale-state` (emptyDir).
+- App container gets `EVE_NETWORK_EGRESS=stable` and `EVE_STABLE_EGRESS_EXIT_NODE=<hostname>` for awareness.
+- Namespace receives a `eve-stable-egress-client` Secret with the tailnet auth key (worker-managed, mirrored from the platform secret).
+
+**Operational notes:**
+- The platform must have stable egress enabled (`stable_egress_enabled = true` in
+  the infra repo) before any app can opt in. If the worker is missing
+  `EVE_STABLE_EGRESS_EXIT_NODE` / `EVE_STABLE_EGRESS_TS_AUTHKEY`, render
+  fails before any apply — the deployment never reaches the cluster.
+- Sidecar requires `NET_ADMIN`, `NET_RAW`, and `/dev/net/tun`. Visible in the
+  rendered Deployment manifest. Limit to services that genuinely need it.
+- Verify with `eve env diagnose <project> <env>` (sidecar appears in the pod
+  spec) and the `udp-diag.py` helper in `incept5-eve-infra/scripts/stable-egress/`
+  (run inside the pod to confirm the egress IP equals the exit-node EIP and
+  STUN binding is endpoint-independent).
 
 ### Service Token Permissions
 

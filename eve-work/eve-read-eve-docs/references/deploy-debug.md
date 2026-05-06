@@ -207,6 +207,76 @@ The Tailscale K8s Operator must be installed once per cluster (k3d, staging, pro
 
 **k3d shortcut**: If the host Mac is already on Tailscale, k3d containers can typically route to `100.x.x.x` addresses directly. Use raw `eve secrets set` to point at the Tailscale IP instead of `eve endpoint add`.
 
+## Stable Egress
+
+Different problem from Private Endpoints. Stable egress gives an **opted-in
+service** a fixed public IP and endpoint-independent UDP NAT for **outbound**
+traffic — typically to allow vendor IP allow-listing or fix UDP hole-punching
+that AWS NAT Gateway breaks.
+
+Opt in from the manifest:
+
+```yaml
+services:
+  api:
+    x-eve:
+      networking:
+        egress: stable
+```
+
+See `references/manifest.md` for schema. EKS only — k3d treats the field as a
+no-op and logs a warning.
+
+### How It Works
+
+The platform deployer injects a `eve-stable-egress` sidecar into the pod when
+`networking.egress: stable` is set on EKS. The sidecar runs Tailscale in
+**kernel mode** (not userspace) so the pod's default route is rewritten — apps
+need no proxy awareness. Egress flows:
+
+```
+app container → eve-stable-egress sidecar (kernel Tailscale, pod netns)
+              → WireGuard tunnel
+              → EC2 stable-egress exit node (public subnet, fixed EIP)
+              → vendor / Internet
+```
+
+### Verifying Injection
+
+```bash
+# Sidecar must exist on the pod for any service that opted in
+kubectl -n <ns> get pod -l eve.component=<service> \
+  -o jsonpath='{.items[0].spec.containers[*].name}'
+# Expect: <service> eve-stable-egress
+```
+
+### Verifying Egress Behavior
+
+The diagnostic helper in the infra repo runs three checks:
+
+```bash
+INFRA=../incept5-eve-infra
+kubectl -n <ns> cp $INFRA/scripts/stable-egress/udp-diag.py <pod>:/tmp/udp-diag.py -c <container>
+kubectl -n <ns> exec <pod> -c <container> -- python3 /tmp/udp-diag.py
+```
+
+Read the output:
+
+| Check | Pass | Fail |
+|-------|------|------|
+| `egress public IP` | Equals the stable-egress EIP from `terraform output stable_egress_public_ip`. | Equals the cluster NAT Gateway EIP — sidecar isn't taking the default route. Check sidecar logs. |
+| STUN binding ports | Same external port across all three STUN servers. Endpoint-independent NAT. | Different ports per server. Symmetric / address-and-port-dependent NAT — exit node NAT config is wrong. Stop and fix before opting more apps in. |
+| UDP/53 to 1.1.1.1 | OK in <100 ms. | UDP egress broken entirely. Different problem. |
+
+### Common Failure Modes
+
+| Symptom | Likely Cause |
+|---------|--------------|
+| `Service '<name>' opted into networking.egress=stable on EKS but worker config is missing` at deploy time | Platform stable egress not provisioned. Set `stable_egress_enabled=true` in the infra repo with auth keys from Tailscale, then `terraform apply` and redeploy the worker overlay. |
+| Sidecar crash-loops with `tailscale up` errors | Auth key consumed/expired. Rotate `tailscale_app_egress_auth_key` in `secrets.auto.tfvars` (use **reusable + ephemeral**, not single-use). |
+| Egress IP still equals the cluster NAT GW EIP | Sidecar running but not capturing default route. Check `kubectl logs <pod> -c eve-stable-egress` — look for `userspace networking` warnings (means kernel mode failed; usually a missing `/dev/net/tun` mount or capability). |
+| Vendor relay still times out but STUN passes | NAT semantics are correct now; the remaining issue is app/vendor-specific (firewall on vendor side, app-level retry, etc.). Reopen the protocol diagnosis at app level. |
+
 ## Worker Image Registry
 
 Pre-built images on public ECR eliminate local builds and ensure consistent toolchains.
