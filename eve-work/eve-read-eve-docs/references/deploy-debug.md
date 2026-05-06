@@ -22,6 +22,18 @@ kind plus a "Next step" hint. Kinds:
 | `dependency_timeout` | `depends_on` service never became healthy | `eve env logs <project> <env> <dep-service>`. |
 | `ingress_conflict` | Another env owns the hostname (first-bind-wins) | `eve domain list`; `eve domain transfer <host> --to <env>`. |
 
+Object-store bucket deploy failures:
+- `Eve object storage is not configured`: the worker cannot provision buckets.
+  On AWS staging, check the worker overlay for `EVE_STORAGE_BACKEND=s3`,
+  `EVE_STORAGE_REGION`, `EVE_STORAGE_INTERNAL_BUCKET`,
+  `EVE_STORAGE_ORG_BUCKET_PREFIX`, `EVE_STORAGE_APP_BUCKET_PREFIX`, and
+  `EVE_STORAGE_PUBLIC_ENDPOINT`. Do not set `EVE_STORAGE_ACCESS_KEY_ID` or
+  `EVE_STORAGE_SECRET_ACCESS_KEY` on AWS workers; they use IRSA.
+- Missing `EVE_APP_STORAGE_ACCESS_KEY_ID` / `EVE_APP_STORAGE_SECRET_ACCESS_KEY`:
+  the worker can provision buckets but cannot inject app-facing credentials.
+  On AWS staging, verify the `eve-app-storage` secret exists in namespace
+  `eve` and the worker mounts it as `EVE_APP_STORAGE_*`.
+
 For request-specific failures after an app is deployed, use the CLI-first
 request ladder:
 
