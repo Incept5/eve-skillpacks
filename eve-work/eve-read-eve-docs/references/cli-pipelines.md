@@ -88,8 +88,8 @@ eve pipeline logs <pipeline> <run-id> --step <name>
 ```bash
 eve workflow list [--project <id>]
 eve workflow show <project> <name>
-eve workflow run [project] <name> --input '{"k":"v"}'   # Start async, return job-id
-eve workflow invoke [project] <name> --input '{"k":"v"}'  # Start and poll for result
+eve workflow run [project] <name> --input '{"k":"v"}' --env-override KEY=VALUE   # Start async
+eve workflow invoke [project] <name> --input '{"k":"v"}' --env-override KEY=VALUE  # Start and poll
   [--no-wait]                                           # Return immediately
 eve workflow retry <root-job-id> --failed                # Retry failed/upstream-failed tail
 eve workflow retry <root-job-id> --from <step-name>      # Retry named step + downstream tail

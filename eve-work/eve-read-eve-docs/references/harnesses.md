@@ -509,6 +509,7 @@ backwards compatibility, resolution falls back to the manifest if agent config i
 - `eve harness list --capabilities` -- auth + model + reasoning support
 - `eve harness validate --project <id> --profile-file profile.json` -- validate an inline profile override
 - `eve harness validate --project <id> --env-override KEY=${secret.NAME}` -- validate secret-backed env overrides
+- `eve harness validate --project <id> --workflow <name> [--env-override KEY=VALUE]` -- validate each workflow step's merged env overrides without creating jobs
 - `eve agents config --json` -- project policy + profile resolution
 
 ---

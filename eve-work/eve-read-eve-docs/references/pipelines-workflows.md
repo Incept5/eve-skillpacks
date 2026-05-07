@@ -271,6 +271,8 @@ workflows:
 - `depends_on: [step_names]` wires dependency as `blocks` relations -- the scheduler respects them.
 - Per-step agent, harness, and toolchain resolution is supported.
 - `with_apis` can be set at the workflow level (applies to all steps) or per step.
+- `env_overrides` can be set at the workflow level and per step, then overridden
+  at invocation time with `--env-override`.
 - When a service declares `x-eve.cli`, agents also get the CLI binary on `$PATH`. See `references/app-cli.md`.
 
 ### Resource Propagation Between Steps
@@ -311,6 +313,40 @@ workflow job still records the full invocation refs for audit. The invoke
 response includes `step_jobs[].resource_refs` with the effective mode, source
 (`default`, `workflow`, or `step`), inherited count, selected count, selectors,
 and missing selectors.
+
+### Workflow Env Overrides
+
+Workflow steps can receive secret-backed environment overrides without
+hand-building a job DAG. The effective step-job `env_overrides` object is merged
+by key with this precedence: invocation request > step YAML > workflow YAML.
+
+```yaml
+workflows:
+  research:
+    env_overrides:
+      WEB_SEARCH_API_KEY: ${secret.WEB_SEARCH_API_KEY}
+    steps:
+      - name: search
+        agent: { name: researcher }
+      - name: publish
+        depends_on: [search]
+        env_overrides:
+          PUBLISH_API_KEY: ${secret.PUBLISH_API_KEY}
+        agent: { name: publisher }
+```
+
+```bash
+eve workflow run research --env-override WEB_SEARCH_API_KEY='${secret.WEB_SEARCH_API_KEY}'
+eve workflow invoke research --env-override MODE=diagnostic
+eve harness validate --project <project> --workflow research --env-override MODE=diagnostic
+```
+
+The schema is the same as direct job `env_overrides`: keys must be
+`UPPER_SNAKE_CASE`, reserved Eve runtime variables cannot be overridden, values
+may contain `${secret.KEY}` placeholders only, and unsupported `${env.X}` style
+expressions are rejected. `eve manifest validate --validate-secrets` and
+`eve project sync --validate-secrets` include workflow env override secret refs
+in missing-secret reports.
 
 ### Prior Step Result Injection
 
@@ -523,8 +559,8 @@ Workflow definitions may include a `hints` block. These hints are merged into th
 ```bash
 eve workflow list [project]
 eve workflow show <project> <name>
-eve workflow run <project> <name> --input '{"k":"v"}'
-eve workflow invoke <project> <name> --input '{"k":"v"}'
+eve workflow run <project> <name> --input '{"k":"v"}' --env-override KEY=VALUE
+eve workflow invoke <project> <name> --input '{"k":"v"}' --env-override KEY=VALUE
 eve workflow retry <root-job-id> --failed
 eve workflow retry <root-job-id> --from <step-name>
 eve workflow logs <job-id>

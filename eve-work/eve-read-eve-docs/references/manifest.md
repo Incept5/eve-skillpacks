@@ -814,7 +814,9 @@ workflows:
 | `steps[].condition` | string | Conditional execution: `step.status == 'value'` (skip step if false) |
 | `steps[].agent.name` | string | Per-step agent override |
 | `steps[].resource_refs` | string \| string[] \| object | Step resource policy; overrides workflow-level policy |
+| `steps[].env_overrides` | object | Step env overrides; merged over workflow-level defaults |
 | `resource_refs` | string \| string[] \| object | Default invocation resource policy for all workflow steps |
+| `env_overrides` | object | Default env overrides applied to every workflow step |
 | `with_apis` | object[] | API specs attached to the workflow — `{ service, description }` (workflow-level or per-step) |
 
 `resource_refs` controls which invocation resources are hydrated into each
@@ -849,6 +851,30 @@ Allowed values:
 
 Step-level policy overrides workflow-level policy. If omitted everywhere, every
 step inherits all invocation refs, including dependent steps.
+
+`env_overrides` can be declared at workflow level and step level. Invocation
+flags from `eve workflow run|invoke --env-override KEY=VALUE` are merged in at
+run time. Precedence is invocation > step YAML > workflow YAML. Values may be
+literals or `${secret.KEY}` placeholders; unsupported `${env.X}` style
+expressions and reserved Eve runtime variables are rejected. The merged object is
+persisted on each executable step job, not on the root workflow container job.
+Secret placeholders are resolved only inside worker or agent-runtime before the
+harness process starts.
+
+```yaml
+workflows:
+  research:
+    env_overrides:
+      WEB_SEARCH_API_KEY: ${secret.WEB_SEARCH_API_KEY}
+    steps:
+      - name: search
+        agent: { name: researcher }
+      - name: publish
+        depends_on: [search]
+        env_overrides:
+          PUBLISH_API_KEY: ${secret.PUBLISH_API_KEY}
+        agent: { name: publisher }
+```
 
 **Validation** (`eve manifest validate` and `eve project sync` check workflows):
 - Duplicate step names → error.
@@ -896,6 +922,7 @@ eve manifest validate                   # Schema + secret validation without syn
 ```
 
 Use `eve manifest validate` for pre-flight checks against a local manifest or the latest synced version. Required keys follow standard scope resolution rules.
+`${secret.KEY}` references in workflow-level or step-level `env_overrides` are included in the same validation.
 
 ### Platform-Injected Environment Variables
 
