@@ -237,6 +237,17 @@ eve thread post <thread-id>                             # Post a message
   [--actor-type user] [--actor-id <id>] [--job-id <id>]
 eve thread follow <thread-id>                           # Tail messages (polls every 3s)
 
+# Structured conversation events (normalized timeline)
+eve thread events <thread-id>                           # List events
+  [--after <cursor>] [--kind <kind>] [--job <id>]
+  [--attempt <id>] [--workflow-step <name>] [--source <name>]
+  [--limit 100] [--jsonl] [--follow]
+eve thread emit-event <thread-id>                       # Emit an app-defined event
+  --kind <kind> [--source app] [--text <text>]
+  [--payload '{"key":"value"}']
+  [--job <id>] [--attempt <id>] [--agent <slug>]
+  [--workflow-step <name>] [--run <id>]
+
 # Distillation (summarize thread into memory or docs)
 eve thread distill <thread-id> --org org_xxx
   [--to <doc-path>]                                     # Write distillation to org docs path

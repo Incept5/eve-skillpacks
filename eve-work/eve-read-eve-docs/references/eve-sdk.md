@@ -206,6 +206,41 @@ for await (const event of conversation.stream({ resumeFrom: lastEventId })) {
 }
 ```
 
+### Structured Conversation Events
+
+Beyond plain user/assistant messages, every conversation has a normalized event timeline that includes job status changes, tool calls/results, file changes, attachments, errors, and app-emitted events. These are durable, ordered, and replayable.
+
+```typescript
+// List events (filter by kind, job, attempt, workflow_step, source)
+const { events } = await conversation.events({ kind: ['tool.call', 'tool.result'], limit: 100 });
+
+// Stream events (SSE; resume with `after` cursor or Last-Event-ID)
+for await (const event of conversation.streamEvents({ after: lastCursor })) {
+  if (event.kind === 'snapshot') continue;
+  lastCursor = event.eventId;
+}
+
+// Emit an app-defined event (server-side or via authenticated client)
+await conversation.emitEvent({
+  kind: 'artifact.update',
+  text: 'preview updated',
+  payload: { artifact_id: 'a_1', version: 2 },
+});
+```
+
+Event endpoints are also exposed by thread id:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/projects/:project_id/conversations/:app_key/events` | List events for an embedded conversation |
+| GET | `/projects/:project_id/conversations/:app_key/events/stream` | SSE stream of events |
+| POST | `/projects/:project_id/conversations/:app_key/events` | Emit an app-defined event |
+| GET | `/threads/:thread_id/events` | List events by thread id |
+| GET | `/threads/:thread_id/events/stream` | SSE stream by thread id |
+| POST | `/threads/:thread_id/events` | Emit an app-defined event by thread id |
+
+Standard event kinds: `user.message`, `assistant.message`, `text.delta`, `tool.call`, `tool.result`, `status.changed`, `progress`, `error`, `attachment.added`, `file.change`, `delivery.status`, `final.result`. App-defined kinds must match `^[a-z][a-z0-9_.-]*$` (max 150 chars). Lists default to 100 events; `limit` clamps to 500.
+
 ### SSE Authentication
 
 The middleware supports `?token=` query parameter for Server-Sent Events:
