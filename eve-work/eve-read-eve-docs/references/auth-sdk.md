@@ -245,7 +245,7 @@ When the cached access token expires, the bootstrap re-probes the SSO session. I
 
 ### App-Initiated Invite Redirects
 
-Apps can create org-scoped email invites through the Eve API, then rely on the SSO exchange flow to land the invited user back in the app after password setup.
+Apps can create org-scoped email invites through the Eve API, then rely on the SSO exchange flow to land the invited user back in the app after onboarding.
 
 **Required permissions:**
 - `orgs:invite` -- create and list org-scoped invites
@@ -268,8 +268,29 @@ Invite payload fields:
 | `send_email` | Send the GoTrue invite email immediately (default `true`) |
 | `redirect_to` | Final app URL after onboarding completes |
 | `app_context` | Opaque JSON for the originating app to persist with the invite |
+| `project_id` | Optional project context; enables project branding and app auth policy |
 
-Invite emails now enter through GoTrue's `/verify` path, which lands on the SSO root with the session tokens in the URL hash. When an invite is auto-applied during Supabase token exchange, Eve includes `invite_redirect_to` in the exchange response. The SSO callback uses it as a fallback redirect target when the email flow strips nested `redirect_to` query parameters, then sends invited users through `/set-password` before redirecting back to the app.
+Invite emails now enter through GoTrue's `/verify` path, which lands on the SSO root with the session tokens in the URL hash. When an invite is auto-applied during Supabase token exchange, Eve includes `invite_redirect_to` in the exchange response. The SSO callback uses it as a fallback redirect target when the email flow strips nested `redirect_to` query parameters.
+
+If the project manifest sets `x-eve.auth.invite_requires_password: false`, the invite callback redirects straight to the app after establishing the session. Otherwise invited users go through `/set-password` before the final app redirect.
+
+### App-Scoped Magic-Link Login
+
+Deployed app services receive `EVE_PROJECT_ID`. `eveAuthConfig()` exposes it as `eve_project_id`, and `@eve-horizon/auth-react` includes it in the SSO login URL.
+
+Projects opt in with:
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    self_signup: false
+    invite_requires_password: false
+```
+
+SSO uses `GET /auth/app-context?project_id=<project_id>` to render the project-branded login page. For `login_method: magic_link`, the page hides password login and signup, then calls `POST /auth/magic-link`. For `login_method: password_or_magic_link`, password login remains visible and the secondary magic-link request still goes through Eve API for branding and app self-signup enforcement. Eve checks membership/invite eligibility before generating a GoTrue magic-link action URL and sending a project-branded email.
+
+With `self_signup: false`, unknown emails receive generic success but no GoTrue call and no email. New users should enter through the org-scoped invite API.
 
 ## Org Awareness (Auth-React)
 

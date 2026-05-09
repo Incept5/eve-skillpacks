@@ -630,7 +630,25 @@ curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
   -H "Authorization: Bearer $USER_TOKEN"
 ```
 
-`redirect_to` is stored on the invite record. Invite emails flow through a GoTrue `generate_link` action link and then GoTrue's `/verify` endpoint, which returns to the SSO root with tokens in the hash fragment. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link. For invite accepts, the SSO broker establishes the session, routes the user through `/set-password`, then redirects to the final app URL.
+`redirect_to` is stored on the invite record. Invite emails flow through a GoTrue `generate_link` action link and then GoTrue's `/verify` endpoint, which returns to the SSO root with tokens in the hash fragment. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link. For default invite accepts, the SSO broker establishes the session, routes the user through `/set-password`, then redirects to the final app URL.
+
+If the originating project sets `x-eve.auth.invite_requires_password: false`, SSO skips `/set-password` and redirects to the final app URL after the session is established.
+
+### App-Scoped Magic-Link Login
+
+Projects can opt into passwordless app login:
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    self_signup: false
+    invite_requires_password: false
+```
+
+SSO fetches `GET /auth/app-context?project_id=<project_id>` to render the project-branded login page. The app-scoped magic-link form calls `POST /auth/magic-link`; Eve verifies the project policy and recipient eligibility before generating a GoTrue magic-link action URL and sending the email through the shared branded mailer. `login_method: password_or_magic_link` keeps password login visible while still routing the secondary magic-link request through Eve API. Projects without `x-eve.auth` keep the legacy SSO magic-link path.
+
+Magic-link emails use the same `x-eve.branding` values as invite emails. `self_signup: false` returns generic success for unknown emails but does not call GoTrue and does not send email.
 
 ---
 

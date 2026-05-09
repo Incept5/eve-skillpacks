@@ -171,6 +171,34 @@ Use `name` as the top-level project identifier. `project` is accepted as a legac
 
 Unknown fields are allowed for forward compatibility.
 
+### Project Branding And Auth (`x-eve.branding`, `x-eve.auth`)
+
+Project-level branding is used by app invite emails, app-scoped magic-link emails, and branded SSO login pages:
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+    reply_to_email: "support@all-track.co.uk"
+    support_email: "support@all-track.co.uk"
+    support_url: "https://all-track.co.uk/help"
+```
+
+Apps can opt into passwordless login with:
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link          # password_or_magic_link | password | magic_link
+    self_signup: false
+    invite_requires_password: false
+```
+
+When `login_method: magic_link`, app SSO hides password login and signup and sends branded magic-link email through Eve API. When `login_method: password_or_magic_link`, password login remains visible and the secondary magic-link request still goes through Eve API for branding and app self-signup enforcement. With `self_signup: false`, unknown emails get generic success but no GoTrue call/email. With `invite_requires_password: false`, invite acceptance establishes the SSO session and redirects to the app without `/set-password`.
+
 ## Workflow References
 
 For large workflows, keep `.eve/manifest.yaml` small and reference repo-local
