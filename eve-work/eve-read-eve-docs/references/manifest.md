@@ -1003,6 +1003,25 @@ x-eve:
 `max_cost`, and `max_tokens`. These map to scheduling hints and per-attempt
 budget enforcement.
 
+## Project Branding (`x-eve.branding`)
+
+Project branding is optional manifest metadata used by platform-managed invite
+emails. It is synced onto the project record by `eve project sync`.
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+    reply_to_email: "support@all-track.co.uk"
+    support_email: "support@all-track.co.uk"
+    support_url: "https://all-track.co.uk/help"
+```
+
+`app_name` is required when `branding` is present. Logo/support URLs must be valid URLs; only HTTPS logo URLs are emitted into Phase 1 emails. `primary_color` must be a hex color like `#1f6feb`. Invite emails sent with `eve org invite <email> --project <project_id>` use this block for subject, body, and `From:` display name while keeping the platform sender address.
+
 ## Project Agent Profiles (`x-eve.agents`)
 
 Define harness profiles used by orchestration skills:

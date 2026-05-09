@@ -574,7 +574,7 @@ curl "$EVE_API_URL/auth/invites/org_xxx" -H "Authorization: Bearer $ADMIN_TOKEN"
 
 ### Org-Scoped Email Invites
 
-Use the org-scoped invite API when an Eve-compatible app needs to invite a user by email, optionally send the Supabase email immediately, and preserve an app return URL through SSO onboarding.
+Use the org-scoped invite API when an Eve-compatible app needs to invite a user by email, optionally send an email immediately, and preserve an app return URL through SSO onboarding.
 
 **Permissions:**
 - `orgs:invite` -- create and list org-scoped invites
@@ -589,9 +589,35 @@ curl -X POST "$EVE_API_URL/orgs/org_xxx/invites" \
     "email": "user@example.com",
     "role": "member",
     "redirect_to": "https://app.example.com/invite/complete",
-    "app_context": { "project_id": "proj_123" }
+    "project_id": "proj_123"
   }'
 ```
+
+`project_id` is optional. When present, it must belong to the org being invited into and resolves project branding for the email subject, body, and `From:` display name. It is also copied into `app_context.project_id` for auditability.
+
+**CLI:**
+```bash
+eve org invite user@example.com \
+  --org org_xxx \
+  --project proj_123 \
+  --redirect-to https://app.example.com/invite/complete
+```
+
+Projects define invite email branding in `.eve/manifest.yaml`:
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+    reply_to_email: "support@all-track.co.uk"
+    support_email: "support@all-track.co.uk"
+    support_url: "https://all-track.co.uk/help"
+```
+
+Run `eve project sync` after changing the manifest. If an invite omits `project_id` or the project has no branding, Eve Horizon defaults are used. Phase 1 keeps the sender address on the platform default; only the display name is app-branded.
 
 **List org-scoped invites:**
 ```bash
@@ -604,7 +630,7 @@ curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
   -H "Authorization: Bearer $USER_TOKEN"
 ```
 
-`redirect_to` is stored on the invite record. Invite emails should flow through GoTrue's `/verify` endpoint, which returns to the SSO root with tokens in the hash fragment. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link. For invite accepts, the SSO broker establishes the session, routes the user through `/set-password`, then redirects to the final app URL.
+`redirect_to` is stored on the invite record. Invite emails flow through a GoTrue `generate_link` action link and then GoTrue's `/verify` endpoint, which returns to the SSO root with tokens in the hash fragment. If the invite is auto-applied during Supabase token exchange, Eve returns `invite_redirect_to` from `/auth/exchange`, and the SSO callback uses it as a fallback destination when nested redirect params are stripped from the email link. For invite accepts, the SSO broker establishes the session, routes the user through `/set-password`, then redirects to the final app URL.
 
 ---
 
