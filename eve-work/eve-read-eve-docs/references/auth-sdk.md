@@ -62,8 +62,10 @@ app.use('/api', eveAuthGuard());                            // Protect all API r
 | Export | Type | Purpose |
 |--------|------|---------|
 | `eveAuth(options?)` | Middleware | **Recommended.** Unified auth for both user and agent tokens, attach `req.eveIdentity` |
+| `eveAppAuth(options?)` | Middleware | Unified auth with app-scoped user org access for `x-eve.auth.org_access` apps |
 | `eveIdentityGuard()` | Middleware | Return 401 if `req.eveIdentity` not set |
 | `eveUserAuth(options?)` | Middleware | User-only: verify user token, check org membership, attach `req.eveUser` |
+| `eveAppUserAuth(options?)` | Middleware | User-only app-scoped org access via `GET /auth/app-access` |
 | `eveAuthGuard()` | Middleware | Return 401 if `req.eveUser` not set |
 | `eveAuthConfig()` | Handler | Serve `{ sso_url, eve_api_url, ... }` from env vars |
 | `eveAuthMe(options?)` | Handler | Serve `/auth/me` with full user claims (memberships + project role) |
@@ -88,6 +90,8 @@ This lets you mix public and protected routes on the same app — apply `eveUser
 - `projectHeader?: string` -- request header name containing a project ID (e.g. `'x-eve-project-id'`). When set, proxies to Eve API to resolve the user's project-level role.
 
 **`eveAuthMiddleware()`** is blocking — returns 401 immediately on any verification failure. Use for agent-only APIs where every request must be authenticated.
+
+**`eveAppUserAuth()`** is for apps that declare `x-eve.auth.org_access`. It verifies the user token, calls Eve API `GET /auth/app-access?project_id=...`, selects an allowed org from `X-Eve-Org-Id`, `?eve_org_id=...`, the token `org_id` claim, or the first allowed org, then attaches `req.eveUser`.
 
 ### Unified Auth: `eveAuth()` (Recommended for New Apps)
 
@@ -131,7 +135,9 @@ interface EveIdentity {
 | Middleware | Use case | Token types | Blocking? |
 |-----------|----------|-------------|-----------|
 | `eveAuth()` | Apps serving both users and agents | User + Job | No |
+| `eveAppAuth()` | Apps serving users and agents with app-org allowlists | User + Job | No |
 | `eveUserAuth()` | User-only web apps | User only | No |
+| `eveAppUserAuth()` | User-only apps with app-org allowlists | User only | No |
 | `eveAuthMiddleware()` | Agent-only APIs | Any | Yes (401) |
 
 ### Agent Identity in Job Tokens
@@ -292,6 +298,34 @@ SSO uses `GET /auth/app-context?project_id=<project_id>` to render the project-b
 
 With `self_signup: false`, unknown emails receive generic success but no GoTrue call and no email. New users should enter through the org-scoped invite API.
 
+## App-Scoped Org Access And Admin Invites
+
+Apps that set `x-eve.auth.org_access` should use `eveAppUserAuth()` or `eveAppAuth()` on the backend and `useEveAppAccess()` on React frontends.
+
+```typescript
+import { eveAppUserAuth, eveAuthGuard, eveAuthConfig } from '@eve-horizon/auth';
+
+app.use(eveAppUserAuth());
+app.get('/auth/config', eveAuthConfig());
+app.use('/api', eveAuthGuard());
+```
+
+React:
+
+```tsx
+import { useEveAppAccess } from '@eve-horizon/auth-react';
+
+const { orgs, adminOrgs, inviteMember } = useEveAppAccess();
+await inviteMember({ orgId: adminOrgs[0].id, email: 'new.user@example.com' });
+```
+
+`useEveAppAccess(projectId?)` calls `GET /auth/app-access` with the current Eve token and exposes:
+- `orgs`: app-allowed orgs the user can enter;
+- `adminOrgs`: allowed orgs where the user can invite members;
+- `inviteMember({ orgId, email, redirectTo, resend })`: calls `POST /auth/app-invites`.
+
+Eve enforces that the target org is allowed by the app policy, the caller is an admin/owner allowed by `invite.admin_roles`, and app-facing invites create only `member` users. Invite emails use project branding. When the invited user accepts, SSO appends `eve_org_id=<target-org-id>` to the final redirect so the React provider can initialize the active org.
+
 ## Org Awareness (Auth-React)
 
 `@eve-horizon/auth-react` exposes org memberships and provides org switching for multi-org apps.
@@ -318,6 +352,7 @@ The platform deployer injects these into every deployed app:
 | `EVE_PUBLIC_API_URL` | Public-facing API URL |
 | `EVE_SSO_URL` | SSO broker URL (`eveAuthConfig()` response) |
 | `EVE_ORG_ID` | Org membership check |
+| `EVE_PROJECT_ID` | Project context for app-scoped SSO and `GET /auth/app-access` |
 
 Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URL:
 

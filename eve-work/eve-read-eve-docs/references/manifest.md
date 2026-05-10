@@ -199,6 +199,27 @@ x-eve:
 
 When `login_method: magic_link`, app SSO hides password login and signup and sends branded magic-link email through Eve API. When `login_method: password_or_magic_link`, password login remains visible and the secondary magic-link request still goes through Eve API for branding and app self-signup enforcement. With `self_signup: false`, unknown emails get generic success but no GoTrue call/email. With `invite_requires_password: false`, invite acceptance establishes the SSO session and redirects to the app without `/set-password`.
 
+Apps can also opt into app-scoped org access and in-app admin invites:
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    self_signup: false
+    invite_requires_password: false
+    org_access:
+      mode: allowlist                  # project_org | allowlist
+      allowed_orgs:
+        - org_customer123              # org IDs or slugs; sync stores canonical IDs
+        - customer-slug
+      invite:
+        enabled: true
+        admin_roles: [admin, owner]
+        invited_role: member           # fixed to member
+```
+
+Default `org_access.mode` is `project_org`, which limits SSO/app SDK access to the project owner org. `allowlist` lets a project-owned app serve specific customer orgs. `invite.enabled` allows org admins/owners in those app-allowed orgs to call `POST /auth/app-invites`; app-facing invites always create regular members and use the same project branding as invite/magic-link emails.
+
 ## Workflow References
 
 For large workflows, keep `.eve/manifest.yaml` small and reference repo-local
