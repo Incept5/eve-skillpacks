@@ -96,18 +96,150 @@ eve db migrations --env <name>
 
 ### Pipeline Step
 
-Add a migration step in pipelines for automated deployment:
+The migrate step must run **after deploy** — the managed DB is provisioned during deploy and does not exist before then. Use `action.type: job` referencing the `migrate` service:
 
 ```yaml
 pipelines:
   deploy:
     steps:
-      - name: migrate
-        action: { type: migrate, env_name: staging }
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
       - name: deploy
-        depends_on: [migrate]
-        action: { type: deploy, env_name: staging }
+        depends_on: [release]
+        action: { type: deploy }
+      - name: migrate
+        depends_on: [deploy]
+        action: { type: job, service: migrate }
 ```
+
+**Common mistake**: Running `migrate` before `deploy`. This will fail because the managed DB doesn't exist until the first deploy provisions it.
+
+### Complete Working Example (based on eden)
+
+A fully working manifest with managed DB, migrations, and pipeline — copy and adapt:
+
+```yaml
+name: my-app
+schema: eve/compose/v2
+registry: "eve"
+
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: ./apps/api/Dockerfile
+    ports: [3000]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${managed.db.url}
+
+  migrate:
+    image: public.ecr.aws/w7c4v0w3/eve-horizon/migrate:latest
+    environment:
+      DATABASE_URL: ${managed.db.url}
+      MIGRATIONS_DIR: /migrations
+    x-eve:
+      role: job
+      files:
+        - source: db/migrations
+          target: /migrations
+
+  db:
+    x-eve:
+      role: managed_db
+      managed:
+        class: db.p1
+        engine: postgres
+        engine_version: "16"
+
+environments:
+  sandbox:
+    pipeline: deploy
+
+pipelines:
+  deploy:
+    steps:
+      - name: build
+        action: { type: build }
+      - name: release
+        depends_on: [build]
+        action: { type: release }
+      - name: deploy
+        depends_on: [release]
+        action: { type: deploy }
+      - name: migrate
+        depends_on: [deploy]
+        action: { type: job, service: migrate }
+```
+
+Local docker-compose.yml for parity:
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: myapp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d myapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: ghcr.io/incept5/eve-migrate:latest
+    environment:
+      DATABASE_URL: postgres://app:app@db:5432/myapp
+    volumes:
+      - ./db/migrations:/migrations:ro
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+```
+
+First migration file (`db/migrations/20260312000000_initial_schema.sql`):
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE items (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id     TEXT        NOT NULL,
+  name       TEXT        NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER trg_items_updated_at
+  BEFORE UPDATE ON items
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY items_org_isolation ON items
+  USING (org_id = current_setting('app.org_id', true))
+  WITH CHECK (org_id = current_setting('app.org_id', true));
+```
+
+Create new migrations with `eve db new <description>`, then apply with `docker compose run --rm migrate` locally or let the pipeline handle it on deploy.
 
 ## Schema Inspection + RLS
 

@@ -3,3 +3,6 @@
 .claude/skills
 .agent/harnesses/
 .eve-horizon-src/secrets.env
+.pi/
+
+secrets.env
