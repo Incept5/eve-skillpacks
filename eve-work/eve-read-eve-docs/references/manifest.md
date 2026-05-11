@@ -220,6 +220,42 @@ x-eve:
 
 Default `org_access.mode` is `project_org`, which limits SSO/app SDK access to the project owner org. `allowlist` lets a project-owned app serve specific customer orgs. `invite.enabled` allows org admins/owners in those app-allowed orgs to call `POST /auth/app-invites`; app-facing invites always create regular members and use the same project branding as invite/magic-link emails.
 
+#### `x-eve.auth.allowed_redirect_origins`
+
+Apps deployed on custom domains (off-cluster) must declare which origins SSO is
+allowed to redirect back to after invite redemption or magic-link callback.
+Without this, the SSO broker drops the redirect target and lands the user on
+the SSO root.
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    allowed_redirect_origins:
+      - https://sandbox.all-track.co.uk
+      - https://app.example.com
+```
+
+Rules:
+
+- Entries are **origins only**: `scheme://host[:port]`. Paths, query strings,
+  fragments, and userinfo are rejected at manifest-validate time.
+- `https://` is required, except for local development (`localhost`, loopback
+  IPs, `*.lvh.me`) which may use `http://`.
+- The SSO broker accepts `redirect_to` and CORS origins matching any entry by
+  exact origin (scheme + host + port).
+
+You usually do not need to declare this for apps whose own custom domains are
+already registered through `services.<name>.x-eve.ingress.domains`. Eligible
+custom domains owned by the project are auto-included in the resolved
+allowlist. If your manifest is in a branding-only project that redirects into a
+sibling org's deployed app, set `org_access.mode: allowlist` and list the
+sibling org under `allowed_orgs` — the sibling's eligible custom domains are
+auto-included too.
+
+Inspect the resolved list (manifest ∪ own custom domains ∪ cross-org domains)
+with `eve project auth-context <project_id>`.
+
 ## Workflow References
 
 For large workflows, keep `.eve/manifest.yaml` small and reference repo-local
@@ -475,6 +511,7 @@ services:
 | `events:write` | Emit app events (e.g., `question.answered`) |
 | `threads:write` | Create or reply to threads |
 | `envdb:write` | Write to managed databases via API |
+| `notifications:send` | Send Slack channel notifications via `eve notifications send` (see `references/integrations.md`) |
 
 Declared permissions are **merged** with defaults — you only need to list the additional write scopes your service needs.
 
@@ -860,13 +897,23 @@ workflows:
 |-------|------|-------------|
 | `steps[].name` | string | Unique step identifier (required when using `depends_on`) |
 | `steps[].depends_on` | string[] | Step names this step blocks on |
-| `steps[].condition` | string | Conditional execution: `step.status == 'value'` (skip step if false) |
-| `steps[].agent.name` | string | Per-step agent override |
+| `steps[].condition` | string | Conditional execution: `step_name.status == 'value'` or `!= 'value'` (skip step if false) |
+| `steps[].agent` | object | Agent ref: `name`, optional `prompt`/`prompt_file`, `harness`, `harness_profile`, `toolchains` |
+| `steps[].harness` | string | Step-level harness override (takes precedence over agent-resolved value) |
+| `steps[].harness_options` | object | Step-level harness options: `model`, `reasoning_effort`, `temperature` (passthrough) |
+| `steps[].harness_profile` | string | Named profile reference; supports `${inputs.<key>}` template expressions |
+| `steps[].harness_profile_override` | object | Inline profile override: `{ harness, model?, reasoning_effort?, variant?, temperature? }` |
+| `steps[].git` | object | Step git controls (`ref`, `ref_policy`, `branch`, `create_branch`, `commit`, `push`, `remote`); overrides workflow-level `git` |
 | `steps[].resource_refs` | string \| string[] \| object | Step resource policy; overrides workflow-level policy |
 | `steps[].env_overrides` | object | Step env overrides; merged over workflow-level defaults |
+| `inputs` | object | Workflow-level named inputs. Each entry: `{ from?: 'event.payload.<path>', default?: any }` |
+| `git` | object | Default job git controls inherited by steps unless overridden |
 | `resource_refs` | string \| string[] \| object | Default invocation resource policy for all workflow steps |
 | `env_overrides` | object | Default env overrides applied to every workflow step |
 | `with_apis` | object[] | API specs attached to the workflow — `{ service, description }` (workflow-level or per-step) |
+| `db_access` | string | `read_only` or `read_write` |
+| `hints` | object | Merged into the root job at invocation time (gates, timeouts, harness prefs) |
+| `trigger` | object | Event trigger for automatic invocation (see `references/pipelines-workflows.md`) |
 
 `resource_refs` controls which invocation resources are hydrated into each
 step workspace:
@@ -925,6 +972,36 @@ workflows:
         agent: { name: publisher }
 ```
 
+**Conditional steps and step-level harness**:
+
+```yaml
+workflows:
+  triage-and-deepen:
+    inputs:
+      model:
+        from: event.payload.meta.brand
+        default: claude
+    steps:
+      - name: triage
+        agent: { name: fast-triage }
+        harness: claude
+        harness_options:
+          model: sonnet
+          reasoning_effort: medium
+      - name: deep-analysis
+        depends_on: [triage]
+        condition: "triage.status == 'complex'"
+        harness_profile: ${inputs.model}
+        agent: { name: deep-analyzer }
+```
+
+`condition` format is `step_name.status == 'value'` or `!= 'value'`, evaluated
+against `result_json.eve.status` of the referenced step (which must be in
+`depends_on`). Skipped steps count as `done` for downstream resolution. Step
+`harness`/`harness_options`/`harness_profile` override agent-resolved values
+and may carry `${inputs.<key>}` template expressions that resolve at
+invocation time.
+
 **Validation** (`eve manifest validate` and `eve project sync` check workflows):
 - Duplicate step names → error.
 - Cyclic dependencies → error (reports cycle path).
@@ -933,9 +1010,9 @@ workflows:
 - Invalid GitHub event type → warning.
 - Unknown system event type → warning.
 - Cron trigger with missing schedule → warning.
-- Invalid condition format → warning.
-- Condition references non-existent step → warning.
-- Condition step not in `depends_on` → warning.
+- Invalid condition format → error.
+- Condition references non-existent step → error.
+- Condition step not in `depends_on` → error.
 
 **Pack workflow merging**: When packs define workflows, they are merged into the
 repo manifest before sync (single POST). Pack workflows overlay repo-manifest

@@ -171,3 +171,89 @@ workflows:
     hints:
       gates: ["remediate:proj_abc123:staging"]
 ```
+
+### Conditional Steps
+
+Skip a downstream step based on an upstream's outcome. Conditions reference
+named upstream steps and resolve at dispatch time:
+
+```yaml
+workflows:
+  triage-and-act:
+    steps:
+      - name: triage
+        agent: { prompt: "Classify this incident" }
+      - name: deep
+        depends_on: [triage]
+        condition: "triage.status == 'complex'"   # skip if false
+        agent: { prompt: "Run deep analysis" }
+```
+
+Conditions support `==` and `!=` against upstream step status. Referenced steps must appear in `depends_on` — validation rejects ghost references and bad condition syntax at manifest sync.
+
+### Step-Level Harness Overrides
+
+Pin or override harness per step (workflow steps and pipeline steps share the same shape):
+
+```yaml
+steps:
+  - name: classify
+    harness: claude
+    harness_profile: claude-sonnet
+    harness_options:
+      model: claude-sonnet-4-7
+      reasoning_effort: medium
+      temperature: 0.2
+    agent: { prompt: "Classify this" }
+```
+
+Step-level values take precedence over agent-resolved defaults. `harness_profile` may carry a template like `${inputs.model}` for caller-driven selection.
+
+### Workflow `env_overrides`
+
+Set env at three layers — workflow, step, invocation — and the runtime merges them in that order (later wins). Reference secrets with `${secret.KEY}`; the resolver redacts them in logs.
+
+```yaml
+workflows:
+  remediate:
+    env_overrides:
+      LOG_LEVEL: info
+    steps:
+      - name: act
+        env_overrides:
+          LOG_LEVEL: debug          # step wins over workflow
+          API_KEY: ${secret.VENDOR_TOKEN}
+        agent: { prompt: "Remediate" }
+```
+
+Callers add a third layer at invoke time:
+
+```bash
+eve workflow invoke <project> remediate --input '{"k":"v"}' --env-override DRY_RUN=true
+```
+
+Pipeline `env` propagates down to the run's `env_name` so steps see the right scope without re-declaring it.
+
+### Per-Job Harness Override (Ad-Hoc Jobs)
+
+When firing an ad-hoc job (outside a workflow), override the harness on the create call:
+
+```bash
+eve job create --description "Investigate" \
+  --harness claude \
+  --profile claude-sonnet
+
+# Or pass a full override object:
+eve job create --description "..." --harness-override-file ./override.json
+# override.json: { "harness": "...", "model": "...", "reasoning_effort": "...", "variant": "...", "temperature": 0.2 }
+```
+
+The override flows end-to-end through dispatch and claim, taking precedence over agent-resolved values.
+
+### Slack Notifications, Retry, and File Refs
+
+- Workflow `hints.slack` posts step start/complete/fail to a configured channel.
+- Retry the failed/upstream-failed tail of a previous invocation:
+  - `eve workflow retry <root-job-id> --failed`
+  - `eve workflow retry <root-job-id> --from <step>`
+- Workflow steps accept file references (`resource_refs` entries that point at a path) — they materialize into the step's workspace alongside other refs.

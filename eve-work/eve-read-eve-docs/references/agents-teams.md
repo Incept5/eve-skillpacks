@@ -147,6 +147,7 @@ Rules:
 - **Per-agent** — different agents in the same project can have different permissions.
 - Only applies when minting fresh tokens. Pre-existing/embedded tokens are used as-is.
 - `notifications:send` is the least-privilege grant for non-chat Slack/channel notifications from workflow jobs.
+- **`envdb:write` is now actually grantable**: built-in roles (owner/admin/member) carry a wildcard `envdb` scope on their org/project membership grants, so an agent declaring `envdb:write` can run env DB migrations and mutations instead of being denied by the scope evaluator.
 
 ### Gateway Discovery Policy
 
@@ -279,7 +280,7 @@ routes:
 
 ### Route Matching
 
-- `match` is a regex tested against message text.
+- `match` is a regex tested against message text. Matching is **case-insensitive** (the `i` flag is applied automatically), so `(add|create).*persona` matches both `Add a persona` and `add a persona`.
 - Optional `providers` and `account_ids` predicates narrow a route to specific chat origins, for example `providers: [app]` and `account_ids: [open-design]`.
 - First match wins; fallback to `default_route` if none match.
 - Target prefixes: `agent:<key>`, `team:<key>`, `workflow:<name>`, `pipeline:<name>`.
@@ -310,6 +311,33 @@ Use `@eve-horizon/chat` for fetch/SSE handling and `@eve-horizon/chat-react` for
 
 Stream events use `thread_messages.id` as the SSE event id. Reconnect by passing `Last-Event-ID` directly or `resumeFrom` through `@eve-horizon/chat`; the API replays rows strictly after that message id. Progress updates are stored as `kind: progress` thread messages and include the originating `job_id` when emitted by chat jobs.
 
+### Structured Conversation Event Streams
+
+Beyond the message stream, every conversation has a normalized, ordered, replayable **event** timeline (`conversation_events`, ids `cevt_*`). Standard kinds: `user.message`, `assistant.message`, `text.delta`, `tool.call`, `tool.result`, `status.changed`, `progress`, `error`, `attachment.added`, `file.change`, `delivery.status`, `final.result`. Apps may emit custom kinds matching `^[a-z][a-z0-9_.-]*$` (max 150 chars).
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/projects/{project_id}/conversations/{app_key}/events` | List events with `kind`, `job_id`, `attempt_id`, `workflow_step`, `source`, `after`, `limit` (default 100, max 500) |
+| `GET` | `/projects/{project_id}/conversations/{app_key}/events/stream` | SSE stream of typed events; resume with `after` cursor or `Last-Event-ID` |
+| `POST` | `/projects/{project_id}/conversations/{app_key}/events` | Emit an app-defined event |
+| `GET` `/POST` | `/threads/{thread_id}/events[/stream]` | Same surface addressed by Eve thread id |
+
+### Continuing Eve Threads by `thr_*` Id
+
+Apps that hold an Eve `thread_id` can continue a routed thread directly without re-supplying `thread_key` or provider-native handles:
+
+```
+POST /threads/{thread_id}/chat
+```
+
+Body: `{ text, actor_id?, metadata? }`. Returns `{ thread_id, thread_key, route_id, target, job_ids, event_id }`. Continuation preserves the **original dispatch target** stored in `threads.metadata_json.continuation` (`{ kind: "route" | "agent" | "team", target }`), so a `chat.yaml` change after the conversation started will not silently re-route. Requires `chat:write` on the project; rejects org-scoped, coordination, and legacy threads that lack continuation metadata. The same primitive is exposed via the CLI:
+
+```bash
+eve chat send --thread thr_ABC --text "follow-up" --json
+```
+
+`POST /projects/:project_id/chat/simulate`, `POST /internal/projects/:project_id/chat/route`, and `POST /internal/orgs/:org_id/chat/route` also accept Eve `thread_id` for continuation.
+
 ## Syncing Configuration
 
 ```bash
@@ -337,6 +365,10 @@ agents:
     _remove: true                         # remove from pack
 ```
 
+### Sparse Packs
+
+The pack resolver discovers `agents.yaml`, `teams.yaml`, and `chat.yaml` at the **pack root** (convention-based "simple pack" format) without requiring an `eve/pack.yaml` index. A pack can ship just a subset of files (sparse) — e.g. only `agents.yaml`, or only `chat.yaml` — and **multiple sparse packs in one project sync** merge cleanly. Slugs are still prefixed with the project slug and validated for org-wide uniqueness during merge.
+
 ## Warm Pods / Agent Runtime
 
 Warm pods are pre-provisioned org-scoped containers that eliminate cold starts for chat-triggered jobs. Routing is org-sticky.
@@ -362,6 +394,8 @@ Summary: 1 healthy, 1 stale
 `eve system status` also renders agent-runtime health with replica count.
 
 Data model: `agent_runtime_pods` (heartbeat + capacity), `agent_placements` (pod selection), `agent_state` (status + heartbeat).
+
+**Org auto-discovery**: Pods no longer fail when `EVE_ORG_ID` is unset or set to the placeholder `org_default`. The runtime queries the API for known orgs at startup and re-discovers every 5 minutes (or sooner if no orgs are tracked), so newly created orgs are picked up without restarting pods. Set `AGENT_RUNTIME_ORG_IDS` to pin an explicit list when needed.
 
 ## Coordination Threads
 
@@ -389,6 +423,10 @@ eve thread messages <thread-id> --since 5m      # list recent messages
 eve thread post <thread-id> --body '{"kind":"update","body":"Phase 1 complete"}'
 eve thread follow <thread-id>                    # stream in real-time
 ```
+
+### Learning Loop Hooks
+
+Agents that participate in a learning loop (e.g. a post-session reviewer that watches another agent's attempts) subscribe to `system.job.attempt.completed` events emitted by the orchestrator on success, failure, and orchestrator-error paths. Carryover context is plumbed across attempts so reviewers can compare prior runs. See `references/jobs.md` and `references/events.md` for the event payload, and `references/skills-system.md` for wiring an event-driven workflow to an agent.
 
 ## Chat Outbound Delivery
 

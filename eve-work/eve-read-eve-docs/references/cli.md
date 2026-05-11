@@ -586,6 +586,27 @@ eve event emit --type manual.test --source manual
 
 See `references/events.md` for the complete event type catalog and trigger syntax.
 
+## Traces (OTEL Trace Query)
+
+Agent-queryable surface over the OTEL trace store. No AWS console access required.
+
+```bash
+eve traces query --project proj_xxx --request-id req_01h... [--json]
+eve traces query --project proj_xxx --trace-id <trace-id> [--json]
+eve traces query --project proj_xxx --service <name> --since 5m --error
+eve traces query --project proj_xxx --service <name> --route "POST /api/items" --since 1h --p99
+  [--limit <n>] [--no-cache]
+```
+
+Notes:
+- Provide at least one of `--request-id`, `--trace-id`, `--since`, `--route`, or `--error`.
+- Returns structured spans (service, duration, error/fault/throttle flags) plus a
+  summary `{ trace_count, span_count, p99_ms }`.
+- Backed by the platform trace store; the response includes `backend` and
+  `backend_available` so agents can detect when traces are unavailable.
+- For request-id-based diagnostics that combine logs, events, deploy metadata,
+  and traces in one shot, prefer `eve env diagnose <project> <env> --request <id> --json`.
+
 ## Supervision
 
 ```bash
@@ -901,6 +922,7 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **API** | `list`, `show`, `spec`, `refresh`, `examples`, `call`, `generate`, `diff` |
 | **GitHub** | `setup`, `status`, `test` |
 | **Events** | `list`, `show`, `emit` |
+| **Traces** | `query` |
 | **Chat** | `simulate` |
 | **Identity** | `link` |
 | **Integrations** | `list`, `configure`, `config`, `unconfigure`, `setup-info`, `connect`, `slack connect`, `slack install-url`, `test`, `update` |

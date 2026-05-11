@@ -86,6 +86,9 @@ eve project bootstrap --name my-app --repo-url https://github.com/org/repo \
 
 # Status (cross-profile deployment overview)
 eve project status [--profile <name>] [--env <name>] [--json]
+
+# Auth context (resolved SSO redirect allowlist for a project)
+eve project auth-context <project_id> [--json]
 ```
 
 `eve project status` shows a unified deployment overview across all configured profiles. For each profile it reports:
@@ -107,6 +110,7 @@ Notes:
 - `project ensure` supports repo-less creation for early bootstrap; omit `--repo-url` to reserve slug/id first, then set repo later with `project ensure --repo-url ...` or `project update --repo-url ...`.
 - `repo_url` accepts HTTPS, SSH (`git@host:org/repo.git`), or `file://` (local/dev only).
 - `project sync` reads the manifest from `--dir` (or cwd) and pushes it to the API.
+- `project auth-context` prints the resolved SSO allowlist (manifest origins ∪ project's own eligible custom domains ∪ cross-org custom domains via `org_access.allowed_orgs`). Use it to verify what redirect targets and CORS origins SSO will accept for an app. See `secrets-auth.md` and `manifest.md` for the full model.
 
 ## Docs (Org Documents)
 

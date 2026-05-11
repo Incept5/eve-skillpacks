@@ -124,6 +124,16 @@ x-eve:
 
 Profile entries are a fallback chain: if the first harness is unavailable, the next is tried. Design profiles around capability needs, not provider loyalty.
 
+### Per-Job Harness Overrides
+
+When the *same* agent must run with different brains per request — e.g., per-user-project model selection, BYOK credentials, or a self-hosted endpoint — pass an inline override at dispatch instead of mutating `agents.yaml` per request:
+
+- Job create: `--harness-override-file <path>` (JSON `{harness, model?, reasoning_effort?, variant?, temperature?}`) and `--env-override KEY=VALUE` (repeatable, supports `${secret.KEY}` interpolation)
+- Workflow run/invoke: `--env-override KEY=VALUE` (repeatable)
+- API: `harness_profile_override` and `env_overrides` on `CreateJobRequest` and chat dispatch
+
+The orchestrator records `harness_profile_source` (`agent_default`, `string_ref`, `inline_override`, `workflow_template`) plus a stable hash for audit. Reach for overrides only when per-invocation variation is real; otherwise prefer named profiles.
+
 ### Model Selection Guidance
 
 | Task Type | Profile Strategy |
@@ -183,6 +193,7 @@ Events are the nervous system of an agentic app. Use them for reactive automatio
 | PR opened | `github.pull_request` | Run review council |
 | Deploy pipeline failed | `system.pipeline.failed` | Run self-healing workflow |
 | Job failed | `system.job.failed` | Run diagnostic agent |
+| Job attempt completed | `system.job.attempt.completed` | Run post-session learning workflow (writes back to `user`/`learnings` memory) |
 | Org doc created | `system.doc.created` | Notify subscribers, update indexes |
 | Scheduled maintenance | `cron.tick` | Run audit, cleanup, reporting |
 | Custom app event | `app.*` | Application-specific automation |
@@ -203,6 +214,10 @@ pipelines:
         agent:
           prompt: "Diagnose the failed deploy and suggest a fix"
 ```
+
+### Agent Learning Loop
+
+For agents that should learn across attempts within a session, wire `system.job.attempt.completed` (emitted on success, failure, and orchestrator error) to a review workflow that distills carryover context into agent memory. The platform writes `.eve/context/` carryover into the next attempt's workspace, and `AgentContextMemorySchema` accepts a `user` category alongside `learnings`, `decisions`, `runbooks`, `context`, and `conventions` — use `user` for per-user preferences and interaction history.
 
 ### Custom App Events
 
@@ -247,18 +262,36 @@ routes:
 
 Route targets can be `agent:<key>`, `team:<key>`, `workflow:<name>`, or `pipeline:<name>`.
 
-### Gateway vs Backend-Proxied Chat
+### Gateway vs Backend-Proxied Chat vs Embedded Conversations
 
 | Approach | When to Use |
 |----------|-------------|
-| **Gateway provider** (WebSocket to Eve) | Simple chat widgets, admin consoles, no backend needed |
+| **Embedded conversation API** (`@eve-horizon/chat` / `@eve-horizon/chat-react`) | App-native chat panes scoped to a product object (project, doc, ticket). Default choice for in-app chat. |
+| **Gateway provider** (WebSocket to Eve) | Simple chat widgets, admin consoles, no product-object scoping needed |
 | **Backend-proxied** (`POST /internal/orgs/:id/chat/route`) | Production SaaS, when you need to intercept, enrich, or store conversations |
 
-If your app needs to add context, filter messages, or maintain its own chat history — proxy through your backend.
+### Embedded App Conversations
+
+For chat surfaces inside your app, use the conversations facade rather than building over `chat/route` directly. The SDK handles thread mapping, auth, dispatch, resumable SSE, optimistic send, and reconnect:
+
+```ts
+const conversation = createConversationClient({
+  baseUrl: '/api/eve',
+  projectId: 'proj_xxx',
+  appKey: `open-design:${projectId}:${conversationId}`,
+  getToken: async () => session.token,
+});
+
+await conversation.ensure({ metadata: { product_route: '/projects/x' } });
+await conversation.send({ text: '...', target: { kind: 'agent', agent_slug: 'designer' } });
+for await (const event of conversation.stream({ resumeFrom: lastEventId })) { /* ... */ }
+```
+
+Server endpoints: `POST /projects/{id}/conversations`, `POST .../conversations/{app_key}/turns`, `GET .../conversations/{app_key}/stream` (SSE), `GET .../conversations/{app_key}/messages`. Events stream as structured `cevt_*` records (message, progress, status), backfill-safe and resumable via `Last-Event-ID`. Use `provider: "api"` clients (polling) when you can't hold a streaming connection — the platform registers a no-op delivery provider so persistence still works.
 
 ### Thread Continuity
 
-Chat threads maintain context across messages. Thread keys are scoped to the integration account. Design your chat UX to preserve thread context — agents are dramatically more effective when they can reference conversation history.
+Chat threads maintain context across messages. Thread keys are scoped to the integration account. If your app stores Eve thread IDs alongside its product objects, you can continue a routed thread directly by `thr_*` ID (route is resolved once, follow-ups skip re-routing). Design your chat UX to preserve thread context — agents are dramatically more effective when they can reference conversation history.
 
 ## Jobs as Coordination Primitive
 
@@ -409,4 +442,5 @@ Declare all access in `.eve/access.yaml` and sync declaratively. This ensures ac
 - **Agents and teams reference**: `eve-read-eve-docs` → `references/agents-teams.md`
 - **Harness execution**: `eve-read-eve-docs` → `references/harnesses.md`
 - **Chat gateway**: `eve-read-eve-docs` → `references/gateways.md`
+- **Embedded conversation SDK**: `eve-read-eve-docs` → `references/eve-sdk.md` (embedded conversation pane)
 - **Events and triggers**: `eve-read-eve-docs` → `references/events.md`

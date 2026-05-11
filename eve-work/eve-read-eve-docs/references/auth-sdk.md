@@ -298,6 +298,37 @@ SSO uses `GET /auth/app-context?project_id=<project_id>` to render the project-b
 
 With `self_signup: false`, unknown emails receive generic success but no GoTrue call and no email. New users should enter through the org-scoped invite API.
 
+### Custom-Domain Apps And The Redirect Allowlist
+
+Apps deployed on off-cluster domains (anything not under `EVE_DEFAULT_DOMAIN`)
+must have their origin opted into the SSO allowlist or the broker will drop
+the redirect target and land users on the SSO root instead of your app.
+
+The resolved allowlist (returned by `GET /auth/app-context` as
+`auth.allowed_redirect_origins`) is the union of three sources:
+
+1. Explicit `x-eve.auth.allowed_redirect_origins` in the manifest.
+2. The project's own eligible custom domains (`environment_id IS NOT NULL`,
+   status in `dns_verified`/`cert_provisioning`/`active`).
+3. When `org_access.mode: allowlist`, eligible custom domains owned by any
+   project in `allowed_orgs` (one hop). Use this for branding-only projects
+   that redirect into a sibling org's deployed app.
+
+`@eve-horizon/auth-react` automatically appends `project_id` to
+`GET /session` and `POST /logout` so SSO's project-scoped CORS validation
+accepts your custom-domain origin. No SDK-level config required beyond
+passing `projectId` to `<EveAuthProvider>` or relying on the `eve_project_id`
+returned by `/auth/config`.
+
+Inspect the resolved list during deploy:
+
+```bash
+eve project auth-context <project_id>
+```
+
+See `manifest.md` and `secrets-auth.md` for the full schema and validation
+rules.
+
 ## App-Scoped Org Access And Admin Invites
 
 Apps that set `x-eve.auth.org_access` should use `eveAppUserAuth()` or `eveAppAuth()` on the backend and `useEveAppAccess()` on React frontends.
@@ -353,6 +384,7 @@ The platform deployer injects these into every deployed app:
 | `EVE_SSO_URL` | SSO broker URL (`eveAuthConfig()` response) |
 | `EVE_ORG_ID` | Org membership check |
 | `EVE_PROJECT_ID` | Project context for app-scoped SSO and `GET /auth/app-access` |
+| `EVE_SERVICE_TOKEN` | 90-day RS256 JWT (`type: service`) for server-to-server calls back into the Eve API. Auto-minted per service per deploy. Permissions come from `x-eve.permissions` in the manifest, with read-only defaults — see `references/secrets-auth.md#service-tokens-deployed-services` and `references/manifest.md`. |
 
 Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URL:
 

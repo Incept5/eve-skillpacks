@@ -653,6 +653,39 @@ SSO fetches `GET /auth/app-context?project_id=<project_id>` to render the projec
 
 Magic-link emails use the same `x-eve.branding` values as invite emails. `self_signup: false` returns generic success for unknown emails but does not call GoTrue and does not send email.
 
+### Post-Auth Redirect Allowlist (Custom Domains)
+
+By default the SSO broker only accepts `redirect_to` and CORS origins under the
+cluster domain (`EVE_DEFAULT_DOMAIN`, e.g. `eh1.incept5.dev`). Apps deployed on
+their own domain need their origin opted into the allowlist or the SSO drops
+the redirect and lands users on the SSO root.
+
+The resolved allowlist is the union of three sources, returned by
+`GET /auth/app-context?project_id=<id>` as `auth.allowed_redirect_origins`:
+
+1. Explicit `x-eve.auth.allowed_redirect_origins` in the manifest (origin-only;
+   paths/query/fragments rejected at validate time).
+2. Eligible custom domains owned by the project — `custom_domains` rows with
+   `environment_id IS NOT NULL` and status in (`dns_verified`,
+   `cert_provisioning`, `active`).
+3. When `auth.org_access.mode: allowlist`, eligible custom domains owned by
+   any project in `allowed_orgs` (one hop).
+
+The SSO broker uses this list for redirect validation in `/callback`, `/login`,
+and `/`, and for CORS on `/session` and `/logout`. Custom-domain apps using
+`@eve-horizon/auth-react` automatically send `project_id` to `/session` and
+`/logout` so CORS can resolve the project-scoped allowlist.
+
+Inspect the resolved list:
+
+```bash
+eve project auth-context <project_id>
+```
+
+A signed-in user landing on `/` or `/login` with a validated `redirect_to` is
+immediately 302'd to the target — the login form is bypassed and there is no
+intermediate "you can close this tab" landing page.
+
 ### Branded Auth Email Delivery + SES Suppression
 
 All app-branded auth email (org invites, app invites, app-scoped magic-link login, system-admin Supabase invites) goes through a single `MailerService` on the Eve API. When SMTP is pointed at Amazon SES, the mailer adds a pre-send check against the SES account-level suppression list and emits structured log events so silent drops are observable.

@@ -84,9 +84,14 @@ eve env deploy staging --ref main --repo-dir . --inputs '{"key":"value"}'
 
 # Diagnostics
 eve env diagnose proj_xxx staging
-eve env logs proj_xxx staging
+eve env diagnose proj_xxx staging --request <req_id>     # request-level integrated diagnose
+eve env logs proj_xxx staging <service>
+eve env logs proj_xxx staging <service> --follow         # stream logs
+eve env logs proj_xxx staging <service> --filter route=/api/x --filter status=500
 eve env delete proj_xxx staging
 ```
+
+`--filter k=v` is repeatable; common keys: `route`, `status`, `level`, `request_id`. Use `--grep` for free-text matching, `--since`/`--tail` to bound the window.
 
 ## Jobs (Create + Observe)
 
@@ -97,7 +102,15 @@ eve job show <job-id>
 eve job follow <job-id>
 eve job diagnose <job-id>
 eve job result <job-id>
+
+# Per-job harness + env overrides (Eden-style per-request brain selection)
+eve job create --description "..." \
+  --harness-override-file ./profile.json \
+  --env-override OPENAI_API_KEY='${secret.OPENAI_KEY}' \
+  --env-override MODEL_ENDPOINT=https://qwen.local
 ```
+
+`--harness-override-file` takes a JSON object `{harness, model?, reasoning_effort?, variant?, temperature?}`. `--env-override KEY=VALUE` is repeatable, validates UPPER_SNAKE_CASE keys, and supports `${secret.KEY}` interpolation resolved at spawn time.
 
 ## Coordination (Supervise + Threads)
 
@@ -175,8 +188,11 @@ eve system events
 eve workflow list
 eve workflow run qa-review --input '{"task":"audit"}'
 eve workflow invoke qa-review --input '{"task":"audit"}'
+eve workflow run qa-review --input '{...}' --env-override MODEL=opus-4.5
 eve workflow logs job_abc123
 ```
+
+`--env-override KEY=VALUE` is repeatable on `run` and `invoke`; values flow through to each step's job as `env_overrides`.
 
 ## Integrations (Slack, Nostr, GitHub)
 
@@ -198,8 +214,8 @@ eve pipeline run <name> --ref <sha> --env <env> --repo-dir ./my-app
 
 eve workflow list
 eve workflow show <project> <name>
-eve workflow run <project> <name> --input '{"k":"v"}'
-eve workflow invoke <project> <name> --input '{"k":"v"}'
+eve workflow run <project> <name> --input '{"k":"v"}' [--env-override KEY=VALUE]
+eve workflow invoke <project> <name> --input '{"k":"v"}' [--env-override KEY=VALUE] [--no-wait]
 eve workflow logs <job-id>
 ```
 
@@ -237,6 +253,31 @@ eve build cancel <build_id>
 ```
 
 Builds happen automatically during pipeline `build` steps. Use `eve build diagnose` to debug build failures.
+
+## Traces (OTEL)
+
+Agent-queryable trace store. Pair with `eve env diagnose --request <id>` and `eve env logs --filter request_id=<id>` for end-to-end request triage.
+
+```bash
+eve traces query --request-id <id>                    # spans for a single request
+eve traces query --trace-id <id>                      # spans for a known trace
+eve traces query --service api --since 15m --error    # recent errors in a service
+eve traces query --route /api/projects --p99          # p99 latency for a route
+eve traces query --request-id <id> --json             # machine-readable
+```
+
+One of `--request-id`, `--trace-id`, `--since`, `--route`, or `--error` is required. `--no-cache` bypasses the trace cache.
+
+## Custom Domains
+
+```bash
+eve domain list [--env <name>] [--project <id>]
+eve domain verify <hostname>             # check DNS and show activation status
+eve domain status <hostname>             # show domain status and owning env
+eve domain transfer <hostname> --to <env>  # move ownership between envs
+eve domain unbind <hostname>             # clear binding so next deploy claims it
+eve domain remove <hostname>             # delete the domain entirely
+```
 
 ## System Health
 

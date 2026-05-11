@@ -54,6 +54,20 @@ environment:
 
 Available fields: `url`, `host`, `port`, `database`, `username`, `password`.
 
+## TLS Trust (Managed DB)
+
+Cloud managed DB tenant URLs default to `sslmode=verify-full`. The platform owns CA distribution: when the worker deploys an environment that uses a cloud managed DB, it creates a namespace `ConfigMap/eve-db-trust`, mounts the provider CA bundle at `/etc/eve/trust/ca-bundle.pem`, and injects `NODE_EXTRA_CA_CERTS` and `PGSSLROOTCERT` into every app pod and job pod.
+
+What this means for app code:
+
+- **Do not** set `ssl: { rejectUnauthorized: false }` on your DB client. The pod already trusts the managed DB CA.
+- **Do not** strip `sslmode` from `${managed.db.url}`. Connect with the URL as-is.
+- A plain `new Pool({ connectionString: process.env.DATABASE_URL })` is the supported pattern.
+- Local managed DBs continue to use `sslmode=disable` and need no trust material.
+- Migration jobs (`x-eve.role: job`) get the same trust injection as long-lived Deployments — migrations against a `verify-full` tenant work without app changes.
+
+The previous URL-rewriting `sslmode` resolver was removed; tenant URLs are preserved as-is and inherit `sslmode` from `DATABASE_URL`. If a managed DB connection fails TLS verification, treat it as a platform issue (`eve job logs` on the deploy job will show the trust ConfigMap step) rather than working around it in app code.
+
 ## Status + Credential Rotation
 
 ```bash

@@ -118,8 +118,10 @@ function Dashboard() {
 | `@eve-horizon/chat` | `createConversationClient()` | Browser/Node client for ensure, get, send, messages, and stream |
 | `@eve-horizon/chat/server` | `EveConversationsClient` | Server-side helper for backend-proxied turns |
 | `@eve-horizon/chat/server` | `forwardTurn()` | Apply enrichment/rejection hooks before forwarding a turn |
+| `@eve-horizon/chat` | `conversation.events()` / `conversation.streamEvents()` / `conversation.emitEvent()` | Structured event timeline (typed kinds, replayable cursor) |
+| `@eve-horizon/chat` | `conversation.continueByThreadId()` | Continue a routed Eve thread by `thr_*` id, preserving the original dispatch target |
 | `@eve-horizon/chat-react` | `EveConversationProvider` | React state provider for one app conversation |
-| `@eve-horizon/chat-react` | `useEveConversation()` | Hook exposing conversation state, `ensure`, `send`, and `reconnect` |
+| `@eve-horizon/chat-react` | `useEveConversation()` | Hook exposing conversation state, `ensure`, `send`, `reconnect`, and event stream |
 | `@eve-horizon/chat-react` | `EveConversationPane` | Headless render-prop pane |
 | `@eve-horizon/chat-react` | `EveConversationDefaultPane` | Minimal styled conversation pane |
 
@@ -198,13 +200,24 @@ function DesignerChat({ projectId, conversationId, token }: {
 
 Backend-proxied apps can use `@eve-horizon/chat/server` with a service token to enrich or reject turns before forwarding them to Eve.
 
-Conversation streams are fetch-based SSE. Each `message` or `progress` event carries `eventId` from `thread_messages.id`; pass the last seen id back as `resumeFrom` to replay without gaps:
+Conversation streams are fetch-based SSE (not native `EventSource`, because bearer auth requires `Authorization` headers). Each `message` or `progress` event carries `eventId` from `thread_messages.id`; pass the last seen id back as `resumeFrom` to replay without gaps:
 
 ```typescript
 for await (const event of conversation.stream({ resumeFrom: lastEventId })) {
   if (event.eventId) lastEventId = event.eventId;
 }
 ```
+
+### Continuing by Eve Thread Id
+
+When an app already holds an Eve `thread_id` (`thr_*`) — e.g. it surfaced one to the user from a previous session — it can continue the conversation directly without re-supplying the `app_key`:
+
+```typescript
+await client.continueByThreadId('thr_ABC', { text: 'follow-up question' });
+// hits POST /threads/thr_ABC/chat
+```
+
+Continuation reuses the original dispatch target (`route` / `agent` / `team`) stored on the thread, so a later `chat.yaml` change cannot silently re-route an existing conversation. Org-scoped, coordination, and legacy threads without continuation metadata are rejected with `409`.
 
 ### Structured Conversation Events
 

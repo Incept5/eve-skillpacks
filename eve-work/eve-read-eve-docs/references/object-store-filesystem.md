@@ -156,11 +156,9 @@ services:
 Each bucket is provisioned per environment during deploy and appears in
 `eve env diagnose` under storage buckets. If Eve object storage is not
 configured, or bucket/policy setup fails, deploy fails before the app pod
-starts. Local k3d MinIO uses server-wide CORS
-(`MINIO_API_CORS_ALLOW_ORIGIN=*`) because MinIO does not reliably support the
-S3 per-bucket CORS API. Wildcard app bucket CORS works for browser presigned
-URL flows; restrictive origins are recorded in diagnostics but are not enforced
-per bucket by local MinIO.
+starts. Changes to `x-eve.object_store.buckets` flow through the deploy
+manifest hash, so editing buckets triggers a redeploy that re-applies bucket
+config (creation, CORS, public policy).
 
 Auto-injected env vars (per bucket, uppercased name):
 
@@ -168,15 +166,41 @@ Auto-injected env vars (per bucket, uppercased name):
 |----------|-------------|
 | `STORAGE_ENDPOINT` | S3-compatible endpoint |
 | `STORAGE_REGION` | Storage region |
-| `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | Storage credentials injected for the app |
+| `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | App-scoped storage credentials injected for the app |
 | `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging) |
 | `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO, omitted for AWS S3 |
 
-Trust model: AWS staging currently injects one shared app-bucket IAM principal
-scoped to the deployment app-bucket prefix (`eh1-eve-app-*`). It cannot access
-the platform internal bucket, org filesystem buckets (`eh1-eve-org-*`), or
-non-Eve buckets, but it does not isolate app buckets from each other. Per-app
-IAM isolation through IRSA is the follow-up production model.
+### Credential Separation
+
+App pods receive **app-scoped** credentials, distinct from the worker's
+platform-internal storage credentials. The deployer resolves app-injected env
+in this order, so the worker can keep its provisioner credentials (used for
+`CreateBucket`, CORS, and public policy) separate from what app pods see:
+
+1. `EVE_APP_STORAGE_PUBLIC_ENDPOINT` / `EVE_APP_STORAGE_ENDPOINT` / `EVE_APP_STORAGE_REGION` / `EVE_APP_STORAGE_ACCESS_KEY_ID` / `EVE_APP_STORAGE_SECRET_ACCESS_KEY` (preferred)
+2. `EVE_STORAGE_*` fallback (local MinIO compatibility only)
+
+The app bucket physical-name prefix is controlled by
+`EVE_STORAGE_APP_BUCKET_PREFIX` (e.g. `eh1-eve-app`), defaulting to
+`EVE_STORAGE_ORG_BUCKET_PREFIX` for local backwards compatibility. App
+credentials are scoped to that app-bucket prefix and cannot reach the
+platform internal bucket, org filesystem buckets (`eh1-eve-org-*`), or non-Eve
+buckets. The current AWS staging stopgap shares one app-bucket IAM principal
+across all apps in a deployment, so apps are not isolated from each other;
+per-app IRSA is on the roadmap.
+
+### Operational Notes
+
+- **Local MinIO CORS** is configured server-wide (`MINIO_API_CORS_ALLOW_ORIGIN=*`)
+  because MinIO does not reliably implement the S3 per-bucket CORS API.
+  Restrictive per-bucket origins are recorded in diagnostics but not enforced
+  by local MinIO; wildcard CORS works for browser presigned-URL flows.
+- **Public-read buckets**: AWS auto-applies `BlockPublicAccess` to new buckets,
+  which would silently drop a public-read bucket policy. The deployer relaxes
+  `BlockPublicPolicy` and `RestrictPublicBuckets` at the bucket level *before*
+  applying the public-read policy. If you see a "public" bucket that rejects
+  anonymous reads, check that this relax step ran (it logs at warn level on
+  `NotImplemented` from non-AWS backends).
 
 ## Cloud FS (Google Drive)
 

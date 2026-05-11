@@ -364,6 +364,29 @@ If a `variants/<variant>` directory exists, it overlays the base config.
 3. **Env example** — `.env.example`: update the suggested model if it's the new default.
 4. **Model normalization** — `packages/shared/src/pricing/model-normalization.ts`:
    add rules if provider uses non-standard suffixes.
+5. **Harness CLI normalization** — `packages/shared/src/harnesses/model-aliases.ts`:
+   add aliases when a model has multiple user-facing forms (e.g. `opus4.7`,
+   `opus-4-7`, `claude-opus-4-7`) that should all resolve to the harness's
+   own short alias. Per-job + chat-hint model overrides flow through the
+   normalizer before reaching the harness CLI.
+
+### Currently Registered Models
+
+Default rate card (`DEFAULT_RATE_CARD_EFFECTIVE_AT = 2026-04-29`):
+
+| Provider  | Models                                                                                              |
+|-----------|-----------------------------------------------------------------------------------------------------|
+| anthropic | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5`, `claude-sonnet-4` |
+| openai    | `gpt-5.5`, `o3`                                                                                     |
+| zai       | `glm-5`, `glm-5-code`                                                                               |
+
+`claude-opus-4-7` priced at $5/$25 in/out per million tokens, $0.50 cache_read,
+$6.25 cache_write (matches 4.6). `gpt-5.5` priced at $5/$30 in/out, $0.50
+cache_read, $30 reasoning.
+
+Pinned harness binary versions (worker + agent-runtime Dockerfiles): cc-mirror
+2.1.0, claude-code 2.1.123, codex 0.125.0, gemini-cli 0.40.0,
+just-every/code 0.6.96, pi 0.70.6, skills 1.5.3.
 
 ---
 
@@ -379,6 +402,10 @@ mclaude --print --verbose --output-format stream-json \
 - Config dir: `<config root>/mclaude` or `$CLAUDE_CONFIG_DIR`
 - Model: `$CLAUDE_MODEL` or `sonnet` (default fallback changed from `opus` to `sonnet`)
 - Skills: mclaude installs from `skills.txt` into `.agents/skills/` at runtime
+- Model aliases: `opus4.7`, `opus-4-7`, `opus-4.7`, `claude-opus-4-7` (and the
+  `anthropic/` provider-prefixed variants) all normalize to Claude Code's `opus`
+  alias via `normalizeClaudeCodeModelAlias`. Per-job and chat-hint model
+  overrides feed through this normalizer before reaching the harness CLI.
 
 ### zai
 
@@ -408,6 +435,10 @@ code --ask-for-approval on-request --model <model> \
 
 - Config dir: `<config root>/code` (or `/codex`) or `$CODEX_HOME`
 - Auth: `auth.json` in config dir (from `CODEX_AUTH_JSON_B64` or `CODEX_OAUTH_*` vars)
+- Reasoning: `code` uses `--reasoning <effort>`. `codex` uses
+  `-c model_reasoning_effort="<effort>"` (config override) instead, because the
+  codex CLI no longer accepts `--reasoning` as a top-level flag. The
+  `eve-agent-cli` adapter switches automatically based on `ctx.harness`.
 
 ---
 
@@ -497,12 +528,61 @@ backwards compatibility, resolution falls back to the manifest if agent config i
   "variants": [{ "name": "default", "description": "...", "source": "config" }],
   "auth": { "available": true, "reason": "...", "instructions": [] },
   "capabilities": {
-    "supports_model": true, "model_examples": ["opus-4.5"],
+    "supports_model": true, "model_examples": ["opus", "opus4.7", "opus-4-7", "sonnet", "haiku"],
     "reasoning": { "supported": true, "levels": ["low","medium","high","x-high"],
                    "mode": "thinking_tokens" }
   }
 }
 ```
+
+### Validate Endpoint
+
+`POST /projects/{project_id}/harness-profile/validate` — verifies that an
+inline `harness_profile_override` and/or `env_overrides` would dispatch
+successfully against the project. **Performs no inference**; no harness binary
+is invoked.
+
+**Request:**
+```json
+{
+  "harness_profile_override": { "harness": "zai", "model": "glm-5", "reasoning_effort": "medium" },
+  "env_overrides": {
+    "ANTHROPIC_BASE_URL": "${secret.EDEN_TEST_BASE_URL}",
+    "OPENAI_BASE_URL": "${secret.EDEN_OPENAI_URL}"
+  }
+}
+```
+
+**Response shape:**
+```json
+{
+  "ok": true,
+  "harness": {
+    "requested": "Zai",
+    "canonical": "zai",
+    "auth": { "available": true, "reason": null, "instructions": [] }
+  },
+  "env_overrides": [
+    { "key": "ANTHROPIC_BASE_URL", "secret_ref": "EDEN_TEST_BASE_URL",
+      "status": "resolved", "scope": "project", "hint": null },
+    { "key": "OPENAI_BASE_URL", "secret_ref": "EDEN_OPENAI_URL",
+      "status": "missing", "scope": null,
+      "hint": "Run: eve secrets set EDEN_OPENAI_URL <value> --project <id>" }
+  ],
+  "warnings": []
+}
+```
+
+The endpoint does NOT return a would-be argv. Argv preview was deliberately
+removed from the API surface — the API's answer is `{harness_known, auth_ok,
+secrets_resolve}`. Wizards that need argv preview should call
+`eve-agent-cli --build-command-only` on the caller's machine.
+
+Per-secret reports include the resolved scope (`system | org | user | project`)
+so callers can tell whether a value comes from a higher precedence tier than
+expected. Permission gate matches direct job creation:
+`jobs:harness_override` (always) + `secrets:read` (when placeholders are
+present).
 
 **CLI:**
 - `eve harness list` -- auth availability
@@ -511,6 +591,64 @@ backwards compatibility, resolution falls back to the manifest if agent config i
 - `eve harness validate --project <id> --env-override KEY=${secret.NAME}` -- validate secret-backed env overrides
 - `eve harness validate --project <id> --workflow <name> [--env-override KEY=VALUE]` -- validate each workflow step's merged env overrides without creating jobs
 - `eve agents config --json` -- project policy + profile resolution
+
+The `--workflow` mode merges workflow-level + step-level + invocation-level
+`env_overrides` in that precedence and validates each step independently. Exit
+code is 2 on any failure so CI can gate deploys on it.
+
+### Per-Job Harness Override Flow
+
+End-to-end resolution lives in
+`packages/shared/src/harnesses/profile-resolver.ts` and replaces the previous
+duplicated logic in `chat.service.ts` and `workflows.service.ts`:
+
+```
+sources           ──►  resolveHarnessProfile()  ──►  ResolvedProfile
+                          (single shared module)        ↓
+agent_default                                       harness, harness_options,
+string_ref                                          env_overrides,
+inline_override                                     profile_name,
+workflow_template                                   profile_hash, source,
+                                                    warnings[]
+```
+
+Precedence: `workflow_template > inline_override > string_ref > agent_default`.
+Conflicts emit a single `harness.profile.conflict` warning log; inline wins.
+
+**End-to-end path** (Phases 1–4):
+
+1. **API** validates DTO (`InlineProfileBundleSchema` + `EnvOverridesSchema`),
+   permission-checks `jobs:harness_override` (+ `secrets:read` for `${secret.*}`
+   refs), and stores the raw bundle on `jobs.harness_profile_override` /
+   `jobs.env_overrides`. Direct job creation also projects the effective
+   profile into the legacy `jobs.harness` + `jobs.harness_options` columns
+   before insert.
+2. **Orchestrator** forwards `env_overrides` and override fields unchanged on
+   the invocation payload, plus writes attribution to the routing execution log
+   and `job_attempts.harness_profile_source` / `harness_profile_hash`.
+3. **Shared invoke** (worker + agent-runtime, single module) resolves
+   `${secret.KEY}` placeholders against already-resolved project secrets via
+   `interpolateEnvOverrides()`. Missing keys throw
+   `error_code = missing_secret_override` before harness launch; resolved
+   values merge into `adapterEnv` after the reserved-key strip in env-builder.
+4. **Chat hints** (Phase 3): `ChatHintsSchema` accepts the same
+   `harness_profile_override` + `env_overrides` on `/chat/route`,
+   `/chat/dispatch`, and `/chat/simulate`. A legacy `metadata.hints` alias is
+   bridged. All 8 chat dispatch sites propagate overrides to lead + child
+   jobs, and listener jobs. Override snapshot is written to
+   `threads.metadata.harness_overrides` (chat + coordination threads),
+   placeholders intact. On `missing_secret_override` failure,
+   `EveMessageRelay.deliverProvisioningError` posts a structured error back to
+   the originating thread.
+5. **Workflow templates** (Phase 4): step-level `harness_profile` and
+   `harness_profile_override` accept `${inputs.<key>}` and
+   `${event.payload.<dotted.path>}` expressions. Manifest sync rejects
+   malformed templates and undeclared `${inputs.*}` references. Missing event
+   payload fields at runtime fall back to the agent default with a warning.
+
+Receipts (`packages/shared/src/pricing/receipt/`) carry `harness_profile_*`
+metadata so cost analytics can group by profile (e.g. `cost-by-harness-profile`)
+in addition to the existing `cost-by-agent`.
 
 ---
 
@@ -525,7 +663,13 @@ eve-agent-cli \
   --prompt "<text>"
   [--variant <variant>]         # optional harness variant
   [--model <model>]             # optional model override
+  [--build-command-only]        # print the would-be exec argv and exit; no spawn
 ```
+
+`--build-command-only` is the client-side companion to the API validate
+endpoint: it prints exactly what would be executed (binary + args + env-bound
+flags) without actually spawning the harness. Useful for wizards or local
+debugging — the API itself does not return argv.
 
 ---
 

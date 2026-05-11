@@ -48,6 +48,7 @@ eve env logs <project> <env> <service>
 # Traces
 eve traces query --project <project> --request-id <id> --json
 eve traces query --project <project> --service <service> --since 5m --error
+eve traces query --project <project> --service <service> --route "POST /api/items" --since 1h --p99
 
 # Recovery
 eve env rollback <env> --release <id|tag|previous>      # Roll back to a known release
@@ -75,6 +76,16 @@ Notes:
 - `rollback` redeploys a previous release without teardown; `reset` tears down first then redeploys.
 - `env undeploy` tears down the K8s namespace but preserves the environment record. Sets `deploy_status` to `undeployed` and clears `current_release_id`. Redeploy later with `eve env deploy`.
 - `env suspend/resume` pause and resume without deletion.
+- `env logs --follow` streams via SSE — no polling loop required. Combine with
+  `--filter k=v` (repeatable, ANDs together) for structured matching on JSON
+  log lines; falls back to `--grep` substring on non-JSON output. Pod restarts
+  emit divider events; `--all-pods` merges across the deployment.
+- `env diagnose --request <req_id>` is the integrator: one call returns logs
+  (across services, merged by timestamp), K8s events, the active release at
+  request time, optional audit rows (opt-in via manifest `x-eve.audit_log_table`),
+  and trace pointers. Use `--window <seconds>` to widen the search (default 60s).
+- `eve traces query` reads the OTEL trace store directly so agents can inspect
+  spans without AWS console access. Pair with a `request_id` from the logs.
 
 ## Debugging (CLI-first)
 

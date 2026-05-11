@@ -82,6 +82,11 @@ services:
 3. **Mark external services explicitly.** Use `x-eve.external: true` with `x-eve.connection_url` for services hosted outside Eve (Redis, third-party APIs).
 4. **Use `x-eve.role: job` for one-off tasks.** Migrations, seeds, and data backfills are job services, not persistent processes.
 5. **Expose ingress intentionally.** Only services that need external HTTP access get `x-eve.ingress.public: true`. Internal services communicate via cluster networking.
+6. **Choose a hostname strategy early.** Every public service gets a generated platform URL by default. Layer on `x-eve.ingress.alias` for a friendlier platform-subdomain (`ingest.eh1.incept5.dev`), or `x-eve.ingress.domains: [limelee.com]` to bring your own domain. Custom domains are env-scoped and first-bind-wins — design which environment owns the apex (usually `production`) before declaring it. See `eve-manifest-authoring` and `eve-deploy-debugging` for declaration and DNS verification flow.
+
+### Stable Outbound IPs (Egress)
+
+Most apps don't care about their outbound source IP — but if you integrate with vendors that allowlist source IPs (cameras, payment processors, partner APIs with strict source-IP rules), declare opt-in stable egress at the service level. The platform schedules the pod onto a public-egress node group with `hostNetwork: true`, giving the service a stable, predictable outbound path instead of a shared NAT mapping. Treat this as a deliberate architectural choice for the one or two services that need it — not a default.
 
 ### App Object Storage
 
@@ -102,6 +107,8 @@ services:
 > **Note:** The database schema for app object stores exists, but automatic provisioning from the manifest is not yet wired. See `references/object-store-filesystem.md` for current status.
 
 When wired, the platform injects `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`, and `STORAGE_FORCE_PATH_STYLE` into the service container.
+
+**Credential isolation**: app pods receive **app-scoped** storage credentials, not platform-internal credentials. A compromised app service can't reach platform buckets or other tenants' data. Design with this boundary in mind — don't try to share credentials across apps; declare each app's buckets and let the platform issue scoped keys.
 
 ### Cloud FS / Google Drive Storage
 
@@ -522,6 +529,10 @@ When a deploy fails:
 
 Design your app to be rollback-safe: migrations should be forward-compatible, and services should handle schema version mismatches gracefully during rolling deploys.
 
+### The System App Pattern
+
+Platform-tier and admin apps deploy through the same Eve pipeline as customer apps — no special path. The Eve Dashboard is the canonical example: it ships through the standard build → release → deploy flow, sits in the CI publish matrix alongside other apps, and consumes the same SSO + analytics APIs any customer app would. If you're building an internal admin console, a control plane for your own platform, or a system-tier surface, adopt this pattern. The win is parity: one deployment story, one auth story, one observability story across all your apps. Avoid carving out bespoke "platform-only" deploy paths — they rot and diverge.
+
 ## Per-Org OAuth for App Integrations
 
 Apps that integrate with Google Drive, Slack, or other OAuth providers use per-org credentials (BYOA -- Bring Your Own App). Each org registers its own OAuth app, giving it control over branding, scopes, rate limits, and credential rotation.
@@ -596,6 +607,17 @@ The platform auto-discovers services with `x-eve.cli` from the manifest and make
 4. **Bundle as a single file.** Use esbuild to produce a self-contained Node.js script committed to the repo. Zero startup latency.
 5. **Point agent skills at the CLI.** Skill instructions should say "Use `myapp items list`", never "curl the API at..."
 
+## Embedded Conversations
+
+If your app has a chat surface — a sidebar pane, an inline assistant, an "ask about this object" button — use Eve's embedded conversation API and chat SDK. Don't hand-roll auth, dispatch, SSE, reconnect, or optimistic-send. The platform exposes find-or-create thread routing keyed by an app-supplied identifier (e.g. `myapp:{project_id}:{conversation_id}`), JWKS-verified browser tokens, and a replayable SSE stream — composed into `@eve-horizon/chat` and `@eve-horizon/chat-react` for ~50 lines of UI code.
+
+**Design implications**:
+- Map your product objects (a document, a project, a ticket) to Eve threads by stable key. The platform owns thread state; your app owns product projections that reference `thread_id`.
+- Route through `chat.yaml`, an agent, a team, or a workflow using the same primitives external gateways use. Chat is just another dispatch target.
+- Phase 1 push uses SSE with snapshot + polling catch-up; design your UI to tolerate brief reconnects rather than assuming a persistent socket.
+
+For SDK shape and routing patterns, see `references/eve-sdk.md` in the `eve-read-eve-docs` skill.
+
 ## App Undeploy/Delete Lifecycle
 
 Manage the full lifecycle of environments and projects:
@@ -626,6 +648,10 @@ Secrets resolve with cascading precedence: **project > user > org > system**. A 
 3. **Validate before deploying.** Run `eve manifest validate --validate-secrets` to catch missing secret references before they cause deploy failures.
 4. **Use `.eve/dev-secrets.yaml` for local development.** Mirror the production secret keys with local values. This file is gitignored.
 5. **Never store secrets in environment variables directly.** Always use `${secret.KEY}` interpolation. This ensures secrets flow through the platform's resolution and audit chain.
+
+### Service Tokens (Manifest-Declared, Read-Only by Default)
+
+Services that call the Eve API on their own behalf get an auto-injected `EVE_SERVICE_TOKEN`. Permissions are declared explicitly per service in the manifest, and the default is read-only — services that need to write must opt in. Treat this as a least-privilege contract: a service shouldn't quietly gain write access by being deployed. Declare the minimum capabilities each service needs and let code review surface the deltas. See `references/secrets-auth.md` and `references/manifest.md` in `eve-read-eve-docs` for declaration syntax.
 
 ### Git Credentials
 
@@ -783,6 +809,8 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - [ ] External services marked with `x-eve.external: true`
 - [ ] Only public-facing services have ingress enabled
 - [ ] Platform-injected env vars used (not hardcoded URLs)
+- [ ] Hostname strategy chosen (generated URL, alias, or custom domain via `x-eve.ingress.domains`)
+- [ ] Stable egress opted in only for services that integrate with source-IP-allowlisted vendors
 
 **Database:**
 - [ ] Migrations are plain SQL files in `db/migrations/` with timestamp prefixes
@@ -812,6 +840,7 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - [ ] `eve manifest validate --validate-secrets` passes
 - [ ] `.eve/dev-secrets.yaml` exists for local development
 - [ ] Git credentials (`github_token` or `ssh_key`) configured
+- [ ] Service token permissions declared per service (default read-only; write opted in explicitly)
 
 **Authentication:**
 - [ ] `@eve-horizon/auth` middleware added to backend (`eveUserAuth` + `eveAuthGuard`)

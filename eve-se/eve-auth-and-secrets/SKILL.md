@@ -324,6 +324,17 @@ Rotate the JWT signing key:
 
 Add Eve SSO login to any Eve-deployed app using two shared packages: `@eve-horizon/auth` (backend) and `@eve-horizon/auth-react` (frontend). The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` into deployed services.
 
+### Restrict Self-Signup to Approved Email Domains
+
+The SSO service gates `/auth/signup` and `/auth/magiclink` by email domain when the env var `EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS` is set (comma-separated). Unset means all domains are allowed (default). The signup tab on the SSO login page displays a domain hint when restrictions are active.
+
+```bash
+# On the SSO deployment, set:
+EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS=acme.com,partner.io
+```
+
+Rejected requests return HTTP 422 with `error: email_domain_not_allowed`. Use this to keep public SSO endpoints invite-only-by-domain without disabling self-signup entirely. Existing accounts and admin invites are unaffected.
+
 ### Backend (`@eve-horizon/auth`)
 
 Install: `npm install @eve-horizon/auth`
@@ -465,6 +476,21 @@ The SDK replaces ~700-800 lines of hand-rolled auth with ~50 lines. Delete custo
 
 For the full migration checklist, types reference, token lifecycle, and advanced patterns (SSE auth, token paste mode, token staleness), see [references/app-sso-integration.md](references/app-sso-integration.md).
 
+## Service Tokens for Deployed Services
+
+Every deployed service receives an auto-injected `EVE_SERVICE_TOKEN` (90-day RS256 JWT, `type: service`) for server-to-server calls back into the Eve API. The deployer mints it on each deploy — apps no longer need to manually set this secret.
+
+Tokens default to **read-only** permissions (`projects:read`, `jobs:read`, `threads:read`, `envs:read`, `secrets:read`, `builds:read`, `pipelines:read`, `agents:read`, `events:read`). Apps that need write access declare additional permissions explicitly in the manifest:
+
+```yaml
+services:
+  api:
+    x-eve:
+      permissions: [jobs:write, events:write, threads:write]
+```
+
+Use this for app -> Eve API calls (creating jobs, emitting events, updating threads). For the full schema and call patterns, see [eve-read-eve-docs/references/secrets-auth.md](../eve-read-eve-docs/references/secrets-auth.md) and [eve-read-eve-docs/references/manifest.md](../eve-read-eve-docs/references/manifest.md).
+
 ## BYOK Model (LLM API Keys)
 
 Eve does not proxy inference traffic. All model access is BYOK (Bring Your Own Keys): harnesses and apps bring their own API keys via secrets and call providers directly.
@@ -587,7 +613,7 @@ The worker uses secrets for repository access:
 | Interpolation error | Verify `${secret.KEY}` spelling; run `eve manifest validate --validate-secrets` |
 | Git clone failed | Check `github_token` or `ssh_key` secret is set |
 | Service can't reach API | Verify `EVE_API_URL` is injected (check `eve env show`) |
-| Scoped access denied | Run `eve access explain <permission> <resource> --org <org>` to see scope match details. Check that the binding's scope constraints include the target path/schema |
+| Scoped access denied | Run `eve access explain <permission> <resource> --org <org>` to see scope match details. Check that the binding's scope constraints include the target path/schema. Built-in roles (owner/admin/member) carry wildcard `envdb` scope, so envdb denial for those roles points at the permission set, not missing scope |
 | Wrong role shown | Role is resolved from live DB memberships. Run `eve auth permissions` to see effective role. If multi-org, check `eve auth status` for per-org membership listing |
 | Short-lived Claude token in jobs | Run `eve auth creds` to check token type. If `oauth` (not `setup-token`), regenerate with `claude setup-token` then re-sync with `eve auth sync` |
 | Codex token expired between jobs | Automatic write-back should refresh it. If not, re-run `eve auth sync`. Check that `~/.codex/auth.json` or `~/.code/auth.json` has a fresh token |

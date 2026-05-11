@@ -112,3 +112,92 @@ The LLM Wiki pattern is the foundation for OrgPack coordination:
 | Policy engine | Searches wiki with context, navigates via tree view, watches for changes |
 | Operating review | Searches across wiki, diffs versions to track evolution |
 | All agents | Uses `eve docs patch` for cross-reference updates |
+
+## Recent enhancements (shipped 2026-04-05)
+
+All seven LLM Wiki platform enhancements are live and verified on local k3d. They are the prerequisite surface for OrgPack / Company as Intelligence and round out fluent agent use of the wiki substrate from normal file tools plus the Eve CLI.
+
+### 1. Near-instant indexing (org-fs to org docs)
+
+The org-fs index processor now LISTENs on the existing `org_fs_events` Postgres NOTIFY channel and wakes immediately on `file.created`/`file.updated`. The 2-second poller remains as fallback if the LISTEN connection drops. The queue stays the source of truth — NOTIFY is only a wake signal. Target latency: p95 under 500ms on local k3d for single writes. No new flag; agents just see writes appear in `eve docs search` sub-second instead of after up to 2s.
+
+### 2. `eve docs patch` — surgical edits
+
+CLI parity for the existing `PATCH /docs/by-path` API. Three operations, usable as flags or as a JSON batch:
+
+```bash
+eve docs patch --org $ORG_ID --path /wiki/page --replace "old" "new"
+eve docs patch --org $ORG_ID --path /wiki/page --append "## New Section\n..."
+eve docs patch --org $ORG_ID --path /wiki/page --insert-after "## Header" "para"
+eve docs patch --org $ORG_ID --path /wiki/page \
+  --operations '[{"op":"replace","search":"a","replace":"b"},{"op":"append","content":"x"}]'
+```
+
+Returns the updated doc with `current_version` and `content_hash`. Missing anchor / search text exits non-zero — agents can detect failed patches without re-reading.
+
+### 3. `eve docs list --tree` — wiki navigation
+
+The flat list output now has a hierarchical mode for navigation:
+
+```bash
+eve docs list --org $ORG_ID --path /operating-model --tree         # human-readable
+eve docs list --org $ORG_ID --path /operating-model --tree --json  # nested nodes for agents
+```
+
+Default flat list is unchanged for back-compat.
+
+### 4. `eve docs search --path` and `--context`
+
+Two additions to full-text search:
+
+- `--path <prefix>` constrains search to a wiki subtree, reusing the existing `searchWithFilters()` path-prefix support via a new `path_prefix` query param on `GET /orgs/{org_id}/docs/search`.
+- `--context N` fetches each match and returns N lines of surrounding context grep-style, so the agent can judge relevance before fetching the full doc.
+
+```bash
+eve docs search --org $ORG_ID --query "error rate" --path /world-model --context 3
+```
+
+Headline width was widened and `ts_headline()` now allows multiple useful fragments. `--mode hybrid|semantic` still currently degrades to text — the API shape is stable.
+
+### 5. `eve docs diff` — version diff
+
+Pure-CLI diff between two versions of a doc, defaulting to latest vs latest-1:
+
+```bash
+eve docs diff --org $ORG_ID --path /world-model/state.yaml
+eve docs diff --org $ORG_ID --path /world-model/state.yaml --from 3 --to 5
+eve docs diff --org $ORG_ID --path /world-model/state.yaml --unified
+```
+
+Built on the existing version endpoints; diff is computed client-side.
+
+### 6. Bulk write and safe sync
+
+Three commands for multi-doc ingest, with safety rules around deletion:
+
+```bash
+# Map a local directory to doc paths (create/update only)
+eve docs write-dir --org $ORG_ID --source ./wiki-pages --path-prefix /operating-model
+
+# NDJSON bulk write
+printf '%s\n' '{"path":"/wiki/a","content":"..."}' '{"path":"/wiki/b","content":"..."}' \
+  | eve docs bulk-write --org $ORG_ID
+
+# Directory <-> wiki sync; --delete is required and never default
+eve docs sync --org $ORG_ID --source ./.eve-org --path-prefix /operating-model --dry-run
+eve docs sync --org $ORG_ID --source ./.eve-org --path-prefix /operating-model --delete
+```
+
+`--dry-run` prints create/update/delete counts before mutating. Hidden/junk files are skipped unless explicitly included.
+
+### 7. `eve docs watch` — change stream
+
+Reuses existing `system.doc.created|updated|deleted` events instead of inventing a docs-specific channel. The CLI polls org events, filters by path prefix, and emits NDJSON:
+
+```bash
+eve docs watch --org $ORG_ID --path /world-model --since now
+eve docs watch --org $ORG_ID --path /world-model --since 5m
+# {"type":"system.doc.updated","path":"/world-model/state","version":42,"updated_at":"...","content_hash":"..."}
+```
+
+Agents block on the stream instead of polling. Generic org-events SSE remains a future option; until then, the polling watch is the supported path.

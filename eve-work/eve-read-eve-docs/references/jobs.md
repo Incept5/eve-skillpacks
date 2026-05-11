@@ -383,6 +383,90 @@ Target a harness directly or via a project profile (`x-eve.agents`):
 | `--model` | Model override |
 | `--reasoning` | Effort: low, medium, high, x-high |
 
+### Per-Job Harness & Env Overrides
+
+Per-invocation overrides let consumer apps pick a different brain (model, endpoint,
+BYOK credentials, reasoning) for one job without mutating shared `x-eve.yaml`.
+
+Job columns (migration `00090_per_job_harness_overrides.sql`):
+
+- `harness_profile_override` (JSONB) — inline bundle `{harness, model, reasoning_effort, variant?, temperature?}`
+- `env_overrides` (JSONB) — env values, may contain `${secret.KEY}` placeholders (kept verbatim until spawn)
+- `harness_profile_source` — `agent_default | string_ref | inline_override | workflow_template`
+- `harness_profile_hash` — stable hash of the normalized override (no plaintext secrets)
+
+Same `_source` and `_hash` columns are mirrored on `job_attempts` for routing logs and
+analytics. Direct job creation projects the effective profile into the legacy
+`jobs.harness` + `jobs.harness_options` columns before insert so the orchestrator
+actually runs the requested profile.
+
+**Precedence:** `workflow_template > inline_override > string_ref > agent_default`.
+A job containing both `harness_profile` (string ref) and `harness_profile_override`
+emits a single `harness.profile.conflict` warning log; inline wins.
+
+**Validation rules** (enforced in shared resolver + DTO):
+
+- `env_overrides` keys must match `^[A-Z_][A-Z0-9_]*$`; reject reserved keys/prefixes
+  (`EVE_*`, `PATH`, `HOME`, `SHELL`, `USER`, `TMPDIR`, `NODE_OPTIONS`,
+  `CLAUDE_CONFIG_DIR`, `CODEX_HOME`).
+- Values may contain literals plus `${secret.KEY}` placeholders only — other `${...}`
+  expressions are rejected.
+- Total `env_overrides` JSON ≤ 4 KB.
+- Overrides are **create-only**; once an attempt exists they cannot be patched.
+
+**Permissions:** `jobs:harness_override` is required on any create that includes
+override fields. `secrets:read` is additionally required when `env_overrides`
+contains `${secret.KEY}` references. Both are enforced on direct job creation,
+chat dispatch (against the resolved Eve principal), and the validate endpoint.
+
+**Secret interpolation flow:** API stores placeholders intact → orchestrator forwards
+unchanged → shared invoke module resolves at spawn time against already-resolved
+project secrets via `interpolateEnvOverrides()` → resolved values merged into
+`adapterEnv` after reserved-key strip. Missing references fail fast with
+`error_code = missing_secret_override` before harness launch. Resolved plaintext
+never appears in job rows, attempts, receipts, or execution logs. Chat-triggered
+jobs that fail with `missing_secret_override` post a structured error back to the
+originating chat thread (and coordination thread for team dispatch) via
+`EveMessageRelay.deliverProvisioningError`.
+
+**Routing log attribution:** the orchestrator's `routing` execution log records
+`harness_profile_name`, `harness_profile_source`, `harness_profile_hash`,
+`effective_harness`, `effective_model`, and `effective_effort` so receipts and
+analytics can group cost by harness profile.
+
+**Chat hint propagation:** chat requests (`/chat/route`, `/chat/dispatch`,
+`/chat/simulate`) accept a typed `hints` object carrying
+`harness_profile_override` + `env_overrides`. A legacy `metadata.hints` alias
+is bridged for gateway payloads. All 8 chat dispatch sites — direct agent,
+direct team lead + relay/fanout/council members, route → agent, route → team
+lead variants — propagate overrides into every lead and child job, listener jobs
+included. The override snapshot is also written to thread metadata
+(`threads.metadata.harness_overrides`) on the chat and coordination threads,
+with placeholders intact.
+
+**Workflow templating:** workflow steps may set `harness_profile` or
+`harness_profile_override` with `${inputs.<key>}` and
+`${event.payload.<dotted.path>}` template expressions. `workflow.inputs.<name>`
+declarations bind those inputs (with optional `from: event.payload.<path>` and
+`default:`). The expression engine is intentionally tiny — no operators, no
+function calls. Manifest sync rejects malformed templates and undeclared
+`${inputs.*}` references; missing event payload fields at runtime fall back to
+the agent default with a warning, not an error. See pipelines-workflows.md for
+the workflow-side coverage.
+
+CLI flags on `eve job create` (and via API as `harness_profile_override` /
+`env_overrides`):
+
+```bash
+eve job create --description "..." \
+  --harness-override-file ./overrides.json \
+  --env-override ANTHROPIC_BASE_URL='${secret.EDEN_TEST_BASE_URL}' \
+  --env-override OPENAI_BASE_URL='${secret.EDEN_OPENAI_URL}'
+```
+
+`--env-override` is repeatable. `eve job show <id> --json` returns the
+override and env placeholders verbatim.
+
 ## Scheduling Hints
 
 Preferences (not requirements) that influence scheduling:
@@ -532,6 +616,73 @@ The same diagnostic view now adds:
 ### Routing Decision Logging
 
 A structured `routing` execution log is written at claim time, capturing harness selection, target (agent-runtime vs worker), budget config, and selection source. Visible in `eve job diagnose` and `eve job logs`.
+
+The routing log payload includes harness-profile attribution: `harness_profile_name`,
+`harness_profile_source` (`agent_default | string_ref | inline_override |
+workflow_template`), `harness_profile_hash` (no plaintext secrets), plus
+`effective_harness`, `effective_model`, and `effective_effort`. The same
+attribution is mirrored on `job_attempts.harness_profile_source` /
+`harness_profile_hash` so analytics can group cost by profile without scanning
+log JSON.
+
+### Recovery & Resilience
+
+Every job assignee — not just `orchestrator` — is in scope for the watchdog:
+
+- `recoverActiveJobsWithTerminatedAttempts` periodic sweep catches jobs left
+  `active` after their attempts were finalized externally (pod drain, recovery,
+  agent-runtime restart). Sweep grace period via `EVE_ORCH_TERMINATED_GRACE_SECONDS`
+  (default 30s); recovery completes in ~35s instead of 30 minutes.
+- `processJob` and its error-handler path now transition job phase even when the
+  attempt was finalized externally, so `attemptSucceeded` is set for the
+  ingest-sync `finally` block.
+- Agent-runtime has a graceful-shutdown handler: on `SIGTERM`, all running
+  attempts are marked failed with `error_code = pod_terminated` and the pod
+  status is set to `draining` so no new work routes there. K8s manifest sets
+  `preStop: sleep 5` and `terminationGracePeriodSeconds: 120s`.
+- Agent-runtime auto-discovers orgs from the API (DB fallback) on startup and
+  re-discovers every 5 minutes. The placeholder `org_default` is gone; the
+  heartbeat endpoint returns 404 (not 500) when an org is missing, so silent FK
+  failures no longer mask unregistered pods.
+
+### Action vs Ad-Hoc Env Gates
+
+`defaults.env` no longer forces every ad-hoc agent job to acquire an exclusive
+environment mutex. The env gate now requires `action_type` (`deploy`, `build`,
+`migrate`) before serializing on environment. Ad-hoc agent jobs keep `env_name`
+for API resolution but run in parallel. Workflow / pipeline action jobs are
+unchanged.
+
+### Job List Defaults
+
+`eve job list` returns newest-first by default — recent jobs are no longer
+hidden behind page boundaries. The build step auto-syncs the manifest from the
+cloned repo when the manifest hash changes, so workflow trigger definitions
+stay current after each deploy without a separate `eve project sync`.
+
+### Job Completion Event
+
+The orchestrator emits `system.job.attempt.completed` on every attempt finish
+path — success, failure, and orchestrator error. Payload:
+
+```json
+{
+  "job_id": "myproj-a3f2dd12",
+  "attempt_id": "att_...",
+  "assignee": "my-agent",
+  "thread_id": "thr_...",
+  "execution_type": "agent",
+  "status": "succeeded|failed",
+  "duration_ms": 12345
+}
+```
+
+Use this event to drive post-session learning workflows. The event is registered
+in `KNOWN_SYSTEM_EVENTS`, so `eve agents sync` / manifest validation accepts
+`trigger.system.event: job.attempt.completed` without warnings. Carryover
+context now also materializes the `user` memory category alongside `learnings`,
+`decisions`, `runbooks`, `context`, and `conventions` — for per-user preferences
+that should ride forward to the next session.
 
 ### Auto-Expiry for Stale Documents
 

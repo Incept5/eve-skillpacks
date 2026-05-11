@@ -30,6 +30,38 @@ Standard structured log fields:
 
 Job execution lifecycle events are also written to `execution_logs` with correlation fields in the lifecycle `meta` object.
 
+Embedded conversations (project-scoped chat threads) carry a normalized event
+timeline (`conversation_events`, ids `cevt_*`) alongside the message stream.
+Standard kinds include `user.message`, `assistant.message`, `tool.call`,
+`tool.result`, `status.changed`, `progress`, `error`, and `final.result`; apps
+may emit custom kinds. Each event records `job_id`, `attempt_id`,
+`workflow_step`, and `source` for cross-correlation. Stream via the SSE
+endpoint or tail with `eve thread events <id> --follow`. See
+`agents-teams.md` and `eve-sdk.md` for the full surface.
+
+### Event -> Trigger Visibility
+
+Events now record why they did or did not fan out to workflows:
+
+| Field | Meaning |
+|---|---|
+| `trigger_match_count` | Number of triggers that matched (0 = no match) |
+| `triggers_evaluated` | Array of `{type, name, matched, reason?}` for each trigger checked |
+
+```bash
+eve event show <event-id>
+#   Triggers:    matched 1 of 3 evaluated
+#   Trigger Evaluations:
+#     workflow:process-document - MATCHED
+#     workflow:reindex          - no match (event_type mismatch)
+```
+
+`eve event list` shows a compact `MATCH` column (`1/3`). Manifest sync
+(`eve project sync`) now validates trigger definitions and surfaces warnings
+for unrecognized event types, invalid GitHub events, unknown system events,
+and missing cron schedules — catching trigger wiring mistakes before the
+first event arrives. See `events.md` for the full event + trigger surface.
+
 For deployed app services, use environment logs and request diagnostics:
 
 ```bash
@@ -41,8 +73,14 @@ eve env diagnose <project> <env> --request req_01h... --window 120 --json
 
 `eve env logs --filter k=v` is repeatable, ANDs filters together, and matches
 JSON log fields exactly. Dotted paths such as `req.path=/api/items` read nested
-JSON fields. `--follow` streams through the API using SSE and emits pod-change
-notifications when a matching pod rolls.
+JSON fields. Numeric and boolean values are coerced (`--filter status=500`
+matches `{"status":500}`). Non-JSON lines fall back to `--grep` substring
+semantics. `--follow` streams through the API using SSE, emits pod-change
+notifications when a matching pod rolls, and combines with `--filter` for live
+structured queries. `eve env diagnose --request <req_id>` integrates app-service
+logs, K8s events, deploy metadata at request time, optional audit rows, and
+trace pointers into one JSON payload — no more stitching four commands
+together by hand.
 
 ## Execution Receipts
 

@@ -62,6 +62,19 @@ Every provider implements the `GatewayProvider` contract:
 
 Subscription providers start persistent connections on `initialize()` and tear them down on `shutdown()`. Webhook providers are stateless between requests.
 
+### Built-in Provider Factories
+
+The gateway registers four provider factories at startup:
+
+| Provider | Transport | Push model | When to use |
+|----------|-----------|------------|-------------|
+| `slack` | webhook | Slack Web API (`chat.postMessage`) | Slack workspace integration |
+| `nostr` | subscription | Nostr relay publish | Decentralized / Nostr clients |
+| `webchat` | subscription | WebSocket push (gateway port) | Browser apps that want a direct gateway socket |
+| `api` | subscription (poll) | **No-op** — clients poll `GET /threads/{id}/messages` | REST/polling apps, mobile apps, embedded `provider: app` flows whose backend proxies through Eve |
+
+Unknown provider types now produce a `delivery.provider_missing` warning instead of throwing 404, so apps using new provider strings degrade gracefully — the message is still persisted to `thread_messages`.
+
 ### Hot-Loading New Integrations
 
 The gateway polls the API for active integrations every **30 seconds**. When a new integration is detected (e.g., after a Slack OAuth install completes), it is initialized automatically without requiring a gateway restart. Only new integrations are loaded — existing instances are not re-initialized during polling.
@@ -320,6 +333,18 @@ Features:
 Registration: configured as an integration with `provider: webchat`.
 
 Use provider `app` and the conversations facade for same-origin embedded app panes. Use `webchat` only when a direct browser-to-gateway WebSocket is required. Use provider `api` for generic REST-originated chat clients without browser push.
+
+## API Provider (No-Op for Polling Clients)
+
+The `api` provider exists so that chat routing succeeds for REST clients that do not maintain a push connection. It implements the `GatewayProvider` interface with a no-op `sendMessage()`:
+
+- `name: 'api'`, `transport: 'subscription'`, capabilities: `['inbound', 'outbound']`.
+- `initialize()` and `shutdown()` are no-ops — there is no socket, no listener, no connection state.
+- `sendMessage()` returns immediately. The agent's reply is already stored in `thread_messages` before the gateway is called; clients retrieve it via polling (`GET /threads/{id}/messages?since=`) or SSE (`GET /threads/{id}/stream`).
+
+Why this exists: before the `api` factory was registered, chat from REST web apps (e.g. `provider: "api"`, `account_id: "eden-web"`) failed with `No active provider instance for api:eden-web`, which marked every reply `delivery_status = failed` even though the message had been persisted. With the no-op provider registered, those deliveries are now `delivered` and the polling/SSE catch-up paths are the source of truth for the client.
+
+Configure via `provider: api` on `chat/route` requests, or as the implicit transport for `provider: app` embedded conversations — no integration row is required.
 
 ## Chat Simulation
 

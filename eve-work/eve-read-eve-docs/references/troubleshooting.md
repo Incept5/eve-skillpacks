@@ -6,9 +6,10 @@
 - You need the quick triage sequence before diving into specific docs.
 
 ## Load Next
-- `references/deploy-debug.md` for architecture-level debugging (K8s, workers, ingress).
+- `references/deploy-debug.md` for architecture-level debugging (K8s, workers, ingress, custom domains, Sentinel, managed-DB TLS).
 - `references/secrets-auth.md` for auth and secret resolution failures.
 - `references/builds-releases.md` for build-specific failure analysis.
+- `references/database-ops.md` for managed-DB connection and migration details.
 
 ## Ask If Missing
 - Confirm the exact error message or symptom.
@@ -61,6 +62,42 @@ If `./bin/eh status` shows services stopped, restart with `./bin/eh start <mode>
 | Rollback needed | Bad deploy | `eve env rollback <project> <env>` |
 | Env stuck in unknown state | K8s unreachable | `eve env recover <project> <env>` to analyze and suggest recovery |
 | Deploy bypasses pipeline | Used `--direct` flag | Re-run without `--direct` to use configured pipeline |
+| Bare `HTTP request failed` in pipeline logs | Old K8s client error leaking unwrapped | Should not happen — every K8s call is wrapped now. If seen, capture `attempt_id` and escalate; the wrapper is in `apps/worker/src/deployer/k8s-error.ts`. |
+| `[app_crash_loop]` failure in deploy logs | Container exits non-zero on start (bad migration, missing env var) | `eve env logs <project> <env> <service> --previous` for the boot stack trace. |
+| `[image_pull_error]` failure | Bad image tag, missing pull secret, or registry auth | `eve env diagnose`; verify the digest exists; check `imagePullSecret`. |
+| `[readiness_timeout]` failure | Pods up but probes never pass | `eve env diagnose`; review probe config; check downstream dependencies. |
+| `[dependency_timeout]` failure | `depends_on` service never reached ready | `eve env logs <project> <env> <dep-service>` to find the blocker. |
+| `[manifest_invalid]` failure | K8s rejected manifest (422/400) or manifest drift vs. ref | `eve manifest validate`; if drift, `eve project sync --ref <sha>` then redeploy. |
+| `[ingress_conflict]` failure | Another env owns the hostname (first-bind-wins) | `eve domain list`; `eve domain transfer <host> --to <env>`; redeploy losing then winning env. |
+| `eve env show` reports DRIFT (last-applied != last-ready) | Apply succeeded but readiness failed; cluster is on a newer release than the rollback base | `eve env diagnose`; redeploy a known-good ref or `eve env rollback`. |
+| Manifest fix not picked up by re-deploy | Used to require a separate `eve project sync` | No longer needed — `eve env deploy --ref <sha>` resolves the manifest from the ref. If still stale, ensure `--repo-dir` points at the repo with the updated `.eve/manifest.yaml`. |
+
+### Custom Domain Issues
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Custom domain stuck in `pending_dns` | DNS not pointing at platform ingress | `eve domain status <hostname>` shows the expected target; update DNS, then `eve domain verify <hostname>` and redeploy. |
+| Custom domain `dns_error` after working before | DNS record was changed or removed | Restore the A/CNAME; run `eve domain verify`. |
+| Custom domain `cert_error` | cert-manager HTTP-01 challenge failed | Check the ClusterIssuer has an HTTP-01 solver (custom domains never use `EVE_DEFAULT_TLS_SECRET`); verify port 80 is reachable from the internet. |
+| Multi-AZ ingress IPs not matching DNS | `EVE_PLATFORM_INGRESS_IP` set to one IP but DNS uses another | Set `EVE_PLATFORM_INGRESS_IP` to the comma-separated list of all LB IPs. |
+| Deploy fails with `ingress_conflict` for a custom domain | Hostname is already bound to another env (first-bind-wins) | `eve domain list` to find the owner; `eve domain transfer <host> --to <env>` or `eve domain unbind <host>`. |
+
+### TLS / Managed DB Issues
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Node `pg` throws `self signed certificate in certificate chain` | Pod missing the managed-DB CA bundle | Re-deploy; verify `kubectl -n <ns> get cm eve-db-trust` exists; ensure the env has at least one cloud managed DB tenant. |
+| `no pg_hba.conf entry for host ... SSL off` | App connecting without SSL despite `verify-full` URL | Confirm `DATABASE_URL` carries `sslmode=verify-full`; remove any app-side `ssl: { rejectUnauthorized: false }` override. |
+| Migration job fails on TLS but app pods work | Job render path skipped trust injection in an older deploy | Re-deploy; both Deployments and Jobs now mount the trust ConfigMap. |
+
+### Sentinel Alerts
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Slack alert: `Environment degraded — N pods ImagePullBackOff` | Sentinel watchdog detected pull failures | `eve env diagnose <project> <env>`; fix the image tag/digest; redeploy. |
+| Slack alert: `Circuit-breaker activated — scaled to 0 replicas` | Env stayed degraded past `EVE_ENV_HEALTH_CIRCUIT_BREAK_AFTER_*` thresholds | Investigate root cause via `eve env diagnose`; once fixed, `eve env deploy` re-scales the Deployment. |
+| Sentinel posts no alerts despite known-bad envs | `EVE_ENV_HEALTH_ENABLED != true`, `environments.namespace` not yet backfilled, or Slack settings missing | Check orchestrator env vars; verify `sentinel.enabled`, `sentinel.slack.channel_id`, `sentinel.slack.integration_id` system settings; recently-deployed envs auto-populate `namespace`. |
+| Same alert keeps re-posting | Issue signature changed each tick | Sentinel deduplicates per `(env, signature)` for 4h — varying signatures (e.g., new pod name each restart) defeat dedup. Investigate the underlying churn. |
 
 ## Job Execution Issues
 

@@ -19,7 +19,24 @@
     "docs/system/eve-sdk.md": "eve-work/eve-read-eve-docs/references/eve-sdk.md",
     "docs/system/document-ingestion.md + docs/plans/document-ingestion-mvp-plan.md + docs/plans/ingest-agentpack-plan.md + docs/plans/media-processing-agent-tooling-plan.md": "eve-work/eve-read-eve-docs/references/document-ingestion.md",
     "docs/plans/cloud-fs-integration-plan.md": "eve-work/eve-read-eve-docs/references/object-store-filesystem.md",
-    "docs/plans/private-endpoints-tailscale-plan.md": "eve-work/eve-read-eve-docs/references/deploy-debug.md"
+    "docs/plans/private-endpoints-tailscale-plan.md": "eve-work/eve-read-eve-docs/references/deploy-debug.md",
+    "docs/plans/per-job-harness-override-plan.md": "eve-work/eve-read-eve-docs/references/harnesses.md",
+    "docs/plans/workflow-env-overrides-plan.md": "eve-work/eve-read-eve-docs/references/pipelines-workflows.md",
+    "docs/plans/custom-domains-plan.md": "eve-work/eve-read-eve-docs/references/manifest.md",
+    "docs/plans/deploy-error-surfacing-plan.md": "eve-work/eve-read-eve-docs/references/deploy-debug.md",
+    "docs/plans/app-stable-egress-v2-plan.md": "eve-work/eve-read-eve-docs/references/manifest.md",
+    "docs/plans/embedded-app-conversation-api-plan.md": "eve-work/eve-read-eve-docs/references/eve-sdk.md",
+    "docs/plans/api-chat-provider-plan.md": "eve-work/eve-read-eve-docs/references/gateways.md",
+    "docs/plans/chat-thread-continuity-plan.md": "eve-work/eve-read-eve-docs/references/agents-teams.md",
+    "docs/plans/llm-wiki-platform-enhancements.md": "eve-work/eve-read-eve-docs/references/llm-wiki.md",
+    "docs/plans/managed-db-tls-trust-plan.md": "eve-work/eve-read-eve-docs/references/database-ops.md",
+    "docs/plans/platform-sentinel-plan.md": "eve-work/eve-read-eve-docs/references/deploy-debug.md",
+    "docs/plans/observability-cli-gap-closure-plan.md": "eve-work/eve-read-eve-docs/references/observability.md",
+    "docs/plans/runtime-skill-materialization-plan.md + docs/plans/skills-materialization-fast-path-plan.md": "eve-work/eve-read-eve-docs/references/skills-system.md",
+    "docs/plans/app-object-bucket-credentials-plan.md": "eve-work/eve-read-eve-docs/references/object-store-filesystem.md",
+    "docs/plans/agent-learning-loop-test-plan.md": "eve-work/eve-read-eve-docs/references/jobs.md",
+    "docs/plans/eve-dashboard-design.md + docs/plans/eve-dashboard-completion-plan.md": "eve-work/eve-read-eve-docs/references/overview.md",
+    "docs/plans/agent-permissions-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md"
   },
   "skill_triggers": {
     "docs/system/agents.md": ["eve-se/eve-bootstrap", "eve-work/eve-read-eve-docs"],
@@ -34,7 +51,31 @@
     "docs/ideas/agent-native-design.md": ["eve-design/eve-agent-native-design"],
     "docs/ideas/platform-primitives-for-agentic-apps.md": ["eve-design/eve-agent-native-design"],
     "docs/system/document-ingestion.md": ["eve-work/eve-read-eve-docs"],
-    "docs/plans/cloud-fs-integration-plan.md": ["eve-se/eve-manifest-authoring", "eve-design/eve-fullstack-app-design"]
+    "docs/plans/cloud-fs-integration-plan.md": ["eve-se/eve-manifest-authoring", "eve-design/eve-fullstack-app-design"],
+    "docs/plans/per-job-harness-override-plan.md": ["eve-se/eve-pipelines-workflows", "eve-se/eve-cli-primitives", "eve-work/eve-job-debugging", "eve-design/eve-agentic-app-design"],
+    "docs/plans/workflow-env-overrides-plan.md": ["eve-se/eve-pipelines-workflows", "eve-se/eve-manifest-authoring"],
+    "docs/plans/custom-domains-plan.md": ["eve-se/eve-deploy-debugging", "eve-se/eve-manifest-authoring", "eve-design/eve-fullstack-app-design", "eve-se/eve-cli-primitives"],
+    "docs/plans/deploy-error-surfacing-plan.md": ["eve-se/eve-deploy-debugging", "eve-se/eve-troubleshooting"],
+    "docs/plans/app-stable-egress-v2-plan.md": ["eve-se/eve-deploy-debugging", "eve-se/eve-manifest-authoring", "eve-design/eve-fullstack-app-design"],
+    "docs/plans/embedded-app-conversation-api-plan.md": ["eve-design/eve-fullstack-app-design", "eve-design/eve-agentic-app-design"],
+    "docs/plans/api-chat-provider-plan.md": ["eve-design/eve-agentic-app-design"],
+    "docs/plans/chat-thread-continuity-plan.md": ["eve-design/eve-agentic-app-design"],
+    "docs/plans/llm-wiki-platform-enhancements.md": ["eve-work/eve-agent-memory"],
+    "docs/plans/managed-db-tls-trust-plan.md": ["eve-se/eve-deploy-debugging"],
+    "docs/plans/platform-sentinel-plan.md": ["eve-se/eve-deploy-debugging", "eve-se/eve-troubleshooting"],
+    "docs/plans/observability-cli-gap-closure-plan.md": ["eve-se/eve-troubleshooting", "eve-se/eve-cli-primitives"],
+    "docs/plans/runtime-skill-materialization-plan.md": ["eve-se/eve-manifest-authoring"],
+    "docs/plans/skills-materialization-fast-path-plan.md": ["eve-se/eve-manifest-authoring"],
+    "docs/plans/app-object-bucket-credentials-plan.md": ["eve-design/eve-fullstack-app-design"],
+    "docs/plans/agent-learning-loop-test-plan.md": ["eve-design/eve-agentic-app-design", "eve-work/eve-job-debugging"],
+    "docs/plans/eve-dashboard-design.md": ["eve-design/eve-fullstack-app-design"],
+    "docs/plans/agent-permissions-plan.md": ["eve-se/eve-auth-and-secrets"],
+    "packages/cli/src/commands/domain.ts": ["eve-se/eve-deploy-debugging", "eve-se/eve-cli-primitives"],
+    "packages/cli/src/commands/traces.ts": ["eve-se/eve-cli-primitives"],
+    "packages/cli/src/commands/docs.ts": ["eve-work/eve-agent-memory"],
+    "apps/orchestrator/src/cron/env-health-watchdog.service.ts": ["eve-se/eve-deploy-debugging", "eve-se/eve-troubleshooting"],
+    "apps/worker/src/deployer/deploy-failure.ts": ["eve-se/eve-deploy-debugging", "eve-se/eve-troubleshooting"],
+    "packages/db/migrations/00090_per_job_harness_overrides.sql": ["eve-work/eve-job-debugging"]
   },
   "composite_triggers": {
     "eve-work/eve-agent-memory": {
@@ -42,7 +83,8 @@
       "watch_sources": [
         "docs/system/",
         "packages/cli/src/commands/",
-        "packages/cli/src/commands/ingest.ts"
+        "packages/cli/src/commands/ingest.ts",
+        "packages/cli/src/commands/docs.ts"
       ]
     },
     "eve-se/eve-auth-and-secrets": {
@@ -67,7 +109,9 @@
         "docs/system/manifest.md",
         "docs/system/object-store-and-org-filesystem.md",
         "packages/cli/src/commands/cloud-fs.ts",
-        "packages/cli/src/commands/manifest.ts"
+        "packages/cli/src/commands/manifest.ts",
+        "packages/shared/src/schemas/workflow.ts",
+        "apps/worker/src/deployer/"
       ]
     },
     "eve-design/eve-fullstack-app-design": {
@@ -80,7 +124,8 @@
         "docs/system/manifest.md",
         "packages/cli/src/commands/cloud-fs.ts",
         "packages/cli/src/commands/endpoint.ts",
-        "packages/cli/src/commands/ingest.ts"
+        "packages/cli/src/commands/ingest.ts",
+        "packages/cli/src/commands/domain.ts"
       ]
     }
   },

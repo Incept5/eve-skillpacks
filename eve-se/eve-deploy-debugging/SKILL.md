@@ -99,6 +99,34 @@ eve system logs
 2. Orchestrator: `eve system orchestrator status`
 3. Recent events: `eve system events`
 
+### Deploy Failed (Structured Diagnosis)
+
+When a deploy fails, prefer structured output over raw HTTP errors:
+
+```bash
+eve env diagnose <project> <env>
+```
+
+`eve env diagnose` surfaces a typed `last_deploy_failure` (kind, service, pod, namespace, message), the live K8s state, and `manifest_hash` of the deployed release versus the latest sync — use this to spot applied-release drift before re-running. The CLI no longer hides failures behind a bare `HTTP request failed`.
+
+### Custom Domains
+
+Custom hostnames are declared in the manifest under `x-eve.ingress.domains` and bound on first deploy. To operate them:
+
+```bash
+eve domain list --env <env>          # what is bound where
+eve domain verify <hostname>         # DNS check + cert state + next steps
+eve domain status <hostname>         # which env owns it today
+eve domain transfer <hostname> --to <env>   # move ownership across envs in same project
+eve domain unbind <hostname>         # release so the next deploy claims it
+```
+
+Ownership is **env-scoped with first-bind-wins**: the first env to deploy with a hostname owns it, and other envs referencing the same hostname log `owned by environment "<A>"` and skip rendering. Use `transfer` + redeploy (or scope per-env via `environments.<env>.overrides`) to move it.
+
+### Platform Sentinel Alerts
+
+The platform runs a continuous environment sentinel that posts Slack alerts when envs degrade. Treat a sentinel ping as a starting point: pull the project/env from the alert, then run `eve env diagnose <project> <env>` to confirm the current state before reacting — alerts can lag a self-heal.
+
 ## Common Error Messages
 
 | Error | Cause | Fix |
@@ -255,6 +283,24 @@ Production disk management for agent workspaces:
 - `EVE_SESSION_TTL_HOURS` — auto-evict stale sessions
 - LRU eviction when approaching budget; TTL cleanup for idle sessions
 - K8s: per-attempt PVCs deleted on completion
+
+## Managed DB TLS
+
+Managed Postgres now ships a trusted CA chain to apps. **Do not** set `rejectUnauthorized: false` or `ssl: { rejectUnauthorized: false }` in service code — verified TLS is the default. If a client errors on cert verification, check that the service is reading `${managed.<db>.url}` rather than a hand-crafted DSN.
+
+## Stable Egress (Allowlisted Source IPs)
+
+When a vendor requires fixed source IPs, opt the service into platform-managed stable egress in the manifest:
+
+```yaml
+services:
+  poller:
+    x-eve:
+      networking:
+        egress: stable      # default is 'nat'
+```
+
+The deployer schedules the pod on the stable-egress node group with `hostNetwork: true` so traffic exits via that node's IGW path. Only opt in when needed (it bypasses NAT and constrains scheduling). See `eve-manifest-authoring` for the full field shape.
 
 ## Related Skills
 

@@ -97,6 +97,14 @@ workflows:
 
 The trigger matcher strips the `system.` prefix, so `system.doc.ingest` matches `event: doc.ingest`.
 
+**Reliability**: doc.ingest workflow triggers fire reliably end-to-end. Pack
+workflows are merged into the repo manifest before sync (no competing manifest
+rows), `eve event emit --type doc.ingest --source system` auto-prefixes to the
+canonical `system.doc.ingest` event type, and `eve workflow run --input` wraps
+payloads correctly for the workflow invoke schema. If a doc.ingest event does
+not match, `eve event show <event-id>` now shows the per-trigger evaluation
+breakdown — see `events.md`.
+
 The orchestrator interpolates event payload fields into workflow resource refs:
 
 ```yaml

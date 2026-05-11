@@ -201,6 +201,41 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 - Pipeline steps can be `action`, `script`, or `agent`.
 - Use `action.type: create-pr` for PR automation when configured.
 - Workflows live under `workflows` and are invoked via CLI; `db_access` is honored.
+- Workflow steps support `harness`, `harness_profile`, and `harness_options` per step (overrides agent-resolved values), `condition` for skip-if-false gating against upstream step status, and `git` controls (now correctly materialized at dispatch). See `references/manifest.md` for the full step shape.
+
+## Custom Domains and Stable Egress
+
+Bring-your-own hostnames and opt-in network shape are declared per service:
+
+```yaml
+services:
+  api:
+    x-eve:
+      ingress:
+        public: true
+        port: 3000
+        domains: ["app.example.com", "www.example.com"]    # max 10
+      networking:
+        egress: stable    # default 'nat'; opt in only when a vendor needs allowlisted source IPs
+```
+
+- `ingress.domains` are bound on first deploy: the **first env** to deploy with a hostname owns it; other envs that reference the same hostname log `owned by environment "<A>"` and skip rendering. Operate ownership with `eve domain list|verify|status|transfer|unbind|remove` (see `eve-deploy-debugging`).
+- `networking.egress: stable` schedules the pod on the stable-egress node group with `hostNetwork: true`. It bypasses NAT and constrains scheduling — only opt in when needed.
+
+See `references/manifest.md` for the full field shape (validation rules, max counts, per-env overrides).
+
+## Service Token Permissions
+
+Every deployed service receives an auto-injected `EVE_SERVICE_TOKEN` with **read-only defaults**. Declare any write scopes you need explicitly — anything not declared is denied:
+
+```yaml
+services:
+  api:
+    x-eve:
+      permissions: [jobs:write, events:write, threads:write]
+```
+
+Declared permissions are **merged** with the read-only defaults; you only list what you add. Default to declaring nothing and grant write scopes one at a time as the service actually needs them. See `references/manifest.md` for the full permission catalog.
 
 ## Platform-Injected Environment Variables
 
@@ -231,7 +266,7 @@ browser/client-side code. Services can override these in their `environment` sec
 - Agent packs via `x-eve.packs` with optional `x-eve.install_agents` defaults.
 - Agent config paths via `x-eve.agents.config_path` and `x-eve.agents.teams_path`.
 - Chat routing config via `x-eve.chat.config_path`.
-- Service extensions under `x-eve` (ingress, role, api specs, worker pools, cli, object_store).
+- Service extensions under `x-eve` (ingress, role, api specs, worker pools, cli, object_store, networking, permissions).
 - API specs: `x-eve.api_spec` or `x-eve.api_specs` (spec URL relative to service by default).
 - App CLI: `x-eve.cli` declares an agent-friendly CLI for the service (see below).
 - Toolchains: agent-level `toolchains` declarations inject on-demand runtimes (see below).

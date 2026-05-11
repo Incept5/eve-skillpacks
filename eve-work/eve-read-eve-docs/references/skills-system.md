@@ -15,10 +15,22 @@
 - Confirm preferred source (`skills.txt` local path vs remote URL).
 - Confirm whether you are using pack lockfile mode via `x-eve.packs`.
 
-Eve Horizon installs skills via the `skills` CLI. Skills follow the OpenSkills
-SKILL.md format: YAML frontmatter for metadata, imperative instructions in the
-body, and optional bundled resources. Install happens at clone time from a
-manifest into `.agents/skills/`.
+Eve Horizon has a public split between **developer skills** and **runtime
+skills**. Skills follow the OpenSkills SKILL.md format -- YAML frontmatter for
+metadata, imperative instructions in the body, and optional bundled resources --
+but they are sourced and materialized differently.
+
+- **Developer skills** live in root `skills.txt` and are refreshed with
+  `eve skills install`. They target local coding agents (Claude Code, Codex,
+  Gemini CLI, Pi) working on the repo.
+- **Runtime skills** live in `.eve/manifest.yaml` (`x-eve.packs`), are pinned by
+  `.eve/packs.lock.yaml`, and are materialized for Eve jobs by
+  `eve skills materialize`. They are what runtime agents see inside jobs.
+
+Runtime materialization writes canonical skills to `.agents/skills/` (plural)
+and bridges harness-specific layouts (`.claude/skills`, `.pi/skills`) by
+symlink. The singular `.agent/skills` path is no longer used anywhere -- all
+code, hooks, and docs canonicalized on `.agents/skills/`.
 
 ## SKILL.md Format
 
@@ -72,12 +84,13 @@ eve-skillpacks/
 Each pack includes a `README.md` covering purpose, skills, audience, and
 installation instructions.
 
-## Installing Skills
+## Installing and Materializing Skills
 
-### skills.txt (Legacy)
+### Developer Path: `skills.txt` + `eve skills install`
 
-One source per line. Blank lines and `#` comments are ignored. Always prefix
-local paths with `./`, `../`, `/`, or `~` to distinguish from `org/repo`.
+Use this for local coding agents working on the repo. One source per line;
+blank lines and `#` comments are ignored. Always prefix local paths with `./`,
+`../`, `/`, or `~` to distinguish from `org/repo`.
 
 ```txt
 ./skillpacks/my-pack/*                   # All skills in a local pack
@@ -85,32 +98,86 @@ local paths with `./`, `../`, `/`, or `~` to distinguish from `org/repo`.
 https://github.com/incept5/eve-skillpacks  # Remote source
 ```
 
-Run `./bin/eh skills install` to read the manifest, install each source into
-`.agents/skills/`, and symlink `.claude/skills` -> `.agents/skills/`.
+```bash
+eve skills install              # Read skills.txt, install via the upstream skills CLI
+eve skills install <source>     # Ad-hoc install of a single source
+```
 
-### AgentPacks (Preferred)
+This is the compatibility path. It shells out to the `skills` binary per
+skill per agent, so it is fine for occasional dev refresh but not for
+clone-time or runtime startup.
 
-Declare packs in `.eve/manifest.yaml` under `x-eve.packs` for reproducible,
-lockfile-based installation:
+### Runtime Path: `x-eve.packs` + `eve skills materialize`
+
+Declare runtime packs in `.eve/manifest.yaml` for reproducible, lockfile-based
+materialization that runs without `skills add` subprocesses:
 
 ```yaml
 x-eve:
+  install_agents: [claude-code, codex, gemini-cli, pi]   # default for all four
   packs:
-    - source: github.com/incept5/eve-skillpacks
-      packs: [eve-work, eve-se]
+    - source: ./skillpacks/my-pack
+    - source: incept5/eve-skillpacks
+      ref: 0123456789abcdef0123456789abcdef01234567       # pinned 40-char SHA
 ```
-
-Commands:
 
 ```bash
-eve packs status              # Show current pack state
-eve packs resolve --dry-run   # Preview resolution without writing lockfile
-eve agents sync               # Resolve and write packs.lock.yaml
+eve packs status                          # Show current pack state
+eve packs resolve --dry-run               # Preview resolution
+eve agents sync                           # Resolve and write packs.lock.yaml
+eve skills materialize manifest           # Fast-path materialize runtime skills
+eve skills materialize manifest --skill-mode software-engineering
+eve skills materialize manifest --runtime # Runtime-only: vendored, no fetch
+eve skills materialize skills.txt         # Fast-path for local skills.txt entries
 ```
 
-The lockfile `.eve/packs.lock.yaml` pins exact versions. To migrate from
-`skills.txt`, run `eve migrate skills-to-packs`, review the output, merge it
-into `.eve/manifest.yaml`, and remove `skills.txt`.
+Flags on `materialize`:
+
+| Flag | Purpose |
+|------|---------|
+| `--skill-mode <name>` | Manifest skill mode to resolve (default: `runtime`) |
+| `--mode symlink\|copy` | Filesystem mode (default: `symlink`) |
+| `--agents a,b` | Comma-separated agent override |
+| `--runtime` | Consume vendored externals from `.eve/materialized-skills/` only |
+
+The lockfile `.eve/packs.lock.yaml` pins exact versions. External pack content
+is vendored into `.eve/materialized-skills/<source-id>/<install-name>/` so
+runtime startup stays filesystem-only with no network or `skills` subprocess.
+
+To migrate runtime entries off `skills.txt`, run `eve migrate skills-to-packs`,
+review the output, merge it into `.eve/manifest.yaml`, and keep only repo-local
+developer skills in `skills.txt`. See `references/manifest.md` for the full
+`x-eve.packs` schema and pack lockfile format.
+
+### Skill Modes
+
+`x-eve.skill_modes` declares named runtime selection policies that jobs can opt
+into:
+
+```yaml
+x-eve:
+  skill_modes:
+    runtime:
+      pack_set: runtime
+    software-engineering:
+      pack_set: runtime
+      include_skills_txt: true        # add dev skills.txt to the materializer
+      extra_packs:
+        - source: ./private-eve-dev-skills/eve-dev
+```
+
+A job (or `effectiveInvocation.data.skill_mode`) selects a mode. Default for
+both agent-runtime and worker is `runtime`. `software-engineering` is explicit
+opt-in for repo-focused jobs that need dev skills alongside runtime skills.
+
+### Multiple Sparse Agent Packs
+
+`eve project sync` (and `eve agents sync`) supports multiple sparse agent
+packs, each contributing only a subset of files. The pack resolver auto-detects
+"simple pack" layouts -- packs that ship `agents.yaml`, `teams.yaml`, or
+`chat.yaml` at the pack root without an `eve/pack.yaml` descriptor -- so two or
+more sparse packs can coexist in `x-eve.packs` and merge cleanly into the
+project's resolved agent/team/chat config.
 
 ## Glob Pattern Syntax
 
@@ -123,29 +190,49 @@ into `.eve/manifest.yaml`, and remove `skills.txt`.
 The installer expands globs, finds directories containing `SKILL.md`, and
 installs each. The directory name becomes the skill identifier.
 
-## Worker-Side Installation
+## Runtime Materialization Flow
 
-The worker runs `.eve/hooks/on-clone.sh` after cloning a fresh workspace:
+Both agent-runtime and worker now materialize runtime skills **before**
+`.eve/hooks/on-clone.sh` runs, via `materializeWorkspaceSkills()` from
+`@eve/shared`. The hook can assume runtime skills are already present, so it
+no longer needs to call `eve skills install`.
 
-1. Prefer `./bin/eh skills install` when the project provides it
-2. Skip install if `.agent/skills` is already tracked in the repo
-3. Fall back to `eve-skills install` (minimal helper bundled in worker images)
+Per-job flow:
 
-Install targets (`.agents/skills/`, `.claude/skills/`) are always gitignored.
-Tracked sources live under repo-local pack paths, listed in `skills.txt` or
-resolved from `packs.lock.yaml`.
+1. Workspace is cloned (or reused).
+2. Runtime resolves the selected `skill_mode` (default `runtime`).
+3. Manifest packs are materialized into `.agents/skills/<install-name>/` --
+   local sources via symlink, vendored externals from
+   `.eve/materialized-skills/`.
+4. Claude-family harnesses get `.claude/skills` -> `../.agents/skills`. Pi
+   gets `.pi/skills`. Codex reads from `.agents/skills/` directly.
+5. `.eve/hooks/on-clone.sh`, `on-acquire.sh`, etc. run.
+6. Harness launches with skills already in place.
+
+Worker software-engineering jobs may explicitly request
+`skill_mode: software-engineering` to also pick up `skills.txt` dev skills via
+the same fast-path materializer.
+
+Install targets (`.agents/skills/`, `.claude/skills/`, `.pi/skills/`) are
+always gitignored. Tracked sources live under repo-local pack paths (listed in
+`skills.txt`), resolved from `.eve/packs.lock.yaml`, or vendored under
+`.eve/materialized-skills/`.
 
 ## Skill Resolution and Loading
 
 When `skill read <name>` is invoked, OpenSkills searches (first match wins):
 
-1. `./.agents/skills/` (project universal)
+1. `./.agents/skills/` (project universal -- canonical, used by codex, gemini-cli, pi)
 2. `~/.agents/skills/` (global universal)
-3. `./.claude/skills/` (project Claude-specific)
+3. `./.claude/skills/` (project Claude-specific -- symlink to `.agents/skills` after materialize)
 4. `~/.claude/skills/` (global Claude-specific)
 
 Project skills shadow global skills with the same name. Output includes the
 skill body and a base directory for resolving bundled resources.
+
+`.agents/skills/` (plural) is the single canonical universal path. The legacy
+singular `.agent/skills/` was a typo in the worker image and shared docs and
+is no longer used; everything has been canonicalized on the plural form.
 
 ## Naming Conventions
 

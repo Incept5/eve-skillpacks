@@ -53,6 +53,16 @@ line flagged `DRIFT — cluster differs from last-ready`. Both are persisted in
 `environments.current_release_id` (last ready / rollback base) and
 `last_applied_release_id` (actually in the cluster).
 
+### Pipeline manifest resolution
+
+Pipeline runs resolve `manifest_hash` from the deploy ref's manifest, not from
+"latest manifest at run-create time". Pushing a manifest fix and immediately
+running `eve env deploy --ref <new-sha>` picks up the new manifest without a
+separate `eve project sync` step. CLI auto-sync (when `--repo-dir` contains
+`.eve/manifest.yaml`) and the server-side resolver agree on the hash for the
+ref. If the ref's manifest cannot be resolved, the deploy fails fast with a
+clear error rather than silently using a stale hash.
+
 ## Custom Domain Ownership
 
 Custom domains are env-scoped with **first-bind-wins** semantics. The first env
@@ -136,9 +146,37 @@ Domain resolution: 1) manifest `x-eve.ingress.domain`, 2) `EVE_DEFAULT_DOMAIN`, 
 
 ### Custom Domain Ingresses
 
-Apps can bring their own domains via `x-eve.ingress.domains`. Domains are auto-registered during manifest sync and also by the deployer before binding. Each custom domain gets a separate K8s Ingress resource labeled `eve.custom_domain=true`. During deploy, the deployer checks DNS (A/CNAME) against `EVE_PLATFORM_INGRESS_IP`/`EVE_PLATFORM_INGRESS_HOSTNAME`. If DNS is verified, the Ingress is applied and cert-manager provisions a per-domain TLS cert via HTTP-01. Unverified domains stay in `pending_dns` — use `eve domain verify <hostname>` to perform real DNS resolution and transition to `dns_verified`, then redeploy to activate.
+Apps can bring their own domains via `x-eve.ingress.domains` (see
+`references/manifest.md` for the schema). Domains are auto-registered during
+manifest sync and also by the deployer before binding. Each custom domain gets
+a separate K8s Ingress resource labeled `eve.custom_domain=true`. During
+deploy, the deployer checks DNS (A/CNAME) against `EVE_PLATFORM_INGRESS_IP`
+/ `EVE_PLATFORM_INGRESS_HOSTNAME`. `EVE_PLATFORM_INGRESS_IP` accepts a
+comma-separated list (e.g. `52.209.1.195,52.17.16.223`) for multi-AZ load
+balancers — DNS verification matches any of the listed IPs against the A
+records. If DNS is verified, the Ingress is applied and cert-manager
+provisions a per-domain TLS cert via HTTP-01. Unverified domains stay in
+`pending_dns` — use `eve domain verify <hostname>` to perform real DNS
+resolution and transition to `dns_verified`, then redeploy to activate.
+
+Services that omit `x-eve.ingress.alias` still get custom-domain ingresses
+when `x-eve.ingress.domains` is set; the deployer no longer requires an alias
+to render the per-domain Ingress.
 
 Stale custom domain ingresses (removed from manifest) are garbage-collected on re-deploy via label selector. The `custom_domains` database table tracks lifecycle states: `pending_dns`, `dns_verified`, `cert_provisioning`, `active`, `dns_error`, `cert_error`, `removed`.
+
+### Debugging Custom Domains
+
+```bash
+eve domain list --project <id>                      # All domains + owning env
+eve domain status <hostname> --project <id>         # Per-domain DNS / cert state
+eve domain verify <hostname> --project <id>         # Re-run DNS resolution
+eve env diagnose <project> <env>                    # Pulls in per-env custom-domain status
+```
+
+`eve env diagnose` includes the per-env custom-domain rows alongside pod state,
+so an `ingress_conflict` failure or a `pending_dns` domain shows up in the same
+output as the failing service.
 
 ### Ingress TLS
 
@@ -149,6 +187,12 @@ Use cert-manager for automatic TLS on app ingresses. Set `EVE_DEFAULT_TLS_CLUSTE
 ## Private Endpoints (Tailscale)
 
 Platform networking primitive that makes Tailscale-only services (e.g., LM Studio on a Mac Mini, internal APIs) accessible to all cluster workloads. Uses the Tailscale K8s Operator to create egress proxies via ExternalName Services.
+
+> Tailscale Private Endpoints handle **inbound** access from cluster pods to
+> Tailscale-reachable services. For **outbound** stable source-IP egress (UDP
+> hole-punching, vendor APIs that need a stable client port), see "Stable
+> Egress" below — that uses `hostNetwork: true` on a public-egress node group,
+> not Tailscale.
 
 ### How It Works
 
@@ -299,6 +343,67 @@ Read the output:
 | Render error: `port(s) ... in the Kubernetes NodePort range (30000-32767)` | EKS node SG opens NodePort range from `0.0.0.0/0` for NLB traffic. Pick a service port outside that range. |
 | Egress IP equals the egress node's EXTERNAL-IP, but STUN ports differ across servers | `egress-snat-bypass` DaemonSet not running on the egress node. Check `kubectl -n eve get pods -l app.kubernetes.io/name=egress-snat-bypass` and inspect `iptables -t nat -L AWS-SNAT-CHAIN-0` on the node — there should be an early `RETURN` rule for the node's primary IP, before the SNAT. |
 | Vendor relay still times out but STUN passes | NAT semantics are correct; the remaining issue is app/vendor-specific (firewall on vendor side, expired credentials, decommissioned relay host, app-level retry). Reopen the protocol diagnosis at app level. |
+
+## Continuous Environment Monitoring (Sentinel)
+
+The orchestrator runs an `EnvHealthWatchdogService` cron that periodically
+diagnoses every active environment, classifies pod health
+(`ImagePullBackOff`, `CrashLoopBackOff`, unresolved env-var interpolation,
+long `Pending`), upserts state into `environment_health_checks`, and posts
+transitions to the configured Slack channel via the platform notification
+service. The orchestrator queries K8s directly (its own `eve-orchestrator`
+ServiceAccount has read access to pods/events plus `deployments/scale`); the
+watchdog needs `environments.namespace` to be populated, which the deployer
+now persists before readiness checks so freshly-deployed envs are discovered
+on the next tick.
+
+When an environment stays degraded for `EVE_ENV_HEALTH_STABLE_TICKS` ticks
+and breaches the circuit-breaker thresholds (default: `CrashLoopBackOff` with
+>50 restarts, or any terminal failure for >30 min), the watchdog scales the
+failing Deployment to zero and marks `environments.deploy_status='failed'`.
+The Deployment is preserved (not deleted) so `eve env diagnose` keeps full
+context; a subsequent `eve env deploy` redeploys normally.
+
+Configuration (orchestrator env vars):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `EVE_ENV_HEALTH_ENABLED` | `false` | Master kill switch — opt in |
+| `EVE_ENV_HEALTH_INTERVAL_MS` | `120000` | Tick cadence |
+| `EVE_ENV_HEALTH_STABLE_TICKS` | `2` | Consecutive degraded ticks before action |
+| `EVE_ENV_HEALTH_CIRCUIT_BREAK_ENABLED` | `true` | Gate scale-to-zero |
+| `EVE_ENV_HEALTH_CIRCUIT_BREAK_AFTER_RESTARTS` | `50` | CrashLoop trigger |
+| `EVE_ENV_HEALTH_CIRCUIT_BREAK_AFTER_MS` | `1800000` | Time-in-failure trigger |
+
+Slack channel + workspace are stored as system settings
+(`sentinel.slack.integration_id`, `sentinel.slack.channel_id`,
+`sentinel.enabled`). Notifications are deduplicated within a 4h window per
+environment+signature.
+
+## Managed DB TLS Trust
+
+The worker deployer mounts a namespace-scoped CA bundle into every app
+Deployment and job pod when the environment has at least one cloud managed
+DB tenant (`aws-rds`, `gcp-cloudsql`):
+
+- ConfigMap `eve-db-trust` in the env namespace contains the per-provider PEM bundle.
+- Pods receive volume mount `/etc/eve/trust/ca-bundle.pem` plus env vars
+  `NODE_EXTRA_CA_CERTS` and `PGSSLROOTCERT` pointing at it.
+- Cloud tenant URLs default to `sslmode=verify-full`. Local managed instances stay on `sslmode=disable`.
+
+Apps no longer need `ssl: { rejectUnauthorized: false }` — the platform owns
+trust distribution. The shared trust registry lives at
+`packages/shared/src/managed-db/trust/`. See `references/database-ops.md` for
+how this surfaces in app code and migration jobs.
+
+If managed DB connections start failing with TLS verification errors after a
+deploy:
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| `self signed certificate in certificate chain` from Node `pg` | Pod missing the trust bundle (deployed before trust injection landed, or env has no managed DB tenants) | Re-deploy; check `kubectl -n <ns> get cm eve-db-trust`. |
+| `no pg_hba.conf entry for host ... SSL off` | URL was rewritten with `sslmode=disable` by the old resolver | Confirm `DATABASE_URL` carries `sslmode=verify-full`; the orchestrator now inherits sslmode from the source URL. |
+| Migration job fails but app pods connect | Job pod missing trust mount | Job render path also injects the bundle; re-deploy and check the Job pod spec. |
 
 ## Worker Image Registry
 

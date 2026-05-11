@@ -1,8 +1,15 @@
 {
   "eve_horizon_path": ".eve-horizon-src",
-  "last_synced_commit": "51023b09abd9554f670aaf2212d401f550e4d192",
-  "last_synced_at": "2026-03-24T17:04:11Z",
+  "last_synced_commit": "47c08ddc6ec20c164341a9795351a267c000d882",
+  "last_synced_at": "2026-05-10T10:50:00Z",
   "sync_log": [
+    {
+      "commit": "47c08ddc6ec20c164341a9795351a267c000d882",
+      "commit_short": "47c08dd",
+      "synced_at": "2026-05-10T10:50:00Z",
+      "type": "incremental",
+      "summary": "176-commit incremental sync (largest to date) — distilled across 22 shipped capabilities: per-job harness + env overrides (4 phases, migration 00090, validation endpoint, chat hint propagation, step template expressions, Opus 4.7/GPT-5.5 registered); workflow features (env_overrides, conditional steps, step-level harness, file refs, Slack notifications, resource ref policies, retry tails, step git controls); custom domains (env-scoped first-bind-wins, cert-manager, `eve domain` CLI); deploy error surfacing phases 1-7 (DeployFailure taxonomy, cluster snapshot, applied-release drift, manifest_hash from deploy ref); stable egress hostNetwork v2; embedded app conversations + structured event streams + chat continuity by `thr_*` id; API chat provider; Platform Sentinel (env health monitoring + Slack); LLM Wiki 7 enhancements (near-instant indexing, `eve docs patch/diff/watch/sync/list --tree/search --path,--context/bulk-write`); managed DB TLS trust (verify-full + CA bundle); manifest-driven service tokens (read-only defaults) + auto-inject EVE_SERVICE_TOKEN; SSO self-signup email domain restriction; per-agent envdb wildcard; app bucket credential separation; observability CLI gap closure (env logs --follow/--filter, env diagnose --request, traces query); event→trigger observability; doc.ingest reliability fixes; skills materialization fast-path + `.agents/skills/` canonical + sparse pack support + runtime materialize path; agent learning loop (job.attempt.completed, carryover context, user memory category); job stability (stuck-job prevention, stale recovery, env-gate-only-for-action-jobs, agent-runtime org auto-discovery, chat regex case-insensitive); Eve Dashboard + system app pattern; codex reasoning + harness model normalization. Reference docs updated: 22; skills updated: 11. Routing/index/intent matrix on eve-read-eve-docs SKILL extended with 47 new triggers, 19 router lines, 19 intent rows. Sync-map gained 17 reference_docs + 24 skill_triggers entries. State-today compliance: PASSED. Note: 7 commits landed on eve-horizon during sync execution (branded invite emails, app magic-link login, app org access invites) — these are queued for the next sync."
+    },
     {
       "commit": "51023b09abd9554f670aaf2212d401f550e4d192",
       "commit_short": "51023b0",

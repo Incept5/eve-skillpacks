@@ -40,6 +40,10 @@ eve job create --description "Fix the login bug"
   [--timeout 3600] [--resource-class job.c1]
   [--max-tokens 100000] [--max-cost 5.00]
 
+  # Per-job harness + env overrides (jobs:harness_override required)
+  [--harness-override-file ./profile.json]                # inline {harness, model?, reasoning_effort?, variant?, temperature?}
+  [--env-override KEY=VALUE]                              # repeatable; values may use ${secret.KEY}
+
   # Git controls (override project/manifest defaults)
   [--git-ref main] [--git-ref-policy auto|env|project_default|explicit]
   [--git-branch feature/fix] [--git-create-branch never|if_missing|always]
@@ -119,3 +123,6 @@ Notes:
 - `runner-logs` fetches K8s pod logs, useful for debugging harness startup failures.
 - `diagnose` shows heartbeat-aware stuck detection, pod name + live health from agent-runtime, and pre-harness startup timing in the latency waterfall (git clone, credentials, app CLI discovery).
 - `--with-apis` is server-side: the CLI passes `app_apis` in job hints; the server validates APIs exist, generates the instruction block, and appends it to the description. Same behavior for CLI, API, workflow, and SDK job creation paths.
+- `list` returns newest-first by default; recent jobs are no longer hidden by pagination.
+- `--harness-override-file` and `--env-override` are create-only; they cannot be patched via `eve job update` once an attempt exists. `eve job show <id> --json` returns the override and env placeholders verbatim — secrets are never resolved into the job row, attempts, receipts, or execution logs. Missing `${secret.KEY}` references fail fast with `error_code = missing_secret_override` before the harness launches. Override fields require `jobs:harness_override` permission; `${secret.*}` references additionally require `secrets:read`. See `references/jobs.md` for full per-job override semantics and precedence rules.
+- Ad-hoc agent jobs no longer block on `defaults.env`. The env gate only fires for action jobs (`deploy`, `build`, `migrate`); ad-hoc jobs keep `env_name` for API resolution but run in parallel.

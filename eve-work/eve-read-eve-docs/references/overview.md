@@ -314,6 +314,12 @@ Agents are free to make changes, commit, and push to `main` in these repos witho
 
 When platform behavior changes in eve-horizon, the corresponding reference file in `eve-skillpacks/eve-work/eve-read-eve-docs/references/` must be updated. If `eve-read-eve-docs` is outdated, agents will make incorrect assumptions. See the `eve-docs-upkeep` skill for the full audit checklist.
 
+## Eve Dashboard (System App)
+
+Eve ships a first-party web dashboard (`apps/dashboard`) — a single-shell SSO-authenticated UI with real-time job/phase views, environment health, spending, and admin surfaces. It is built and deployed through the same build/release/deploy pipeline as customer apps.
+
+This proves the **system app pattern**: platform-shipped apps go through the standard publish-images CI matrix and infra-repo overlays, with a single platform version tag from `config/platform.yaml`. New system apps follow the checklist in `eve-horizon/docs/system-apps.md`. See `references/deploy-debug.md` for the deployment flow and the `eve-fullstack-app-design` skill for design guidance.
+
 ## Build -> Release -> Deploy
 
 The standard deployment flow:

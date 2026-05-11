@@ -102,6 +102,10 @@ This chain ensures that what was built is exactly what gets released and deploye
 - `eve pipeline run --only <step>` runs a subset of steps.
 - A failed job marks the run as failed and cascades cancellation to dependents.
 - Cancelled jobs are terminal and unblock downstream jobs.
+- Effective `env_name` resolution: `request.env_name` > `pipeline.env` > null. If
+  the pipeline definition declares `env: staging` and the caller omits
+  `--env`, the run and its `deploy`/`job` steps inherit `staging`. Without this
+  fallback, env-bound steps fail with `Job action requires env_name`.
 
 ### CLI
 
@@ -314,6 +318,46 @@ response includes `step_jobs[].resource_refs` with the effective mode, source
 (`default`, `workflow`, or `step`), inherited count, selected count, selectors,
 and missing selectors.
 
+### Step Git Controls
+
+Workflow steps can declare per-step `git` controls (workspace ref, branch,
+commit, push behavior). Workflow-level `git` is the default; step-level `git`
+overrides individual fields. String fields (`ref`, `branch`, `commit_message`,
+`remote`) accept `${inputs.<name>}` and `${event.payload.<dotted.path>}`
+template expressions.
+
+```yaml
+workflows:
+  branch-per-pr:
+    inputs:
+      pr_number:
+        from: event.payload.pull_request.number
+    git:
+      ref_policy: explicit
+      remote: origin
+    steps:
+      - name: prepare
+        agent: { name: preparer }
+        git:
+          branch: "review/pr-${inputs.pr_number}"
+          create_branch: if_missing
+          commit: manual
+      - name: publish
+        depends_on: [prepare]
+        agent: { name: publisher }
+        git:
+          push: on_success
+          commit_message: "chore: review notes for PR #${inputs.pr_number}"
+```
+
+Available fields (all optional): `ref`, `ref_policy` (`auto` | `env` |
+`project_default` | `explicit`), `branch`, `create_branch` (`never` |
+`if_missing` | `always`), `commit` (`never` | `manual` | `auto` | `required`),
+`commit_message`, `push` (`never` | `on_success` | `required`), `remote`.
+
+Workflow retry replays already-materialized step git controls verbatim, so
+retried steps land on the same branch and ref the original step used.
+
 ### Workflow Env Overrides
 
 Workflow steps can receive secret-backed environment overrides without
@@ -445,6 +489,39 @@ Evaluates against `result_json.eve.status` of the referenced step.
 - Condition validation runs at sync time (format, reference, dependency checks)
 
 **Use case — triage escalation:** A fast agent (low reasoning) classifies task complexity. An expert agent (high reasoning) only runs for complex tasks. Simple tasks are handled entirely by the triage step.
+
+### Step-Level Harness and harness_options
+
+Workflow steps can override harness selection and pass per-step harness tuning
+without referencing a named profile. Useful for inline prompts that need a
+specific model or `reasoning_effort` for one step only.
+
+```yaml
+workflows:
+  triage-then-fix:
+    steps:
+      - name: triage
+        harness: claude
+        harness_options:
+          model: claude-haiku-4
+          reasoning_effort: minimal
+        agent:
+          name: triager
+      - name: fix
+        depends_on: [triage]
+        harness: claude
+        harness_options:
+          model: claude-opus-4
+          reasoning_effort: high
+        agent:
+          name: fixer
+```
+
+Step-level `harness` and `harness_options` take precedence over agent-resolved
+values, matching the override pattern used by `toolchains`. `harness_options`
+accepts arbitrary keys (`model`, `reasoning_effort`, `temperature`, …) that the
+selected harness understands. For dynamic per-invocation selection (templated
+from `${inputs.*}` or event payload), see the next section.
 
 ### Per-Step Harness Overrides (Template Expressions)
 
@@ -670,6 +747,29 @@ pipelines:
           with:
             env_name: ${{ env.pr_${{ github.pull_request.number }} }}
 ```
+
+### Trigger Observability
+
+Every event records why each candidate trigger did or did not fire. Use this to
+diagnose "the event arrived but nothing ran":
+
+```bash
+eve event show <event-id>
+# Triggers:    matched 1 of 3 evaluated
+#   ✓ workflow:ingestion-pipeline
+#   ✗ workflow:alignment-check  (type_mismatch)
+#   ✗ pipeline:deploy           (branch_mismatch)
+```
+
+Events carry `trigger_match_count` and `triggers_evaluated[{type, name, matched,
+reason}]`. Common reasons: `source_mismatch`, `type_mismatch`,
+`branch_mismatch`, `action_mismatch`, `no_trigger`, `manual_trigger`. See
+`references/events.md` for the full schema.
+
+Trigger validation also runs during `eve project sync` (not just
+`eve manifest validate`), so unrecognized trigger types, invalid GitHub events,
+unknown system events, and missing cron schedules surface as warnings the
+moment they're synced.
 
 ## API Endpoints
 
