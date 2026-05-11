@@ -906,10 +906,12 @@ workflows:
 | `steps[].git` | object | Step git controls (`ref`, `ref_policy`, `branch`, `create_branch`, `commit`, `push`, `remote`); overrides workflow-level `git` |
 | `steps[].resource_refs` | string \| string[] \| object | Step resource policy; overrides workflow-level policy |
 | `steps[].env_overrides` | object | Step env overrides; merged over workflow-level defaults |
+| `steps[].scope` | object | Step job token scope; intersected with workflow/invocation scope |
 | `inputs` | object | Workflow-level named inputs. Each entry: `{ from?: 'event.payload.<path>', default?: any }` |
 | `git` | object | Default job git controls inherited by steps unless overridden |
 | `resource_refs` | string \| string[] \| object | Default invocation resource policy for all workflow steps |
 | `env_overrides` | object | Default env overrides applied to every workflow step |
+| `scope` | object | Default job token scope applied to every workflow step |
 | `with_apis` | object[] | API specs attached to the workflow — `{ service, description }` (workflow-level or per-step) |
 | `db_access` | string | `read_only` or `read_write` |
 | `hints` | object | Merged into the root job at invocation time (gates, timeouts, harness prefs) |
@@ -956,6 +958,27 @@ expressions and reserved Eve runtime variables are rejected. The merged object i
 persisted on each executable step job, not on the root workflow container job.
 Secret placeholders are resolved only inside worker or agent-runtime before the
 harness process starts.
+
+Workflow and step `scope` blocks narrow the job token and org filesystem mount.
+Supported axes are `orgfs`, `orgdocs`, `envdb`, and `cloud_fs`:
+
+```yaml
+workflows:
+  scoped-review:
+    scope:
+      orgfs:
+        allow_prefixes: [/groups/projects/proj-a/**]
+    steps:
+      - name: review
+        agent: { name: reviewer }
+        scope:
+          cloud_fs:
+            allow_mount_ids: [mount_a]
+```
+
+Workflow, step, and invocation scopes are intersected for each executable step
+job and persisted as `jobs.token_scope`. Request-supplied scope requires
+`jobs:harness_override`. There is no CLI `--scope-*` flag yet.
 
 ```yaml
 workflows:

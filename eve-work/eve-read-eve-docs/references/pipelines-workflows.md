@@ -392,6 +392,30 @@ expressions are rejected. `eve manifest validate --validate-secrets` and
 `eve project sync --validate-secrets` include workflow env override secret refs
 in missing-secret reports.
 
+### Workflow Token Scope
+
+Workflow and step `scope` blocks narrow a step job's token and org filesystem
+mount. Supported axes match access binding scope JSON:
+
+```yaml
+workflows:
+  scoped-review:
+    scope:
+      orgfs:
+        allow_prefixes: [/groups/projects/proj-a/**]
+    steps:
+      - name: review
+        agent: { name: reviewer }
+        scope:
+          cloud_fs:
+            allow_mount_ids: [mount_a]
+```
+
+Workflow, step, and invocation scopes are intersected for each executable step
+job and persisted as `jobs.token_scope`. Request-supplied scope requires
+`jobs:harness_override`. There is no `eve workflow run --scope-*` flag yet; use
+manifest `scope` or the workflow invoke API body.
+
 ### Prior Step Result Injection
 
 When a workflow step has `depends_on`, the orchestrator injects the completed dependency's `result_text` into the step's job description at dispatch time. This means downstream agents receive upstream outputs without making API calls.
