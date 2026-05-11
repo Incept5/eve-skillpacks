@@ -87,9 +87,18 @@ eve project bootstrap --name my-app --repo-url https://github.com/org/repo \
 # Status (cross-profile deployment overview)
 eve project status [--profile <name>] [--env <name>] [--json]
 
-# Auth context (resolved SSO redirect allowlist for a project)
+# Auth context (resolved SSO redirect allowlist + domain_signup for a project)
 eve project auth-context <project_id> [--json]
 ```
+
+`eve project auth-context` prints the resolved app auth context: login method,
+self_signup/invite_requires_password flags, org access mode, the allowed
+redirect-origin allowlist (manifest ∪ project custom domains ∪ cross-org custom
+domains), and — for callers with project-admin rights — the `domain_signup`
+block (enabled, domains, target_org, role). The CLI tries the authenticated
+admin reveal first (`GET /auth/app-context/admin`) and falls back to the
+public `GET /auth/app-context`; non-admins see `Domain signup: enabled
+(details hidden)` instead of the domain list.
 
 `eve project status` shows a unified deployment overview across all configured profiles. For each profile it reports:
 

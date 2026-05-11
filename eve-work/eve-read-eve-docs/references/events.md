@@ -38,7 +38,7 @@ Core fields:
 
 ## Event Sources
 
-`github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`, `chat`
+`github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`, `chat`, `auth`
 
 ## Event Type Catalog
 
@@ -80,6 +80,19 @@ Delivered via gateway: `POST /gateway/providers/slack/webhook` (or legacy `POST 
 These are emitted automatically by the orchestrator. `job.failed` and `pipeline.failed` fire on failures for self-healing automation. `job.attempt.completed` fires on every attempt completion (success or failure) and is the primary trigger for post-session workflows like the learning loop.
 
 Doc events are emitted by the org docs API. Hydration events are emitted by the worker before harness launch.
+
+### Auth Events
+
+Auth-policy actions emit events on the project's event spine. Operators can
+subscribe webhooks to `auth.*` for real-time visibility into who's joining
+which org and through which policy.
+
+| Type | Trigger | Payload |
+|------|---------|---------|
+| `auth.domain_signup.invite_created` | Magic-link send for an email matching `x-eve.auth.org_access.domain_signup` writes a one-shot org_invites row | `{ org_id, email_domain, email_hash }` |
+| `auth.domain_signup.member_attached` | SSO callback consumes a `source: domain_signup` invite and upserts the user as `member` of `target_org` | `{ org_id, user_id, email_domain, email_hash }` |
+
+`email_hash` is a truncated SHA-256 of the lowercased email (`sha256:<12 hex chars>`) so the audit payload identifies retries without leaking raw addresses in webhook deliveries or stdout. The full email never appears at INFO log level.
 
 ### Webhook Events
 

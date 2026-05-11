@@ -653,6 +653,42 @@ SSO fetches `GET /auth/app-context?project_id=<project_id>` to render the projec
 
 Magic-link emails use the same `x-eve.branding` values as invite emails. `self_signup: false` returns generic success for unknown emails but does not call GoTrue and does not send email.
 
+### Domain-Based Signup (Email Allowlist Without Invites)
+
+Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. On first successful login the platform auto-attaches them as `member` of `target_org`.
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    invite_requires_password: false
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_Alltrack]
+      domain_signup:
+        enabled: true
+        domains:
+          - all-track.co.uk
+          - "*.all-track.co.uk"
+        target_org: org_Alltrack
+        role: member
+```
+
+The operator declares the trusted domains; the platform trusts them (no DNS proof in v1). Free-email providers like `gmail.com` emit a manifest coherence warning but are not blocked.
+
+Eligibility ordering on `POST /auth/magic-link`:
+
+1. Known user with allowed-org or project membership → branded send.
+2. Pending *explicit* admin-issued invite → generic success; the invite remains the entry point.
+3. Domain matches `domains` → write a one-shot `org_invites` row (`app_context.source: domain_signup`) and send branded magic link. The SSO callback consumes the invite and upserts membership into `target_org`.
+4. Otherwise fall through to legacy `self_signup`, then to generic success.
+
+Repeat magic-link requests within 72 hours reuse the existing invite row (idempotent). Audit events `auth.domain_signup.invite_created` and `auth.domain_signup.member_attached` flow through the event spine for subscribed webhooks; PII is reduced to a domain string plus a 12-char SHA-256 prefix of the email.
+
+The public `/auth/app-context` exposes only `auth.org_access.domain_signup_enabled` (bool) — the raw domain list is **never** surfaced unauthenticated. Project admins can fetch `GET /auth/app-context/admin?project_id=...` (or run `eve project auth-context <project_id>`) for the resolved domains and `target_org`.
+
+To revoke access for a domain: remove it from the manifest (stops new signups) and explicitly drop existing memberships with `eve org members remove --org <org> --user <user>`. Removing the domain does **not** retroactively delete members that already joined.
+
 ### Post-Auth Redirect Allowlist (Custom Domains)
 
 By default the SSO broker only accepts `redirect_to` and CORS origins under the

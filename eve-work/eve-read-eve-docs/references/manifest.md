@@ -220,6 +220,48 @@ x-eve:
 
 Default `org_access.mode` is `project_org`, which limits SSO/app SDK access to the project owner org. `allowlist` lets a project-owned app serve specific customer orgs. `invite.enabled` allows org admins/owners in those app-allowed orgs to call `POST /auth/app-invites`; app-facing invites always create regular members and use the same project branding as invite/magic-link emails.
 
+#### `x-eve.auth.org_access.domain_signup`
+
+Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. On first successful login the platform auto-attaches them as `member` of `target_org`.
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    invite_requires_password: false
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_Alltrack]
+      domain_signup:
+        enabled: true
+        domains:
+          - all-track.co.uk
+          - "*.all-track.co.uk"           # wildcard matches subdomains, not the apex
+        target_org: org_Alltrack          # optional when only one allowed_org
+        role: member                      # forward-compat; v1 only accepts 'member'
+```
+
+Rules:
+
+- `enabled: true` requires at least one entry in `domains`.
+- `domains` are lowercased and IDN-normalized (punycode) at parse time.
+- `*.acme.com` matches `eu.acme.com` and `sub.eu.acme.com` but **not** bare `acme.com`. Declare both entries if both should match.
+- Invalid with `login_method: password`. `magic_link` and `password_or_magic_link` are both valid.
+- `target_org` defaults to the single resolved allowed org. With `mode: allowlist` and more than one allowed org, `target_org` must be explicit; manifest sync rejects ambiguity.
+- Declaring `gmail.com` (or any free-email provider) emits a manifest coherence warning — the effect is unbounded.
+- No DNS proof in v1. The operator declares; the platform trusts.
+
+Eligibility precedence on `POST /auth/magic-link`:
+
+1. Known user with allowed-org or project membership → branded send.
+2. Pending *explicit* (admin-issued) invite → generic success, no email; the invite remains the entry point.
+3. Domain matches `domains` → write a one-shot `org_invites` row tagged `app_context.source: domain_signup` and send branded magic link. The SSO callback consumes the invite and upserts membership.
+4. Otherwise, fall through to legacy `self_signup`, then to generic success.
+
+Two audit events flow through the event spine: `auth.domain_signup.invite_created` (Path C creation) and `auth.domain_signup.member_attached` (callback consumption). Both have `payload_json.email_domain` and a truncated `email_hash`.
+
+Public `/auth/app-context` exposes only `auth.org_access.domain_signup_enabled` (bool). Use `GET /auth/app-context/admin?project_id=...` with a project-admin token to see the resolved domain list and `target_org`, or run `eve project auth-context <project_id>` (the CLI tries the admin endpoint first).
+
 #### `x-eve.auth.allowed_redirect_origins`
 
 Apps deployed on custom domains (off-cluster) must declare which origins SSO is
