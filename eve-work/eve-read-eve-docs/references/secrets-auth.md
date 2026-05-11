@@ -159,6 +159,7 @@ Eve uses **RS256 JWT** tokens with pluggable identity providers (SSH, Nostr). Su
 | `EVE_AUTH_CHALLENGE_TTL_SECONDS` | No | Challenge validity (default `300`) |
 | `EVE_AUTH_TOKEN_TTL_DAYS` | No | User token TTL in days (default `1`, max `90`) |
 | `EVE_AUTH_KEY_ID` | No | Key identifier in JWKS (default `key-1`) |
+| `EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated allowlist for SSO self-signup (`/auth/signup` and `/auth/magiclink`). Unset = all domains allowed. |
 
 Generate keys:
 ```bash
@@ -297,6 +298,8 @@ Scope structure supports three resource types:
 - `orgfs`: `allow_prefixes`, `read_only_prefixes` for org filesystem paths
 - `orgdocs`: `allow_prefixes`, `read_only_prefixes` for org document paths
 - `envdb`: `schemas`, `tables` for environment database access
+
+Built-in roles (`owner` / `admin` / `member`) are granted a **wildcard envdb scope** automatically. Their `envdb:read` / `envdb:write` permissions resolve to access on any schema/table they have permission on, without needing an explicit `envdb` scope block on the membership. Custom roles bound via `eve access bind` still need an explicit scope to access envdb resources.
 
 #### Resource-Specific Access Checks
 
@@ -650,6 +653,59 @@ SSO fetches `GET /auth/app-context?project_id=<project_id>` to render the projec
 
 Magic-link emails use the same `x-eve.branding` values as invite emails. `self_signup: false` returns generic success for unknown emails but does not call GoTrue and does not send email.
 
+### Branded Auth Email Delivery + SES Suppression
+
+All app-branded auth email (org invites, app invites, app-scoped magic-link login, system-admin Supabase invites) goes through a single `MailerService` on the Eve API. When SMTP is pointed at Amazon SES, the mailer adds a pre-send check against the SES account-level suppression list and emits structured log events so silent drops are observable.
+
+| Behavior | Detail |
+| --- | --- |
+| Pre-send check | Calls `GetSuppressedDestination` when `GOTRUE_SMTP_HOST` is `*.amazonaws.com` (or `EVE_MAILER_CHECK_SUPPRESSION=true`). Suppressed → `EmailSuppressedError`, no SMTP send. |
+| Magic-link drop | `sendEligibleMagicLink` swallows `EmailSuppressedError`, returns `{ sent: true }` (enumeration defense), logs `mail.suppressed_drop kind=magic_link to=... reason=... since=...`. |
+| Invite drop | All invite paths (org, app, Supabase admin invites) re-throw — admins see the failure. |
+| Fail-open | Non-`NotFoundException` AWS errors (broken IRSA, throttling) log `mailer.suppression_check_failed` and proceed with SMTP. |
+| Bounce capture | SES → SNS → `POST /webhooks/ses-feedback` (signature-verified, idempotent) → `email_delivery_events` table. |
+
+Env vars on the API (set per environment, not per project):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `EVE_MAILER_CHECK_SUPPRESSION` | `auto` | `auto`/`true`/`false`. |
+| `EVE_MAILER_SES_REGION` | parsed from `GOTRUE_SMTP_HOST` | Region for SES SDK calls. |
+| `EVE_SES_CONFIGURATION_SET` | — | Adds `X-SES-CONFIGURATION-SET` header so SES routes events to SNS. |
+| `EVE_SES_FEEDBACK_TOPIC_ARN` | — | Allow-list for the SES feedback webhook. |
+
+Platform admins (system_admin role) can inspect recent delivery events:
+
+```bash
+eve admin email bounces list                            # last 50
+eve admin email bounces list --recipient user@x.com     # filter
+eve admin email bounces list --event-type Bounce --json # for scripts
+```
+
+`eve env diagnose <project> <env>` also surfaces the last 20 events for that env's org members under `recent_email_delivery_events`.
+
+Clearing an account-level SES suppression entry is an ops action; the mailer never deletes suppression entries on its own:
+
+```bash
+aws sesv2 delete-suppressed-destination --email-address <addr> --region us-west-2
+```
+
+### SSO Self-Signup Domain Restriction
+
+Set `EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS` on the SSO service to gate `/auth/signup` and `/auth/magiclink` to a specific allowlist:
+
+```yaml
+# k8s/base/sso-deployment.yaml
+- name: EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS
+  value: "incept5.com,incept5.co.uk"
+```
+
+- Comma-separated, case-insensitive on the domain part of the email.
+- Unset = all domains allowed (default behavior).
+- Disallowed signups receive `422 { "error": "email_domain_not_allowed" }`.
+- The hosted login page renders a hint on the Sign Up tab listing the allowed domains.
+- Invite-based provisioning (org-scoped invites, NIP-98, SSH) is not gated by this setting; only self-signup endpoints are.
+
 ---
 
 ## App Auth SDKs
@@ -671,6 +727,9 @@ Apps deployed to Eve receive these env vars automatically from the platform depl
 | `EVE_ORG_ID` | Organization ID |
 | `EVE_PROJECT_ID` | Project ID |
 | `EVE_ENV_NAME` | Environment name |
+| `EVE_SERVICE_TOKEN` | 90-day RS256 JWT (`type: service`) for server-to-server calls back into the Eve API |
+
+`EVE_SERVICE_TOKEN` is auto-minted per service by the deployer on every deploy. Its permissions come from `x-eve.permissions` in the manifest (read-only by default). See [Service Tokens](#service-tokens-deployed-services) below and `references/manifest.md` for the manifest schema.
 
 The backend middleware reads these automatically. The frontend provider discovers auth config via the backend's `/auth/config` endpoint. Use `${SSO_URL}` in manifest `environment:` blocks for interpolation.
 
@@ -802,6 +861,52 @@ GET    /orgs/:org_id/integrations/providers/:provider/setup-info
 ```
 
 Permission: `integrations:write` for create/update/delete, `integrations:read` for view.
+
+---
+
+## Service Tokens (Deployed Services)
+
+Every deployed service automatically gets `EVE_SERVICE_TOKEN` injected as a platform env var. This is the canonical way for an app to call the Eve API back from inside its own runtime — no manual secret setup, no `eve auth login` from inside a container.
+
+### Token Shape
+
+- RS256 JWT, `type: service`, `sub: service:<service-name>`
+- Claims: `org_id`, `project_id`, `env_name`, `service_name`, `permissions`
+- TTL: 90 days, refreshed on every deploy
+- Verified by the same JWKS as user/job tokens — `@eve-horizon/auth` middleware accepts it transparently
+
+### Read-Only by Default
+
+Service tokens carry **read-only permissions** unless the manifest explicitly grants more. The platform-side defaults are:
+
+```
+projects:read, jobs:read, threads:read, envs:read,
+secrets:read, builds:read, pipelines:read, agents:read, events:read
+```
+
+Apps that need to write must opt in via `x-eve.permissions` on the service in `.eve/manifest.yaml`:
+
+```yaml
+services:
+  api:
+    x-eve:
+      permissions: [jobs:write, events:write, threads:write]
+```
+
+Declared permissions are **merged** with the read-only defaults — list only the extra scopes. Redeploy to mint a new token with the updated scopes. See `references/manifest.md` for the full manifest schema.
+
+This is a security-relevant default change: an app that previously assumed write access from the platform-injected token will now get `403 Missing required permission` until it declares the scope it needs.
+
+### Using The Token
+
+```bash
+curl -X POST "$EVE_API_URL/projects/$EVE_PROJECT_ID/jobs" \
+  -H "Authorization: Bearer $EVE_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "description": "from app", "env_name": "'"$EVE_ENV_NAME"'" }'
+```
+
+`EVE_INTERNAL_API_KEY` must be configured on the platform for token minting to succeed. If minting fails the deployer logs a warning and `EVE_SERVICE_TOKEN` is empty — the deploy still proceeds.
 
 ---
 
