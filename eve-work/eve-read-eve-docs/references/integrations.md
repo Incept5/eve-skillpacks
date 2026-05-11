@@ -178,8 +178,8 @@ eve cloud-fs search "*.pdf" --mount <mount_id> --mime-type application/pdf --org
 | Permission | Grants |
 |------------|--------|
 | `cloud_fs:read` | List mounts, browse files, search |
-| `cloud_fs:write` | Create/update/delete mounts |
-| `cloud_fs:admin` | Full control including integration management |
+| `cloud_fs:write` | Reserved for write-capable Cloud FS operations |
+| `cloud_fs:admin` | Create/update/delete mounts, upload/create folders, and integration management |
 
 ### Token Refresh
 

@@ -248,6 +248,11 @@ eve cloud-fs unmount <mount-id>                        # aliases: remove, delete
 
 Mounts are org-scoped, optionally project-scoped. Each mount requires an active integration connection (`eve integrations connect google-drive`). Per-org OAuth app credentials are required (see `references/manifest.md`, Per-Org OAuth Configs).
 
+Workflow job tokens may carry `scope.cloud_fs.allow_mount_ids`. When present,
+`eve cloud-fs list` only returns allowed mounts, implicit `ls`/`search` choose
+from allowed mounts, and explicit per-mount routes return
+`403 resource_access_denied` for mounts outside the token scope.
+
 ### Per-Mount File Operations API
 
 The March 18, 2026 Cloud FS update added direct per-mount file operations in the API for Drive-backed mounts. These routes are useful for app UIs and service-to-service flows that need to browse a mounted folder, fetch metadata, download files, upload content, or create folders without going through provider SDKs.
