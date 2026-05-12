@@ -655,7 +655,7 @@ Magic-link emails use the same `x-eve.branding` values as invite emails. `self_s
 
 ### Domain-Based Signup (Email Allowlist Without Invites)
 
-Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. On first successful login the platform auto-attaches them as `member` of `target_org`.
+Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. Each rule maps one domain pattern to one target org, so a single project can serve multiple customer orgs.
 
 ```yaml
 x-eve:
@@ -664,30 +664,34 @@ x-eve:
     invite_requires_password: false
     org_access:
       mode: allowlist
-      allowed_orgs: [org_Alltrack]
+      allowed_orgs: [org_Alltrack, org_Tesco, org_Morrisons]
       domain_signup:
         enabled: true
         domains:
-          - all-track.co.uk
-          - "*.all-track.co.uk"
-        target_org: org_Alltrack
-        role: member
+          - domain: incept5.com
+            target_org: org_Alltrack
+          - domain: tesco.com
+            target_org: org_Tesco
+          - domain: morrisons.com
+            target_org: org_Morrisons
 ```
 
-The operator declares the trusted domains; the platform trusts them (no DNS proof in v1). Free-email providers like `gmail.com` emit a manifest coherence warning but are not blocked.
+**v2 schema (2026-05-12, breaking change).** Each entry under `domains` is now an object with a required `target_org`. The v1 list-of-strings shape and the block-level `target_org`/`role` fields are gone; manifest sync rejects them.
+
+The operator declares the trusted domains; the platform trusts them (no DNS proof). Free-email providers like `gmail.com` emit a manifest coherence warning per rule but are not blocked.
 
 Eligibility ordering on `POST /auth/magic-link`:
 
 1. Known user with allowed-org or project membership → branded send.
 2. Pending *explicit* admin-issued invite → generic success; the invite remains the entry point.
-3. Domain matches `domains` → write a one-shot `org_invites` row (`app_context.source: domain_signup`) and send branded magic link. The SSO callback consumes the invite and upserts membership into `target_org`.
+3. Email's domain matches one rule (first-match in declaration order; declare more-specific rules first if precedence matters) → write a one-shot `org_invites` row tagged `app_context.source: domain_signup`, `app_context.org_id: <matched rule.target_org>`, `app_context.matched_rule: <pattern>` and send branded magic link. The SSO callback consumes the invite and upserts membership into the matched rule's `target_org`.
 4. Otherwise fall through to legacy `self_signup`, then to generic success.
 
-Repeat magic-link requests within 72 hours reuse the existing invite row (idempotent). Audit events `auth.domain_signup.invite_created` and `auth.domain_signup.member_attached` flow through the event spine for subscribed webhooks; PII is reduced to a domain string plus a 12-char SHA-256 prefix of the email.
+Repeat magic-link requests within 72 hours reuse the existing invite row for the same email + target org (idempotent). Audit events `auth.domain_signup.invite_created` (includes `org_id`, `email_domain`, `matched_rule`, `email_hash`) and `auth.domain_signup.member_attached` flow through the event spine for subscribed webhooks; PII is reduced to a domain string plus a 12-char SHA-256 prefix of the email.
 
-The public `/auth/app-context` exposes only `auth.org_access.domain_signup_enabled` (bool) — the raw domain list is **never** surfaced unauthenticated. Project admins can fetch `GET /auth/app-context/admin?project_id=...` (or run `eve project auth-context <project_id>`) for the resolved domains and `target_org`.
+The public `/auth/app-context` exposes only `auth.org_access.domain_signup_enabled` (bool) — the raw rule list is **never** surfaced unauthenticated. Project admins can fetch `GET /auth/app-context/admin?project_id=...` (or run `eve project auth-context <project_id>`) for the full rule list with per-rule `target_org`.
 
-To revoke access for a domain: remove it from the manifest (stops new signups) and explicitly drop existing memberships with `eve org members remove --org <org> --user <user>`. Removing the domain does **not** retroactively delete members that already joined.
+To revoke access for a rule: remove it from the manifest (stops new signups under that rule) and explicitly drop existing memberships with `eve org members remove --org <org> --user <user>`. Removing the rule does **not** retroactively delete members that already joined.
 
 ### Post-Auth Redirect Allowlist (Custom Domains)
 

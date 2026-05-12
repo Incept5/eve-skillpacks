@@ -222,7 +222,7 @@ Default `org_access.mode` is `project_org`, which limits SSO/app SDK access to t
 
 #### `x-eve.auth.org_access.domain_signup`
 
-Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. On first successful login the platform auto-attaches them as `member` of `target_org`.
+Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. Each rule maps one domain pattern to one target org, so a single project can serve multiple customer orgs from one manifest.
 
 ```yaml
 x-eve:
@@ -231,36 +231,47 @@ x-eve:
     invite_requires_password: false
     org_access:
       mode: allowlist
-      allowed_orgs: [org_Alltrack]
+      allowed_orgs: [org_Alltrack, org_Tesco, org_Morrisons, org_ALLTAG]
       domain_signup:
         enabled: true
         domains:
-          - all-track.co.uk
-          - "*.all-track.co.uk"           # wildcard matches subdomains, not the apex
-        target_org: org_Alltrack          # optional when only one allowed_org
-        role: member                      # forward-compat; v1 only accepts 'member'
+          - domain: incept5.com
+            target_org: org_Alltrack
+            role: member                    # optional; defaults to 'member'
+          - domain: tesco.com
+            target_org: org_Tesco
+          - domain: morrisons.com
+            target_org: org_Morrisons
+          - domain: all-tag.com
+            target_org: org_ALLTAG
+          - domain: "*.all-tag.com"         # wildcard matches subdomains, not the apex
+            target_org: org_ALLTAG
 ```
+
+**v2 schema (2026-05-12, breaking change).** `domains` is now a list of rule objects. The v1 list-of-strings shape and the block-level `target_org`/`role` fields are gone; manifest sync rejects them.
 
 Rules:
 
-- `enabled: true` requires at least one entry in `domains`.
-- `domains` are lowercased and IDN-normalized (punycode) at parse time.
-- `*.acme.com` matches `eu.acme.com` and `sub.eu.acme.com` but **not** bare `acme.com`. Declare both entries if both should match.
+- `enabled: true` requires at least one rule in `domains`.
+- Each rule must declare both `domain` and `target_org`. `role` is optional and defaults to `member` (the only allowed value in v2; reserved for future expansion).
+- `target_org` must be in the project's effective `allowed_orgs`. Manifest sync resolves slugs to canonical org IDs and rejects rules whose target isn't allowed.
+- Duplicate `domain:` keys within one block are rejected.
+- Domain patterns are lowercased and IDN-normalized (punycode) at parse time.
+- `*.acme.com` matches `eu.acme.com` and `sub.eu.acme.com` but **not** bare `acme.com`. Declare both as separate rules if both should match.
 - Invalid with `login_method: password`. `magic_link` and `password_or_magic_link` are both valid.
-- `target_org` defaults to the single resolved allowed org. With `mode: allowlist` and more than one allowed org, `target_org` must be explicit; manifest sync rejects ambiguity.
-- Declaring `gmail.com` (or any free-email provider) emits a manifest coherence warning — the effect is unbounded.
-- No DNS proof in v1. The operator declares; the platform trusts.
+- Declaring `gmail.com` (or any free-email provider) emits a manifest coherence warning per rule — the effect is unbounded for that target org.
+- No DNS proof. The operator declares; the platform trusts.
 
 Eligibility precedence on `POST /auth/magic-link`:
 
 1. Known user with allowed-org or project membership → branded send.
 2. Pending *explicit* (admin-issued) invite → generic success, no email; the invite remains the entry point.
-3. Domain matches `domains` → write a one-shot `org_invites` row tagged `app_context.source: domain_signup` and send branded magic link. The SSO callback consumes the invite and upserts membership.
+3. Email's domain matches one rule (first-match in declaration order, no implicit longest-match) → write a one-shot `org_invites` row tagged `app_context.source: domain_signup`, `app_context.org_id: <matched rule.target_org>`, `app_context.matched_rule: <domain pattern>` and send branded magic link. The SSO callback consumes the invite and upserts membership into that org.
 4. Otherwise, fall through to legacy `self_signup`, then to generic success.
 
-Two audit events flow through the event spine: `auth.domain_signup.invite_created` (Path C creation) and `auth.domain_signup.member_attached` (callback consumption). Both have `payload_json.email_domain` and a truncated `email_hash`.
+Two audit events flow through the event spine: `auth.domain_signup.invite_created` (creation) and `auth.domain_signup.member_attached` (callback consumption). The creation event payload includes `org_id`, `email_domain`, `matched_rule` (the rule pattern that fired), and a truncated `email_hash`.
 
-Public `/auth/app-context` exposes only `auth.org_access.domain_signup_enabled` (bool). Use `GET /auth/app-context/admin?project_id=...` with a project-admin token to see the resolved domain list and `target_org`, or run `eve project auth-context <project_id>` (the CLI tries the admin endpoint first).
+Public `/auth/app-context` exposes only `auth.org_access.domain_signup_enabled` (bool). Use `GET /auth/app-context/admin?project_id=...` with a project-admin token to see each rule (`domain`, `target_org`, `role`), or run `eve project auth-context <project_id>` (the CLI tries the admin endpoint first and renders one line per rule as `<domain> -> <target_org> (<role>)`).
 
 #### `x-eve.auth.allowed_redirect_origins`
 

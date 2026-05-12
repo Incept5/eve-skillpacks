@@ -89,8 +89,10 @@ which org and through which policy.
 
 | Type | Trigger | Payload |
 |------|---------|---------|
-| `auth.domain_signup.invite_created` | Magic-link send for an email matching `x-eve.auth.org_access.domain_signup` writes a one-shot org_invites row | `{ org_id, email_domain, email_hash }` |
-| `auth.domain_signup.member_attached` | SSO callback consumes a `source: domain_signup` invite and upserts the user as `member` of `target_org` | `{ org_id, user_id, email_domain, email_hash }` |
+| `auth.domain_signup.invite_created` | Magic-link send for an email matching a `x-eve.auth.org_access.domain_signup` rule writes a one-shot org_invites row | `{ org_id, email_domain, matched_rule, email_hash }` |
+| `auth.domain_signup.member_attached` | SSO callback consumes a `source: domain_signup` invite and upserts the user as `member` of the matched rule's `target_org` | `{ org_id, user_id, email_domain, email_hash }` |
+
+`org_id` on both events is the matched rule's `target_org` (v2 schema; one project can route to multiple orgs depending on which rule fires). `matched_rule` on `invite_created` is the rule's domain pattern (e.g. `"*.acme.com"` for a wildcard hit on `eu.acme.com`), distinct from `email_domain` (the actual address's domain).
 
 `email_hash` is a truncated SHA-256 of the lowercased email (`sha256:<12 hex chars>`) so the audit payload identifies retries without leaking raw addresses in webhook deliveries or stdout. The full email never appears at INFO log level.
 
