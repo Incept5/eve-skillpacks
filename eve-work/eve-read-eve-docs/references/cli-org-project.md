@@ -95,10 +95,11 @@ eve project auth-context <project_id> [--json]
 self_signup/invite_requires_password flags, org access mode, the allowed
 redirect-origin allowlist (manifest ∪ project custom domains ∪ cross-org custom
 domains), and — for callers with project-admin rights — the `domain_signup`
-block (enabled, domains, target_org, role). The CLI tries the authenticated
-admin reveal first (`GET /auth/app-context/admin`) and falls back to the
-public `GET /auth/app-context`; non-admins see `Domain signup: enabled
-(details hidden)` instead of the domain list.
+rule list (one line per rule, `<domain> -> <target_org> (<role>)`, in
+declaration order — first-match wins at sign-in time). The CLI tries the
+authenticated admin reveal first (`GET /auth/app-context/admin`) and falls
+back to the public `GET /auth/app-context`; non-admins see `Domain signup:
+enabled (details hidden)` instead of the rule list.
 
 `eve project status` shows a unified deployment overview across all configured profiles. For each profile it reports:
 
