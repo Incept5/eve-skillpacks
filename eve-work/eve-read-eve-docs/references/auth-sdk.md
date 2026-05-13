@@ -298,6 +298,12 @@ SSO uses `GET /auth/app-context?project_id=<project_id>` to render the project-b
 
 With `self_signup: false`, unknown emails receive generic success but no GoTrue call and no email. New users should enter through the org-scoped invite API.
 
+Magic-link and invite emails are wrapped behind an SSO confirmation interstitial (`https://sso/m/mlw_<id>`) so corporate scanners can't burn single-use OTPs by prefetching the URL. The SDK is transparent to this — `EveAuthProvider`'s `/callback` handling and `/auth/exchange` flow are unchanged; the wrap is consumed before GoTrue verify runs. See `secrets-auth.md#magic-link-confirmation-interstitial`.
+
+#### Domain-Based Signup (no per-user invite)
+
+When the project manifest declares `x-eve.auth.org_access.domain_signup` (v2 rule list — see `secrets-auth.md#domain-based-signup-email-allowlist-without-invites` and `manifest.md`), the SDK flow does not change. An unknown user whose email matches an allowlisted rule submits the same login form, Eve writes a one-shot `app_context.source: domain_signup` invite tagged with the rule's `target_org`, and the SSO callback auto-attaches membership before the app's `/auth/exchange` call resolves. `useEveAppAccess()` and `user.orgId` will see the new org on first session bootstrap.
+
 ### Custom-Domain Apps And The Redirect Allowlist
 
 Apps deployed on off-cluster domains (anything not under `EVE_DEFAULT_DOMAIN`)

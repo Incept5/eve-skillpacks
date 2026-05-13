@@ -467,6 +467,42 @@ eve job create --description "..." \
 `--env-override` is repeatable. `eve job show <id> --json` returns the
 override and env placeholders verbatim.
 
+### Per-Job Token Scope
+
+Job tokens carry an explicit resource scope, not just permission names. The
+scope is persisted on `jobs.token_scope` (migration `00096_jobs_token_scope.sql`)
+and signed into the JWT, so the on-disk `.org` mount and the API authority
+match. `NULL` token scope means no narrowing (legacy permission-name-only
+behavior).
+
+Supported axes:
+
+```json
+{
+  "orgfs":   { "allow_prefixes": ["/groups/projects/proj-a/**"] },
+  "orgdocs": { "read_only_prefixes": ["/briefs/**"] },
+  "envdb":   { "schemas": ["public"], "tables": ["public.jobs"] },
+  "cloud_fs":{ "allow_mount_ids": ["mount_a"] }
+}
+```
+
+Enforcement happens at every layer that handles the job token — API
+(`ScopedAccessService` for orgfs/orgdocs/envdb/cloud_fs), orchestrator (mount
+materialization), worker and agent-runtime (workspace `.org` symlinks), and
+cloud-fs controller (per-mount checks).
+
+**Propagation chain** (parallels `env_overrides`): workflow-level `scope` →
+step-level `scope` → workflow invoke request `scope` are **intersected** for
+each executable step job and persisted as `jobs.token_scope`. Invocation
+scope may narrow but never widen the manifest. Request-supplied `scope`
+requires `jobs:harness_override`. There is no `eve job create --scope-*` or
+`eve workflow run --scope-*` flag yet — declare scope in the workflow/step
+manifest or the API body. See `references/pipelines-workflows.md` for the
+workflow-side coverage and `references/secrets-auth.md` for the permission
+model.
+
+`eve job show <id> --json` surfaces the resolved scope under `token_scope`.
+
 ## Scheduling Hints
 
 Preferences (not requirements) that influence scheduling:

@@ -653,6 +653,17 @@ SSO fetches `GET /auth/app-context?project_id=<project_id>` to render the projec
 
 Magic-link emails use the same `x-eve.branding` values as invite emails. `self_signup: false` returns generic success for unknown emails but does not call GoTrue and does not send email.
 
+### Magic-Link Confirmation Interstitial
+
+All Eve-rendered magic-link and invite emails go out with a wrapped URL (`https://sso/m/mlw_<26 base32>`) instead of the raw GoTrue verify URL. The OTP is only revealed when a human clicks "Sign in" / "Accept invite" on the SSO-rendered interstitial, so corporate scanners (Defender SafeLinks, Mimecast, Proofpoint, Barracuda, Cisco IronPort) that GET every URL in incoming mail no longer burn the single-use token.
+
+- `AuthService.wrapActionLink` stores the GoTrue URL in `magic_link_wraps` (migration `00094_project_auth_config.sql` + `00098_magic_link_wraps.sql`; 1h TTL, 24h retention) and returns the wrap URL.
+- `HEAD/GET /m/:wrap` is fully idempotent — every scanner prefetch increments `get_count` for telemetry; only `POST /m/:wrap` (the button submit) atomically consumes the wrap and 302's to GoTrue's verify endpoint.
+- Wrap tokens are validated against the `mlw_<26 base32>` typeid regex before any DB lookup. The interstitial honours the project-aware redirect allowlist and sets `Cache-Control: no-store` + `Referrer-Policy: no-referrer`.
+- A consumed wrap emits `auth.action_link.wrap_redeemed` on the event spine with `{ org_id, email_hash, kind, get_count, latency_ms }` for monitoring scanner activity.
+
+App developers do not need to change anything; this is platform-side.
+
 ### Domain-Based Signup (Email Allowlist Without Invites)
 
 Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. Each rule maps one domain pattern to one target org, so a single project can serve multiple customer orgs.
@@ -725,6 +736,14 @@ eve project auth-context <project_id>
 A signed-in user landing on `/` or `/login` with a validated `redirect_to` is
 immediately 302'd to the target — the login form is bypassed and there is no
 intermediate "you can close this tab" landing page.
+
+The SSO refresh-token cookie (`eve_sso_rt`, HttpOnly) and UX-hint cookie
+(`eve_sso`) are set on `.<EVE_DEFAULT_DOMAIN>` with `SameSite=None; Secure`
+when `EVE_SSO_SECURE_COOKIES=true`, so the `@eve-horizon/auth-react`
+`fetch('/session', { credentials: 'include' })` probe carries them on
+cross-site requests from custom-domain apps. Local k3d (`http://*.lvh.me`)
+falls back to `SameSite=Lax` because the app and SSO share the `.lvh.me`
+parent. Logged at boot as `[eve-sso] Secure cookies: true (SameSite=none)`.
 
 ### Branded Auth Email Delivery + SES Suppression
 

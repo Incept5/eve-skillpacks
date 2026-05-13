@@ -53,6 +53,74 @@ Check for registry auth errors, missing secrets, or healthcheck failures.
 
 Slack pings from the platform sentinel point at a degraded env. Don't act on the alert text alone — pull the project/env out of it and re-confirm with `eve env diagnose <project> <env>`. If the env reads healthy, the alert was a transient that has self-healed; if not, follow the standard deploy-failure triage above.
 
+### Missing Magic-Link or Invite Email
+
+Pre-flight checks usually catch SES misconfig, but if a recipient swears the mail never landed:
+
+```bash
+eve admin email bounces list --recipient user@example.com --limit 20
+eve admin email bounces list --event-type Bounce
+eve admin email bounces list --event-type Complaint
+```
+
+The `email_delivery_events` table is the source of truth — `Bounce` / `Complaint` / `Reject` rows explain silent SES drops. No row at all means the send never happened; re-check `x-eve.branding` reply-to/support emails and the project's `x-eve.auth` policy.
+
+### Magic-Link "Already Used" on First Click
+
+Mail-security scanners (Defender SafeLinks, Mimecast, Proofpoint, Barracuda, IronPort) prefetch URLs and burn single-use OTPs. The platform now wraps every action link behind an SSO interstitial that requires an explicit click, so prefetches no longer consume the token. If a user still hits "already used":
+
+- The wrap has expired (1h TTL) — have them request a fresh magic link.
+- They genuinely clicked twice — the second click hits a consumed wrap.
+- Telemetry: rows with `get_count > 1` in `magic_link_wraps` are expected for protected mailboxes; only `consumed_at` matters.
+
+### Magic-Link or Invite Lands on the Generic SSO Page
+
+The redirect allowlist rejected the app's custom-domain origin, so SSO fell back to the cluster landing page. Confirm the project's `x-eve.auth.allowed_redirect_origins` (or its registered `custom_domains` rows) include the app origin — origin only, `scheme://host[:port]`, https unless local. Then re-sync:
+
+```bash
+eve project sync
+eve project auth-context <project_id>     # shows the resolved allowlist
+```
+
+Paths, queries, fragments, and userinfo are rejected at sync time, so a stray `https://app.example.com/callback` in the manifest will surface there.
+
+### `/session` 401 on a Custom-Domain App
+
+Browsers strip `SameSite=Lax` cookies on cross-site requests, so a custom-domain app hitting `sso.<cluster>` will see no `eve_sso_rt` and a 401. The SSO broker now sets `SameSite=None; Secure` when `EVE_SSO_SECURE_COOKIES=true`. Verify in the broker logs:
+
+```
+[eve-sso] Secure cookies: true (SameSite=none)
+```
+
+In the browser devtools, the `eve_sso_rt` cookie on `.<EVE_DEFAULT_DOMAIN>` must show `SameSite=None; Secure; HttpOnly`. If it shows `Lax`, the broker is running in local-http mode — set `EVE_SSO_SECURE_COOKIES=true` and redeploy. Local k3d on `*.lvh.me` keeps `Lax` deliberately (same parent site).
+
+### Domain-Signup Manifest Rejected After Upgrade
+
+The v1 shape (`domains: [string]` plus a block-level `target_org`) is no longer accepted as of 2026-05-12 — manifest sync rejects on first sight. Migrate to v2:
+
+```yaml
+x-eve:
+  auth:
+    org_access:
+      domain_signup:
+        enabled: true
+        domains:
+          - { domain: acme.com, target_org: org_acme, role: member }
+          - { domain: tesco.com, target_org: org_tesco }
+```
+
+Each rule must declare its own `target_org`, and each `target_org` must already appear in the project's `allowed_orgs`. Free-email domains (`gmail.com`, `outlook.com`, ...) emit a coherence warning, not a reject — declaring them is almost always wrong. See `references/manifest.md` and `docs/system/auth.md#domain-based-signup` for the full v2 shape.
+
+### Workflow Step Token "Resource Denied"
+
+Workflow step jobs now carry a `token_scope` claim derived from workflow- and step-level `scope` blocks (intersected with any API-supplied scope). If a step gets `denied` on an org filesystem path, env DB table, or Cloud FS mount, the scope is the suspect:
+
+```bash
+eve job show <job-id> --json | jq '.token_scope'
+```
+
+Compare the claim against the manifest's workflow/step `scope`. Step scope intersects workflow scope — it can only narrow, never widen. If the step needs a path the workflow forbids, broaden the workflow `scope` (or drop it). Request-supplied `scope` requires the `jobs:harness_override` permission; there is no `--scope-*` CLI flag yet.
+
 ### Custom Domain Issues
 
 ```bash

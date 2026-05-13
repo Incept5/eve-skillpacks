@@ -392,10 +392,12 @@ expressions are rejected. `eve manifest validate --validate-secrets` and
 `eve project sync --validate-secrets` include workflow env override secret refs
 in missing-secret reports.
 
-### Workflow Token Scope
+### Workflow Token Scope (Scoped Job Tokens)
 
-Workflow and step `scope` blocks narrow a step job's token and org filesystem
-mount. Supported axes match access binding scope JSON:
+Workflow and step `scope` blocks narrow a step job's API authority and org
+filesystem mount, so a step granted `cloud_fs:read` can only read the specific
+mounts/prefixes the scope allows. Supported axes match access binding scope
+JSON: `orgfs`, `orgdocs`, `envdb`, and `cloud_fs`.
 
 ```yaml
 workflows:
@@ -411,10 +413,19 @@ workflows:
             allow_mount_ids: [mount_a]
 ```
 
-Workflow, step, and invocation scopes are intersected for each executable step
-job and persisted as `jobs.token_scope`. Request-supplied scope requires
-`jobs:harness_override`. There is no `eve workflow run --scope-*` flag yet; use
-manifest `scope` or the workflow invoke API body.
+**Propagation chain** (parallels `env_overrides`): workflow `scope` → step
+`scope` → invocation `scope` (API body or `WorkflowInvokeRequest.scope`). All
+three are intersected per executable step job and persisted as
+`jobs.token_scope`; empty intersections fail closed. The orchestrator uses the
+same scope to mint the job token and to materialize the step's `.org` mount.
+
+Request-supplied scope requires `jobs:harness_override`. There is no
+`eve workflow run --scope-*` or `eve job create --scope-*` flag yet — use the
+manifest `scope` block or the workflow invoke API body. `eve manifest validate`
+rejects malformed `scope` payloads at sync time.
+
+See `references/jobs.md` for the per-job `token_scope` view and
+`references/manifest.md` for the manifest field shape.
 
 ### Prior Step Result Injection
 

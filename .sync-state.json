@@ -1,8 +1,16 @@
 {
   "eve_horizon_path": ".eve-horizon-src",
-  "last_synced_commit": "47c08ddc6ec20c164341a9795351a267c000d882",
-  "last_synced_at": "2026-05-10T10:50:00Z",
+  "last_synced_commit": "b5ef3ea47cd8c1d0a4358448d9668bdf687f0ac8",
+  "last_synced_at": "2026-05-13T13:58:00Z",
   "sync_log": [
+    {
+      "commit": "b5ef3ea47cd8c1d0a4358448d9668bdf687f0ac8",
+      "commit_short": "b5ef3ea",
+      "synced_at": "2026-05-13T13:58:00Z",
+      "type": "incremental",
+      "summary": "41-commit incremental sync — app auth + branding + mailer reliability theme. Distilled 10 shipped capabilities (6 migrations 00093-00098): app-branded invite emails (x-eve.branding), app magic-link login opt-in (x-eve.auth.login_method), app org access + in-app admin invites (POST /auth/app-invites, eve org invite --project --redirect-to), app invite redirect allowlist (x-eve.auth.allowed_redirect_origins), app magic-link domain-signup v2 BREAKING (domain_signup.domains: [{domain, target_org, role}] replaces v1 string list), magic-link confirmation interstitial (wrap tokens, prevents drive-by scanner redemption), SSO SameSite=None on session cookies for custom-domain apps, SES mailer pre-flight suppression check + bounce webhook + email_delivery_events + eve admin email bounces CLI, scoped job token enforcement (workflow/step/invocation scope intersection → jobs.token_scope; axes orgfs/orgdocs/envdb/cloud_fs). Updated 12 reference docs and 4 skills; routing extended with 41 triggers, 11 router lines, 9 intent matrix rows; .sync-map gained 8 reference_docs + 17 skill_triggers entries; 4 composite_triggers watch_sources extended. State-today compliance: PASSED. v1 domain-signup shape NOT documented anywhere (removed where it had been). Note: this sync absorbed the 7 commits flagged as 'queued' in the previous sync.",
+      "previous_summary": "176-commit incremental sync — see prior entry"
+    },
     {
       "commit": "47c08ddc6ec20c164341a9795351a267c000d882",
       "commit_short": "47c08dd",

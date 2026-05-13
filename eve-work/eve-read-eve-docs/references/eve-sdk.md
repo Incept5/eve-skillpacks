@@ -6,6 +6,7 @@
 - You need to know which SDK packages exist and what they export.
 - You need the quick-start install and wiring pattern for a new app.
 - You need to understand the token flow between browser, backend, and Eve platform.
+- You need to ship branded magic-link login, app-org invites, or domain-based signup on top of Eve SSO.
 
 ## Load Next
 - `references/auth-sdk.md` for deep auth coverage: middleware behavior, verification strategies, token types, NestJS patterns, session bootstrap sequence, migration guide.
@@ -171,6 +172,26 @@ import { EveAuthProvider, EveLoginGate, createEveClient } from '@eve-horizon/aut
 const client = createEveClient('/api');
 const res = await client.fetch('/data');
 ```
+
+### Passwordless App Login + Branded Invites
+
+Apps opt into branded SSO and passwordless login by adding `x-eve.branding` and `x-eve.auth` to the manifest — no SDK code change required. `EveAuthProvider` already includes `eve_project_id` in the SSO redirect, and `eveAuthConfig()` exposes it on `/auth/config`.
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+  auth:
+    login_method: magic_link        # or password_or_magic_link
+    self_signup: false
+    invite_requires_password: false
+```
+
+Both magic-link and invite emails ship app-branded subject, body, logo, and `From:` display name, and ride through an SSO confirmation interstitial (`/m/mlw_<id>`) so corporate mail scanners cannot burn single-use OTPs. Apps that need to invite members from in-product admin pages should use `useEveAppAccess()` + `POST /auth/app-invites`. For multi-tenant projects, declare `x-eve.auth.org_access.domain_signup.domains[]` (v2 rule list) to auto-attach allowlisted email domains to per-rule target orgs without per-user invites. Custom-domain apps must also list their origin in `x-eve.auth.allowed_redirect_origins`.
+
+See `references/auth-sdk.md` and `references/secrets-auth.md` for the full app-scoped magic-link, domain-signup, redirect allowlist, interstitial, and SES suppression coverage.
 
 ### Embedded Conversation Pane
 

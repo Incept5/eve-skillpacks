@@ -36,7 +36,15 @@
     "docs/plans/app-object-bucket-credentials-plan.md": "eve-work/eve-read-eve-docs/references/object-store-filesystem.md",
     "docs/plans/agent-learning-loop-test-plan.md": "eve-work/eve-read-eve-docs/references/jobs.md",
     "docs/plans/eve-dashboard-design.md + docs/plans/eve-dashboard-completion-plan.md": "eve-work/eve-read-eve-docs/references/overview.md",
-    "docs/plans/agent-permissions-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md"
+    "docs/plans/agent-permissions-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md",
+    "docs/plans/app-branded-invite-emails-phase-1-plan.md": "eve-work/eve-read-eve-docs/references/integrations.md",
+    "docs/plans/app-magic-link-login-opt-in-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md",
+    "docs/plans/app-magic-link-domain-allowlist-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md",
+    "docs/plans/app-invite-redirect-allowlist-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md",
+    "docs/plans/app-org-access-and-admin-invites-plan.md": "eve-work/eve-read-eve-docs/references/integrations.md",
+    "docs/plans/magic-link-confirmation-interstitial-plan.md": "eve-work/eve-read-eve-docs/references/secrets-auth.md",
+    "docs/plans/magic-link-email-silent-drop-plan.md": "eve-work/eve-read-eve-docs/references/observability.md",
+    "docs/plans/job-token-path-and-mount-scope-plan.md": "eve-work/eve-read-eve-docs/references/jobs.md"
   },
   "skill_triggers": {
     "docs/system/agents.md": ["eve-se/eve-bootstrap", "eve-work/eve-read-eve-docs"],
@@ -75,7 +83,24 @@
     "packages/cli/src/commands/docs.ts": ["eve-work/eve-agent-memory"],
     "apps/orchestrator/src/cron/env-health-watchdog.service.ts": ["eve-se/eve-deploy-debugging", "eve-se/eve-troubleshooting"],
     "apps/worker/src/deployer/deploy-failure.ts": ["eve-se/eve-deploy-debugging", "eve-se/eve-troubleshooting"],
-    "packages/db/migrations/00090_per_job_harness_overrides.sql": ["eve-work/eve-job-debugging"]
+    "packages/db/migrations/00090_per_job_harness_overrides.sql": ["eve-work/eve-job-debugging"],
+    "docs/plans/app-branded-invite-emails-phase-1-plan.md": ["eve-se/eve-auth-and-secrets", "eve-design/eve-fullstack-app-design", "eve-se/eve-manifest-authoring"],
+    "docs/plans/app-magic-link-login-opt-in-plan.md": ["eve-se/eve-auth-and-secrets", "eve-design/eve-fullstack-app-design", "eve-se/eve-manifest-authoring"],
+    "docs/plans/app-magic-link-domain-allowlist-plan.md": ["eve-se/eve-auth-and-secrets", "eve-design/eve-fullstack-app-design", "eve-se/eve-manifest-authoring"],
+    "docs/plans/app-invite-redirect-allowlist-plan.md": ["eve-se/eve-auth-and-secrets", "eve-design/eve-fullstack-app-design", "eve-se/eve-manifest-authoring"],
+    "docs/plans/app-org-access-and-admin-invites-plan.md": ["eve-design/eve-fullstack-app-design", "eve-se/eve-auth-and-secrets"],
+    "docs/plans/magic-link-confirmation-interstitial-plan.md": ["eve-se/eve-auth-and-secrets", "eve-se/eve-troubleshooting"],
+    "docs/plans/magic-link-email-silent-drop-plan.md": ["eve-se/eve-auth-and-secrets", "eve-se/eve-troubleshooting"],
+    "docs/plans/job-token-path-and-mount-scope-plan.md": ["eve-se/eve-pipelines-workflows", "eve-work/eve-job-debugging", "eve-se/eve-manifest-authoring"],
+    "apps/api/src/webhooks/ses-feedback.controller.ts": ["eve-se/eve-troubleshooting"],
+    "apps/api/src/mailer/mailer.service.ts": ["eve-se/eve-auth-and-secrets", "eve-se/eve-troubleshooting"],
+    "packages/db/migrations/00093_project_branding.sql": ["eve-se/eve-auth-and-secrets"],
+    "packages/db/migrations/00094_project_auth_config.sql": ["eve-se/eve-auth-and-secrets"],
+    "packages/db/migrations/00095_email_delivery_events.sql": ["eve-se/eve-troubleshooting"],
+    "packages/db/migrations/00096_jobs_token_scope.sql": ["eve-work/eve-job-debugging", "eve-se/eve-pipelines-workflows"],
+    "packages/db/migrations/00097_org_invite_system_created.sql": ["eve-se/eve-auth-and-secrets"],
+    "packages/db/migrations/00098_magic_link_wraps.sql": ["eve-se/eve-auth-and-secrets"],
+    "packages/shared/src/schemas/access-scope.ts": ["eve-se/eve-pipelines-workflows", "eve-work/eve-job-debugging"]
   },
   "composite_triggers": {
     "eve-work/eve-agent-memory": {
@@ -99,7 +124,10 @@
         "packages/cli/src/commands/auth.ts",
         "packages/cli/src/commands/identity.ts",
         "packages/cli/src/commands/integrations.ts",
-        "packages/cli/src/commands/secrets.ts"
+        "packages/cli/src/commands/secrets.ts",
+        "apps/api/src/mailer/",
+        "apps/api/src/webhooks/ses-feedback.controller.ts",
+        "apps/sso/src/"
       ]
     },
     "eve-se/eve-manifest-authoring": {
@@ -118,6 +146,7 @@
       "description": "Cross-cutting: app design patterns including auth, storage, and integrations",
       "watch_sources": [
         "docs/system/app-sso-integration.md",
+        "docs/system/auth.md",
         "docs/system/eve-auth-sdk.md",
         "docs/system/object-store-and-org-filesystem.md",
         "docs/system/integrations.md",

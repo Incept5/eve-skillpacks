@@ -116,6 +116,29 @@ eve admin receipts recompute --project proj_xxx     # Single project
 eve admin receipts recompute --dry-run              # Preview only
 ```
 
+## Email Delivery Events
+
+Outbound mail through the platform mailer is durably tracked in
+`email_delivery_events`. AWS SES posts bounce/complaint/delivery notifications
+via SNS to `POST /webhooks/ses-feedback`; the controller parses both
+`application/json` and SNS's `text/plain` body and inserts one row per
+(SNS `MessageId`, SES `eventType`, recipient) so retries do not duplicate.
+
+Key columns: `recipient`, `event_type` (`Bounce` | `Complaint` | `Delivery` |
+`Reject`), `bounce_type`, `bounce_subtype`, `diagnostic`, `ses_message_id`,
+`rfc_message_id`, `raw_payload`, `received_at`. Indexed by `(recipient,
+received_at DESC)` and `ses_message_id`.
+
+Before send, the mailer pre-flights the SES account-level suppression list and
+short-circuits with a loud structured error if the recipient is suppressed.
+Mailer logs are JSON with `recipient`, `message-id`, and outcome.
+
+```bash
+eve admin email bounces list                                # Recent events
+eve admin email bounces list --recipient user@example.com   # Lookup by address
+eve admin email bounces list --event-type Bounce --limit 50 --json
+```
+
 ## Analytics Dashboard
 
 All analytics are org-scoped. Return aggregate counters, not per-item listings. Use `--json` for machine-readable output.

@@ -653,6 +653,24 @@ Secrets resolve with cascading precedence: **project > user > org > system**. A 
 
 Services that call the Eve API on their own behalf get an auto-injected `EVE_SERVICE_TOKEN`. Permissions are declared explicitly per service in the manifest, and the default is read-only — services that need to write must opt in. Treat this as a least-privilege contract: a service shouldn't quietly gain write access by being deployed. Declare the minimum capabilities each service needs and let code review surface the deltas. See `references/secrets-auth.md` and `references/manifest.md` in `eve-read-eve-docs` for declaration syntax.
 
+### Scoped Job Tokens (Platform-Tier Least Privilege)
+
+For platform-tier apps that orchestrate jobs over multi-tenant resources, permission names alone are not enough — `orgfs:read` says nothing about *which prefix*. Declare resource scope on workflow steps to enforce least-privilege at the token level:
+
+```yaml
+workflows:
+  scoped-review:
+    scope:
+      orgfs: { allow_prefixes: [/groups/projects/proj-a/**] }
+    steps:
+      - name: review
+        agent: { name: reviewer }
+        scope:
+          cloud_fs: { allow_mount_ids: [mount_a] }
+```
+
+Scope axes match access bindings: `orgfs`, `orgdocs`, `envdb`, `cloud_fs`. Workflow, step, and invocation scopes are **intersected** (empty intersection fails closed) and persisted as `jobs.token_scope`. The orchestrator uses the same scope to build the workspace `.org` mount and mint the job token — the on-disk view and the API authority match. Design platform-tier workflows so each step only sees the resources it actually needs.
+
 ### Git Credentials
 
 Agents need repository access. Set either `github_token` (HTTPS) or `ssh_key` (SSH) as project secrets. The worker injects these automatically during git operations.
@@ -747,7 +765,101 @@ app.use((req, _res, next) => {
 
 ### Auto-Injected Variables
 
-The platform injects `EVE_SSO_URL`, `EVE_API_URL`, and `EVE_ORG_ID` into deployed containers. No manual configuration needed. Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URLs.
+The platform injects `EVE_SSO_URL`, `EVE_API_URL`, `EVE_ORG_ID`, and `EVE_PROJECT_ID` into deployed containers. No manual configuration needed. Use `${SSO_URL}` in manifest env blocks for frontend-accessible SSO URLs. `EVE_PROJECT_ID` is what enables the platform to scope branding, redirect allowlists, and app-scoped auth policy to your project.
+
+### Passwordless / Magic-Link Apps
+
+If your app's onboarding is "admin invites a user, user clicks email, user lands in app" — model it as a passwordless app. Don't build a password reset flow you don't need. Declare it in the manifest and let the platform render a branded magic-link login page:
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link            # or password_or_magic_link, password
+    self_signup: false                  # unknown emails return generic success, no email
+    invite_requires_password: false     # invite acceptance skips /set-password
+```
+
+**Design implications:**
+- Users are created through invites, not self-signup. Plan your admin invite UX accordingly.
+- The magic-link email reuses the same `x-eve.branding` block as invite emails — one branding source, two email copies.
+- Eve API handles eligibility (existing user, pending invite, domain signup) before any email is sent, so account-enumeration defense is preserved without app-side work.
+
+### App Branding (Invites and Magic-Link Emails)
+
+Per-app branding is a manifest concern, not a code concern. Declare it once and the platform applies it to invite emails, magic-link emails, and SSO login pages:
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    app_logo_url: "https://app.example.com/assets/logo.svg"
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+    reply_to_email: "support@example.com"
+    support_email: "support@example.com"
+    support_url: "https://example.com/help"
+```
+
+The `From:` display name and email body carry the app identity; the sender address remains the platform default (verified per-tenant `From:` is a later phase). Treat branding as a property of the project, not a per-org concern.
+
+### App Org Access and In-App Admin Invites
+
+By default an app is scoped to its project owner org. For multi-tenant apps that serve multiple customer orgs, declare an allowlist and (optionally) enable in-app admin invites:
+
+```yaml
+x-eve:
+  auth:
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_customer123, customer-slug]
+      invite:
+        enabled: true
+        admin_roles: [admin, owner]
+        invited_role: member          # fixed; app invites cannot create admins
+```
+
+**Design implications:**
+- Backends should use `eveAppUserAuth()` (not `eveUserAuth()`) so authorization is bound to the app policy, not the project owner org. The middleware consults `GET /auth/app-access` and selects an org from `X-Eve-Org-Id`, `?eve_org_id=`, or the first allowed org.
+- Build admin pages around `POST /auth/app-invites` (sends branded magic-link onboarding) instead of generic org-invite APIs. The platform enforces org role + app allowlist policy before sending.
+- The React SDK exposes `useEveAppAccess()` for orgs/admin-org listings and inviting members.
+
+### Domain-Based Signup (Path C Auto-Attach)
+
+When an app needs to serve a whole customer email domain — "anyone with a `@yourcompany.com` address should land in `org_yourcompany` as a member" — use domain signup. Eve writes a one-shot invite on first magic-link request and auto-attaches membership when the user accepts. One project can route different domains to different orgs:
+
+```yaml
+x-eve:
+  auth:
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_acme, org_globex]
+      domain_signup:
+        enabled: true
+        domains:
+          - { domain: acme.com,   target_org: org_acme,   role: member }
+          - { domain: globex.com, target_org: org_globex }
+```
+
+**Design implications:**
+- Rules are walked in declaration order — first match wins. Declare more-specific patterns first.
+- The trust model is "operator declares, platform trusts" — no DNS proof in v1. Declaring `gmail.com` produces a coherence warning but is permitted.
+- Explicit pending invites (Path B) always win over domain signup (Path C); existing users with allowed-org membership (Path A) get the standard branded send.
+- Removing a rule stops new signups but does not retroactively remove existing memberships — plan offboarding as an explicit `eve org members remove`.
+- Audit via `auth.domain_signup.invite_created` and `auth.domain_signup.member_attached` events.
+
+### Project-Scoped Redirect Allowlist (Custom Domains)
+
+If your app runs on its own custom domain (not under the cluster domain), declare which origins SSO may redirect to. Without this, SSO rewrites the redirect to the platform-default hostname and your branded app URL is lost:
+
+```yaml
+x-eve:
+  auth:
+    allowed_redirect_origins:
+      - https://app.example.com
+      - https://www.example.com
+```
+
+The final allowlist is the union of manifest entries, the project's own eligible custom domains, and (for `mode: allowlist`) cross-org custom domains owned by projects in `allowed_orgs`. This replaces the legacy hard-coded `EVE_DEFAULT_DOMAIN` allowlist. The platform also guarantees `SameSite=None; Secure` on SSO session cookies so cross-site `/session` probes from your custom-domain frontend carry credentials — you no longer need to configure cookie attributes yourself.
 
 ### Design Rules
 
@@ -843,12 +955,17 @@ Design services with health endpoints. Eve polls health to determine deployment 
 - [ ] Service token permissions declared per service (default read-only; write opted in explicitly)
 
 **Authentication:**
-- [ ] `@eve-horizon/auth` middleware added to backend (`eveUserAuth` + `eveAuthGuard`)
+- [ ] `@eve-horizon/auth` middleware added to backend (`eveUserAuth` + `eveAuthGuard`, or `eveAppUserAuth` for multi-org apps)
 - [ ] Auth config endpoint serves SSO discovery (`eveAuthConfig`)
 - [ ] `@eve-horizon/auth-react` wraps frontend (`EveAuthProvider` + `EveLoginGate` or custom `useEveAuth` gate)
 - [ ] `createEveClient` used for authenticated API calls from frontend
-- [ ] Platform-injected auth env vars used (`EVE_SSO_URL`, `EVE_ORG_ID`)
+- [ ] Platform-injected auth env vars used (`EVE_SSO_URL`, `EVE_ORG_ID`, `EVE_PROJECT_ID`)
 - [ ] Eve roles mapped to app roles in one place (bridge middleware), not scattered across controllers
+- [ ] If passwordless: `x-eve.auth.login_method: magic_link` + `invite_requires_password: false`
+- [ ] If multi-tenant: `x-eve.auth.org_access.mode: allowlist` with `allowed_orgs` declared; in-app admin invites use `POST /auth/app-invites`
+- [ ] If domain-based onboarding: `domain_signup.domains` declares per-rule `target_org`; more-specific rules listed first
+- [ ] If custom domain: `x-eve.auth.allowed_redirect_origins` declared; `eve project auth-context` confirms resolved allowlist
+- [ ] If branded: `x-eve.branding` declared (shared by invite and magic-link emails); `From:` display name and logo set
 
 **App CLI (the Eve way):**
 - [ ] App API wrapped in a domain CLI (e.g., `eden projects list`)

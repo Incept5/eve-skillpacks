@@ -122,6 +122,24 @@ curl "$EVE_API_URL/orgs/org_xxx/members/search?q=ali" \
 
 Use a user token with `orgs:invite` to create or list these invites and `orgs:members:read` for member lookup. Invite emails should land on GoTrue's `/verify` path, not the OAuth callback directly. If the invite is auto-applied during the SSO exchange, Eve returns `invite_redirect_to` so the SSO callback can land the user back in the target app even when the email provider strips nested redirect params. Current invite onboarding establishes the SSO session first, then sends the user through `/set-password` before redirecting to the app.
 
+### App-Branded Invite Emails
+
+Projects opt into app-branded invites with `x-eve.branding` in the manifest. The subject, body, and `From:` display name all carry the app's identity — other apps fall back to "Eve Horizon" defaults.
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    app_logo_url: "https://app.example.com/assets/logo.svg"   # https-only
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+    reply_to_email: "support@example.com"
+    support_email: "support@example.com"
+    support_url: "https://example.com/help"
+```
+
+Run `eve project sync` after editing. Invites sent with `eve org invite <email> --org <org_id> --project <project_id>` use the project branding. The sender address remains the platform default in Phase 1; only the display name varies. The same branding template is shared with magic-link login emails — only the copy ("Accept invite" vs "Sign in") differs.
+
 ## Token Minting (Admin)
 
 Mint tokens for bot/service users without SSH login:
@@ -322,7 +340,87 @@ Rotate the JWT signing key:
 
 ## App SSO Integration
 
-Add Eve SSO login to any Eve-deployed app using two shared packages: `@eve-horizon/auth` (backend) and `@eve-horizon/auth-react` (frontend). The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, and `EVE_API_URL` into deployed services.
+Add Eve SSO login to any Eve-deployed app using two shared packages: `@eve-horizon/auth` (backend) and `@eve-horizon/auth-react` (frontend). The platform auto-injects `EVE_SSO_URL`, `EVE_ORG_ID`, `EVE_PROJECT_ID`, and `EVE_API_URL` into deployed services.
+
+### Magic-Link Login Opt-In (Passwordless Apps)
+
+Apps can opt into passwordless browser login with `x-eve.auth.login_method: magic_link`. The SSO login page is branded for the project and shows email magic-link login instead of username/password.
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link              # or password_or_magic_link, password
+    self_signup: false                    # unknown emails get generic success, no email
+    invite_requires_password: false       # invite callback skips /set-password
+```
+
+Magic-link emails are sent by Eve API through `POST /auth/magic-link` (not GoTrue directly) so the platform can enforce project policy, share the `x-eve.branding` template with invite emails, and avoid account enumeration. Projects without `x-eve.auth` keep legacy SSO behavior. Create new users with `eve org invite <email> --org <org_id> --project <project_id>`.
+
+### Magic-Link Confirmation Interstitial (Security)
+
+Eve-rendered magic-link and invite emails embed a wrap URL (`https://sso/m/mlw_<id>`), not the raw GoTrue verify URL. Email-security scanners (Defender SafeLinks, Mimecast, Proofpoint, Barracuda) follow every URL in mail and would otherwise consume single-use OTPs before the human clicks. The wrap renders a branded "Confirm sign-in / Accept invite" page; only the POST from the button reveals the GoTrue URL and 302-redirects. Treat this as a platform guarantee — no app-side work required.
+
+### Domain-Based Signup (Path C Auto-Attach)
+
+Pre-approve email domains so anyone with a matching address can sign in via magic link without a per-user invite. On first successful login the platform attaches them as `member` of the rule's `target_org`. One project can route different domains to different orgs.
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    invite_requires_password: false
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_Alltrack, org_Tesco, org_Morrisons]
+      domain_signup:
+        enabled: true
+        domains:
+          - { domain: incept5.com,  target_org: org_Alltrack, role: member }
+          - { domain: tesco.com,    target_org: org_Tesco }
+          - { domain: morrisons.com, target_org: org_Morrisons }
+```
+
+Rules are walked in declaration order — first match wins, so declare more-specific patterns first. Each rule's `target_org` must appear in `allowed_orgs`. Declaring free-email providers (`gmail.com`) is allowed but produces a manifest coherence warning. Explicit pending invites take priority over domain signup (Path B beats Path C). Removing a rule stops new signups but does not retroactively remove existing memberships — drop those with `eve org members remove`.
+
+Audit via the event spine: `auth.domain_signup.invite_created` and `auth.domain_signup.member_attached` carry `org_id`, `matched_rule`, and `matched_domain`.
+
+### App Org Access and Admin Invites
+
+Apps default to project-owner-org access. Use `mode: allowlist` to declare which customer orgs may use the app, and enable in-app admin invites that send branded magic-link onboarding:
+
+```yaml
+x-eve:
+  auth:
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_customer123, customer-slug]
+      invite:
+        enabled: true
+        admin_roles: [admin, owner]
+        invited_role: member          # fixed; app invites cannot create admins
+```
+
+Endpoints: `GET /auth/app-access` returns the user's allowed orgs (plus which ones they can invite into); `POST /auth/app-invites` lets an org admin/owner invite a regular member with the project-branded email. For cross-org apps, use `eveAppUserAuth()` on the backend instead of `eveUserAuth()` — it consults `/auth/app-access` and selects the org from `X-Eve-Org-Id`, `?eve_org_id=`, or first allowed.
+
+### Project-Scoped Redirect Allowlist (Custom-Domain Apps)
+
+The SSO broker only accepts redirect targets under the cluster domain by default. Apps deployed on their own domain must declare their origins:
+
+```yaml
+x-eve:
+  auth:
+    allowed_redirect_origins:
+      - https://app.example.com
+      - https://www.example.com
+```
+
+Entries are origin-only (`scheme://host[:port]`); paths/queries/fragments are rejected at manifest-validate time. The final allowlist returned by `GET /auth/app-context` is the union of: (1) explicit manifest entries, (2) the project's own eligible custom domains (`custom_domains` rows with `environment_id` and status `dns_verified`/`cert_provisioning`/`active`), and (3) cross-org custom domains owned by projects in `allowed_orgs`. Inspect with `eve project auth-context <project_id>`.
+
+This replaces the hard-coded `EVE_DEFAULT_DOMAIN` allowlist for non-cluster origins. The broker uses the list for both `redirect_to` validation in `/callback` and CORS on `/session` and `/logout`. The `@eve-horizon/auth-react` provider auto-passes `project_id` on session/logout calls so cross-site cookies are scoped correctly.
+
+### SameSite=None on Custom Domains (Platform Guarantee)
+
+When SSO is deployed with `EVE_SSO_SECURE_COOKIES=true`, the broker emits `eve_sso_rt` and `eve_sso` cookies with `Secure; SameSite=None`. This is required for the React provider's cross-site `fetch('/session', { credentials: 'include' })` probe to carry cookies when the app is on a custom domain. Local k3d (`http://*.lvh.me`) stays on `SameSite=Lax`. Apps no longer need to configure this themselves.
 
 ### Restrict Self-Signup to Approved Email Domains
 
@@ -601,6 +699,32 @@ At job execution time, resolved secrets are injected as environment variables in
 The worker uses secrets for repository access:
 - **HTTPS**: `github_token` secret → `Authorization: Bearer` header
 - **SSH**: `ssh_key` secret → written to `~/.ssh/` and used via `GIT_SSH_COMMAND`
+
+## Auth Mail Delivery (SES)
+
+All branded auth emails (org/app invites, app-scoped magic-link, system-admin Supabase invites) flow through a single `MailerService`. When SMTP points at SES (`GOTRUE_SMTP_HOST=*.amazonaws.com` or `EVE_MAILER_CHECK_SUPPRESSION=true`), the mailer adds a pre-flight `GetSuppressedDestination` check so account-level suppressions cannot silently look like a successful send.
+
+| Outcome | Behavior |
+|---------|----------|
+| Address suppressed | Throws `EmailSuppressedError`; no SMTP send |
+| Not found | Send proceeds |
+| AWS error (IRSA, throttling, network) | Fails open — logs `mailer.suppression_check_failed`, send proceeds |
+
+Caller behavior: `sendEligibleMagicLink` swallows `EmailSuppressedError` and returns generic success (preserves account-enumeration defense), logging `mail.suppressed_drop`. Invite paths re-throw so admins see the error.
+
+When `EVE_SES_CONFIGURATION_SET` is set, SES routes Bounce/Complaint/Delivery/Reject events to SNS, which POSTs to `/webhooks/ses-feedback`. The webhook verifies SNS signature, checks `TopicArn` against `EVE_SES_FEEDBACK_TOPIC_ARN`, and persists one row per affected recipient in `email_delivery_events` (idempotent by `sha256(snsMessageId|eventType|recipient)`).
+
+Inspect events via the admin CLI:
+
+```bash
+eve admin email bounces list
+eve admin email bounces list --recipient user@example.com
+eve admin email bounces list --event-type Bounce --limit 100 --json
+```
+
+Read-only from the local table; does not mutate SES. To clear an account-level suppression, see the SES suppression runbook.
+
+Structured log events to grep in API pod logs: `mailer.sent`, `mailer.smtp_failed`, `mailer.suppressed`, `mailer.suppression_check_failed`, `mail.suppressed_drop`, `sns.subscription_confirmed`, `sns.rejected`, `ses.feedback_persisted`.
 
 ## Troubleshooting
 

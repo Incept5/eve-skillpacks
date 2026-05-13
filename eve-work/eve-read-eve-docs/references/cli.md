@@ -725,6 +725,12 @@ eve admin ingress-aliases list                          # List all aliases
   [--alias <alias>] [--project <id>] [--environment <id>]
   [--limit <n>] [--offset <n>]
 eve admin ingress-aliases reclaim <alias> --reason "..."  # Reclaim an alias
+
+# Email delivery events (SES bounces, complaints, deliveries, rejects)
+eve admin email bounces list                            # Recent delivery events
+  [--recipient <addr>]                                  # Filter by recipient
+  [--event-type Bounce|Complaint|Delivery|Reject]
+  [--limit <n>] [--json]
 ```
 
 Notes:
@@ -734,6 +740,7 @@ Notes:
 - Access-request approval is retry-safe (`approve` returns the existing approved record on repeat calls).
 - Duplicate identity fingerprints are attached to the existing identity owner.
 - `ingress-aliases reclaim` forcibly releases an alias from its current project/environment. Requires a `--reason`.
+- `email bounces list` reads the `email_delivery_events` table populated by the SES SNS webhook. Use it to investigate magic-link / invite delivery failures — see `references/observability.md` for the table schema and mailer pre-flight behavior.
 
 ## System (Internal)
 
@@ -930,5 +937,5 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Migrate** | `skills-to-packs` |
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |
 | **User** | `show` |
-| **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `ingress-aliases` |
+| **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `ingress-aliases`, `email bounces` |
 | **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |

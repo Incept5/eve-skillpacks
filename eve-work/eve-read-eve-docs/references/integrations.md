@@ -7,11 +7,14 @@
 - You need to manage membership requests from unresolved external users.
 - You need to browse or search files in connected cloud storage (Google Drive).
 - You need to understand how chat file uploads (e.g., Slack) are materialized into agent workspaces.
+- You need to let an Eve-deployed app declare which customer orgs can use it, expose in-app admin invites, or land invite/magic-link redirects on a custom domain.
 
 ## Load Next
 - `references/gateways.md` for chat gateway routing and thread key mechanics.
 - `references/agents-teams.md` for agent slug resolution and chat dispatch modes.
-- `references/secrets-auth.md` for webhook secrets and token configuration.
+- `references/secrets-auth.md` for webhook secrets, app branding, magic-link wraps, and redirect allowlist derivation.
+- `references/manifest.md` for `x-eve.branding`, `x-eve.auth`, `org_access`, and `allowed_redirect_origins` manifest fields.
+- `references/auth-sdk.md` for `eveAppUserAuth`, `useEveAppAccess`, and the `inviteMember` SDK surface.
 
 ## Ask If Missing
 - Confirm the target org ID and whether the integration already exists.
@@ -333,6 +336,70 @@ eve github setup
 - Auth: `EVE_GITHUB_WEBHOOK_SECRET` + project-scoped secret override
 - Events: Push, pull request, and configured GitHub webhook events trigger Eve pipelines and workflows
 
+## App Integrations (org access, in-app admin invites, branded email, redirect allowlist)
+
+Eve-deployed apps integrate with customer orgs through three project-level controls authored in `.eve/manifest.yaml` and synced onto `projects.branding` and `projects.auth_config`. The platform-side mechanics live in `manifest.md`, `auth-sdk.md`, and `secrets-auth.md`; this section is the integration map.
+
+### App org access (multi-tenant SSO)
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link
+    self_signup: false
+    invite_requires_password: false
+    org_access:
+      mode: allowlist            # default project_org limits app to project owner org
+      allowed_orgs: [org_customer123, customer-slug]
+      invite:
+        enabled: true
+        admin_roles: [admin, owner]
+        invited_role: member     # fixed to member; app invites cannot mint admins
+```
+
+Manifest sync resolves slugs to canonical org IDs. Public `GET /auth/app-context?project_id=...` exposes only summary booleans (`multi_org`, `invite_enabled`, `domain_signup_enabled`); the full allowlist and domain-signup rules require `GET /auth/app-context/admin` or `eve project auth-context <project_id>`.
+
+### In-app admin invites
+
+Org admins/owners in any `allowed_orgs` org can invite regular members directly from the app:
+
+```http
+POST /auth/app-invites
+Authorization: Bearer <eve-user-token>
+{ "project_id": "proj_xxx", "org_id": "org_customer123", "email": "new@example.com", "redirect_to": "https://app.example.com/" }
+```
+
+React: `useEveAppAccess().inviteMember({ orgId, email })`. CLI fallback: `eve org invite <email> --org <org_id> --project <project_id> [--redirect-to <url>]`. The invite carries `app_context.{project_id, org_id}`; accepting it provisions an `org_memberships(target_org, user, member)` row, never a project membership. System-created invites from `domain_signup` rules have `created_by = NULL` and `app_context.source = 'domain_signup'` (migration `00097_org_invite_system_created.sql`) so audits can distinguish them from admin-issued invites.
+
+### App-branded invite + magic-link emails
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"
+    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    primary_color: "#1f6feb"
+    email_from_name: "ALL-TRACK"
+    reply_to_email: "support@all-track.co.uk"
+    support_email: "support@all-track.co.uk"
+```
+
+`projects.branding` (migration `00093_project_branding.sql`) drives the email subject, body, and `From:` display name for invite and magic-link mail when the invite is created with `--project <project_id>`. The sender address remains the platform default in Phase 1; missing branding falls back to "Eve Horizon" defaults. Header-injection guards reject CR/LF in `app_name`, `email_from_name`, `reply_to_email`; non-HTTPS logos are silently omitted.
+
+### Redirect allowlist (custom-domain apps)
+
+For apps on custom domains, declare which off-cluster origins SSO may redirect to and which origins may call `/session`:
+
+```yaml
+x-eve:
+  auth:
+    allowed_redirect_origins:
+      - https://sandbox.all-track.co.uk
+      - https://app.example.com
+```
+
+The resolved list returned by `/auth/app-context` as `auth.allowed_redirect_origins` is the union of: explicit manifest entries; the project's own eligible custom domains (status `dns_verified | cert_provisioning | active`); and — when `org_access.mode: allowlist` — eligible custom domains owned by any project in `allowed_orgs`. This replaces the legacy `EVE_DEFAULT_DOMAIN`-only allowlist, so invite redemption and magic-link callback land on the app's declared path (e.g. `/cameras`) instead of the SSO landing page. Inspect with `eve project auth-context <project_id>`.
+
 ## Identity Resolution
 
 When an external user (e.g., Slack) messages `@eve`, the platform resolves their identity through three tiers. The first match short-circuits the rest.
@@ -418,9 +485,13 @@ Lifecycle:
 | `eve org membership-requests deny <id> --org <org>` | Deny request |
 | **GitHub** | |
 | `eve github setup` | GitHub webhook setup |
+| **App integrations (org access, invites, branding)** | |
+| `eve org invite <email> --org <org> --project <project> [--role member] [--redirect-to <url>]` | Send app-branded invite scoped to the project's org policy |
+| `eve project auth-context <project>` | Show resolved `org_access`, `allowed_redirect_origins`, and admin-only `domain_signup` rules |
 
 ## Related Skills
 
 - **Chat gateway details**: `references/gateways.md`
-- **Auth and access control**: `references/secrets-auth.md`
-- **App SSO integration**: `references/auth-sdk.md`
+- **Auth, branding, magic-link wraps, redirect allowlist**: `references/secrets-auth.md`
+- **Manifest fields (`x-eve.branding`, `x-eve.auth`, `org_access`, `allowed_redirect_origins`)**: `references/manifest.md`
+- **App SSO + SDK (`eveAppUserAuth`, `useEveAppAccess`, `inviteMember`)**: `references/auth-sdk.md`

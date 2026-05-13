@@ -7,7 +7,9 @@
 
 ## Load Next
 - `references/deploy-debug.md` for architecture-level debugging (K8s, workers, ingress, custom domains, Sentinel, managed-DB TLS).
-- `references/secrets-auth.md` for auth and secret resolution failures.
+- `references/secrets-auth.md` for auth, SSO, mailer/SES suppression, magic-link wrap interstitial, redirect allowlist, and domain-signup details.
+- `references/integrations.md` for SES feedback webhook and SNS signature verification specifics.
+- `references/manifest.md` for `x-eve.auth` schema (allowed_redirect_origins, org_access, domain_signup v2).
 - `references/builds-releases.md` for build-specific failure analysis.
 - `references/database-ops.md` for managed-DB connection and migration details.
 
@@ -40,6 +42,29 @@ If `./bin/eh status` shows services stopped, restart with `./bin/eh start <mode>
 | Bootstrap fails | Bootstrap window closed or token wrong | Check `eve auth bootstrap --status`; use recovery mode or set `EVE_BOOTSTRAP_TOKEN` |
 | Service principal token rejected | Token revoked or scopes insufficient | `eve auth list-service-accounts --org <id>`; recreate if needed |
 | `eve auth creds` shows expired | Local AI tool creds stale | Re-auth with the tool (`claude setup-token`, codex login); then `eve auth sync` |
+
+### Mailer / Magic-Link / Invite Delivery
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| User reports no magic-link or invite email; API logs `Generated GoTrue ... link` and SSO UI says "If your email has access…"; no error | Address sits on SES account-level suppression list — SMTP returns 250 OK but SES silently drops | `eve admin email bounces list --recipient <addr>` to inspect persisted feedback rows; grep API logs for `mailer.suppressed` / `mail.suppressed_drop`; runbook: `docs/runbooks/ses-suppression.md`. Pre-flight check + bounce webhook shipped (feats `0514e0bc`, `438ac902`). |
+| Magic-link reported "already used" before the user ever clicked | Mail-security scanner (Defender SafeLinks, Mimecast, Proofpoint, Barracuda, IronPort) prefetched the GoTrue OTP link | Expected — magic-link wrap interstitial requires the user to click "Confirm sign-in" before the GoTrue URL is revealed. Have them re-request. Wrap rows live in `magic_link_wraps` (migration 00098); `get_count > 1` is normal for protected mailboxes. Fix: `b5ef3ea4`. |
+| Bounce/complaint webhook calls return 4xx; no rows appear in `email_delivery_events` | SNS posts notifications as `text/plain` (raw JSON string), not `application/json`; older controller couldn't parse | Upgrade past `614fed2b` (`fix(webhooks): parse SNS text/plain body in ses-feedback controller`). On a fork, ensure the `/webhooks/ses-feedback` controller parses text/plain bodies. |
+| App invite to a permanently-bounced address: admin sees silent success | Pre-`438ac902` mailer didn't differentiate suppressed addresses from delivered ones | After fix: invite paths re-throw `EmailSuppressedError` so admins see the failure; only the magic-link path swallows it for account-enumeration defense. |
+
+### SSO / Custom-Domain App Auth
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| User signs in via SSO but the app session isn't recognized; `/session` returns 401; session cookies not sent on the cross-site exchange | App lives on a custom domain different from `EVE_SSO_URL`; cookies need `SameSite=None; Secure` to traverse third-party context | Upgrade past `b3d25503` (`fix(sso): SameSite=None on session cookies for custom-domain apps`). Verify `EVE_SSO_SECURE_COOKIES=true`; confirm container log shows `[eve-sso] Secure cookies: true (SameSite=none)`. In browser devtools, check `eve_sso_rt` / `eve_sso` cookies show `SameSite=None; Secure`. Local k3d on `*.lvh.me` keeps `SameSite=Lax` (same-site). |
+| `ALL-TRACK`-style invite or magic link strands user on SSO landing; "Continue to Sign In" goes to `/login` (dead end for already-signed-in user) | App's off-cluster origin isn't on the redirect allowlist; SSO rewrote `redirect_to` to `${EVE_SSO_URL}/?eve_org_id=...` | Declare the app origin under manifest `x-eve.auth.allowed_redirect_origins` (origin-only, `https` except `localhost`/`*.lvh.me`). Project's own eligible custom domains auto-include. Verify with `eve project auth-context <project_id>` — resolved `allowed_redirect_origins` should list the app host. Fix: `4fa8a1aa`. |
+| App that previously had domain-signup working on `release-v0.1.281+` now fails manifest sync | v2 breaking change: `x-eve.auth.org_access.domain_signup.domains` is now a list of `{ domain, target_org, role }` objects; v1 list-of-strings + block-level `target_org` is rejected | Migrate manifest to v2 shape (one `target_org` per rule, declared in precedence order). Existing memberships are not retroactively removed. See `docs/system/auth.md#domain-based-signup`. Breaking change: `e402cee4`. |
+
+### Job Token Resource Scope
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| A job that previously worked now hits 403 on Cloud FS / org filesystem / org docs / envdb access | Scoped job-token enforcement: `ScopedAccessService` now checks the token's `scope` claim (paths, mounts, schemas/tables), not just permission names | `eve job show <id> --json` and inspect `token_scope`; confirm the workflow step or parent declared the right scope; cross-check against the access binding's `scope_json`. Tokens with no `scope` keep legacy permission-name-only behavior. Shipped: `906424e9`; migration `00096_jobs_token_scope.sql`. |
 
 ## Secret Resolution Issues
 

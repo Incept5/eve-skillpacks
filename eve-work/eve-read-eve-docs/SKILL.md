@@ -133,6 +133,47 @@ triggers:
   - wiki pattern
   - knowledge base
   - wiki maintenance
+  - eve magic link
+  - eve magic-link
+  - magic link login
+  - passwordless app
+  - magic link opt-in
+  - eve magic link interstitial
+  - magic link wrap
+  - wrap token
+  - eve domain signup
+  - domain signup v2
+  - path c signup
+  - auto signup
+  - eve allowed redirect origins
+  - redirect allowlist
+  - app redirect allowlist
+  - eve app branding
+  - app-branded email
+  - app branded invite
+  - branded magic link
+  - eve app invites
+  - app org access
+  - admin invite
+  - in-app invite
+  - eve org invite project
+  - eve auth context
+  - app-context
+  - eve project auth-context
+  - samesite none
+  - eve_sso cookie
+  - custom domain cookie
+  - email_delivery_events
+  - ses bounce
+  - ses suppression
+  - eve admin email
+  - eve admin email bounces
+  - scoped job token
+  - jobs.token_scope
+  - token scope
+  - workflow scope
+  - step scope
+  - EVE_PROJECT_ID
 ---
 
 # Eve Read Docs (Load First)
@@ -155,64 +196,64 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 ## Task Router (Progressive Access)
 
 - Platform orientation, environment URLs, architecture, Eve Dashboard, system app pattern: `references/overview.md`
-- Command syntax, flags, and CLI workflows (includes cloud-fs, endpoint, ingest, traces, env logs --follow/--filter, env diagnose --request commands): `references/cli.md`
+- Command syntax, flags, and CLI workflows (includes cloud-fs, endpoint, ingest, traces, env logs --follow/--filter, env diagnose --request, `eve admin email bounces list [--recipient|--event-type|--limit|--json]`, `eve org invite --project --redirect-to`, `eve project auth-context` commands): `references/cli.md`
 - Fine-grained CLI intents:
   - `references/cli-auth.md` (auth + access + policy)
   - `references/cli-org-project.md` (init, org/project setup, docs, fs sync)
-  - `references/cli-jobs.md` (jobs and execution controls, per-job harness/env overrides)
+  - `references/cli-jobs.md` (jobs and execution controls, per-job harness/env overrides, scoped job tokens via `jobs.token_scope`)
   - `references/cli-pipelines.md` (builds, releases, pipelines, workflows)
   - `references/cli-deploy-debug.md` (deploy, recovery, local stack, CLI troubleshooting, env logs follow/filter, env diagnose --request, traces query)
-- Manifest authoring, config structure, app CLI framework, toolchain declarations, cloud FS mounts, per-org OAuth, app undeploy/delete, custom domains, stable egress (hostNetwork v2), workflow env_overrides + conditional steps + step-level harness/harness_options + step git controls + retry tails + file refs + Slack notifications + resource ref policies, manifest-driven service token permissions: `references/manifest.md`
-- Pipelines, workflows, triggers, event-driven automation, auto-trigger, event/app triggers, workflow input forwarding, step optimization, per-step `with_apis`, workflow env_overrides + conditional steps + step-level harness + retry-failed + file refs + Slack notifications, event→trigger observability (trigger_match_count, triggers_evaluated): `references/pipelines-workflows.md` + `references/events.md`
-- Job lifecycle, scheduling, execution debugging, agent-native monitoring, production hardening, per-job HOME isolation, per-job harness/env overrides, learning loop (`system.job.attempt.completed`, carryover context), stuck-job prevention + stale recovery + env-gate scope: `references/jobs.md`
+- Manifest authoring, config structure, app CLI framework, toolchain declarations, cloud FS mounts, per-org OAuth, app undeploy/delete, custom domains, stable egress (hostNetwork v2), workflow env_overrides + conditional steps + step-level harness/harness_options + step git controls + retry tails + file refs + Slack notifications + resource ref policies, manifest-driven service token permissions, `x-eve.branding` (logo/color/From-name), `x-eve.auth.login_method` (`magic_link`), `x-eve.auth.self_signup`, `x-eve.auth.invite_requires_password`, `x-eve.auth.org_access`, `x-eve.auth.domain_signup` v2 rule list (`[{domain, target_org, role}]`), `x-eve.auth.allowed_redirect_origins`, `jobs.token_scope` axes (`orgfs`/`orgdocs`/`envdb`/`cloud_fs`): `references/manifest.md`
+- Pipelines, workflows, triggers, event-driven automation, auto-trigger, event/app triggers, workflow input forwarding, step optimization, per-step `with_apis`, workflow env_overrides + conditional steps + step-level harness + retry-failed + file refs + Slack notifications, event→trigger observability (trigger_match_count, triggers_evaluated), scoped job tokens (workflow/step/invocation scope intersection into `jobs.token_scope`): `references/pipelines-workflows.md` + `references/events.md`
+- Job lifecycle, scheduling, execution debugging, agent-native monitoring, production hardening, per-job HOME isolation, per-job harness/env overrides, learning loop (`system.job.attempt.completed`, carryover context), stuck-job prevention + stale recovery + env-gate scope, scoped job tokens (`jobs.token_scope` axes: `orgfs`/`orgdocs`/`envdb`/`cloud_fs`): `references/jobs.md`
 - Build, release, and deployment behavior: `references/builds-releases.md` + `references/deploy-debug.md`
 - Private endpoints (Tailscale), worker toolchain-on-demand, app undeploy/delete, custom domains debugging (first-bind-wins, cert-manager TLS, `eve domain list|verify|status|transfer|unbind|remove`), stable egress (hostNetwork v2), DeployFailure taxonomy + cluster snapshot + manifest_hash from deploy ref + `eve env diagnose`, Platform Sentinel (env health monitoring + Slack alerts): `references/deploy-debug.md`
 - Agents, teams, chat routing, embedded app conversations, agent aliases, staged dispatch, chat delivery, chat progress, structured conversation event streams (`cevt_*`), chat continuity by Eve `thr_*` id, chat regex case-insensitive, agent learning loop hooks, agent-runtime org auto-discovery (no `org_default`): `references/agents-teams.md` + `references/gateways.md`
-- Secrets, auth, access control, identity providers, BYOK model credentials, per-org OAuth credential storage, manifest-driven service token permissions + auto-injected `EVE_SERVICE_TOKEN` (read-only defaults), SSO self-signup email domain restriction (`EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS`), per-agent envdb wildcard scope (built-in roles): `references/secrets-auth.md`
+- Secrets, auth, access control, identity providers, BYOK model credentials, per-org OAuth credential storage, manifest-driven service token permissions + auto-injected `EVE_SERVICE_TOKEN` (read-only defaults), SSO self-signup email domain restriction (`EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS`), per-agent envdb wildcard scope (built-in roles), app magic-link login opt-in (`x-eve.auth.login_method: magic_link`), magic-link confirmation interstitial (wrap tokens; prevents drive-by scanner redemption), domain-signup v2 rule list (`[{domain, target_org, role}]`), project-scoped redirect allowlist (`x-eve.auth.allowed_redirect_origins`), platform-guaranteed `SameSite=None` on `eve_sso` session cookies for custom-domain apps: `references/secrets-auth.md`
 - Skills installation, packs, resolution order, materialization fast-path + `.agents/skills/` canonicalization + sparse pack support + `eve skills materialize` runtime path: `references/skills-system.md`
 - Harness selection, sandbox policy, BYOK model setup, shared invoke, toolchain-on-demand, chat harness profiles, per-job harness override (`--harness-override-file`) + env override (`--env-override`), harness-profile-validation endpoint, chat hint propagation, Phase 4 step-template expressions, Codex reasoning + harness model normalization, Opus 4.7 + GPT-5.5 model registrations: `references/harnesses.md`
 - Object store, org filesystem sync, share tokens, public paths, GCS storage, cloud FS (Google Drive), app bucket credential separation: `references/object-store-filesystem.md`
 - Document ingestion (upload, processing, download, callbacks): `references/ingest.md`
 - Document ingestion pipeline (end-to-end flow, agentpack, media processing, chat files, doc.ingest workflow trigger reliability fixes): `references/document-ingestion.md`
-- Eve SDK overview, install, quick-start, token flow, embedded conversations, chat SDKs, exports, structured conversation event streams, chat continuity by `thr_*` id: `references/eve-sdk.md`
-- Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification, project role resolution, and org awareness: `references/auth-sdk.md`
+- Eve SDK overview, install, quick-start, token flow, embedded conversations, chat SDKs, exports, structured conversation event streams, chat continuity by `thr_*` id, branded app login pattern, `useEveAppAccess()`, in-app admin invites via `POST /auth/app-invites`: `references/eve-sdk.md`
+- Auth SDK deep-dive, `@eve-horizon/auth`, `@eve-horizon/auth-react`, app SSO middleware, token verification, project role resolution, and org awareness, magic-link login SDK opt-in, domain-signup v2 SDK behavior, magic-link confirmation interstitial transparency to `EveAuthProvider`: `references/auth-sdk.md`
 - Build agent-friendly CLIs for app APIs, manifest declaration, bundling, distribution, env var contract: `references/app-cli.md`
-- OAuth app credentials (BYOA), Google Drive mounts, cloud FS browse/search, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, integrations, Slack connect, GitHub setup, identity linking, membership requests, API chat provider (no-op for polling clients; 4 built-in providers: slack, nostr, webchat, api): `references/integrations.md` + `references/gateways.md`
-- Observability, request diagnostics, service logs (`eve env logs --follow`, `--filter k=v`), traces (`eve traces query`), `eve env diagnose --request <req_id>`, cost tracking, receipts, analytics, event→trigger observability (trigger_match_count, triggers_evaluated, `eve event show`): `references/observability.md`
+- OAuth app credentials (BYOA), Google Drive mounts, cloud FS browse/search, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, integrations, Slack connect, GitHub setup, identity linking, membership requests, API chat provider (no-op for polling clients; 4 built-in providers: slack, nostr, webchat, api), app org access + in-app admin invites (`POST /auth/app-invites`, `eve org invite --project --redirect-to`, `eve project auth-context`), app-branded invite + magic-link emails (logo, color, From-name via `x-eve.branding`), project-scoped redirect allowlist: `references/integrations.md` + `references/gateways.md`
+- Observability, request diagnostics, service logs (`eve env logs --follow`, `--filter k=v`), traces (`eve traces query`), `eve env diagnose --request <req_id>`, cost tracking, receipts, analytics, event→trigger observability (trigger_match_count, triggers_evaluated, `eve event show`), SES mailer reliability (pre-flight suppression check, bounce webhook, `email_delivery_events` table, `eve admin email bounces list [--recipient|--event-type|--limit|--json]`): `references/observability.md`
 - Database provisioning, migrations, SQL, managed DB operations, managed DB TLS trust (verify-full default + CA bundle injection): `references/database-ops.md`
-- Symptom-first troubleshooting across auth, secrets, deploy, jobs, builds, DeployFailure taxonomy + diagnose, Platform Sentinel alert interpretation, stuck-job prevention + stale recovery: `references/troubleshooting.md`
+- Symptom-first troubleshooting across auth, secrets, deploy, jobs, builds, DeployFailure taxonomy + diagnose, Platform Sentinel alert interpretation, stuck-job prevention + stale recovery, SES drops (suppression / bounces / `email_delivery_events`), missing magic-link or invite emails, magic-link confirmation interstitial expectations, custom-domain `SameSite=None` cookies, redirect allowlist mismatches, scoped job token denials, domain-signup v2 migration: `references/troubleshooting.md`
 - LLM Wiki pattern, wiki-maintaining agents, knowledge base architecture, near-instant indexing, CLI enhancements (`eve docs patch`, `diff`, `watch`, `sync`, `list --tree`, `search --path/--context`, bulk-write): `references/llm-wiki.md`
 
 ## Index
 
 - `references/overview.md` -- Architecture, core concepts, IDs, job phases, BYOK inference, document ingestion, cloud FS, private endpoints, Eve Dashboard + system app pattern, reference index.
-- `references/cli.md` -- CLI quick reference: all commands by category with flags and options, including cloud-fs, endpoint, ingest, traces query, env logs --follow/--filter, env diagnose --request commands.
-- `references/manifest.md` -- Manifest v2 spec: services, environments, pipelines, workflows, x-eve extensions, app CLI framework, toolchain declarations, cloud FS mounts, per-org OAuth, app undeploy/delete, custom domains, stable egress (`x-eve.networking.egress: stable`), workflow env_overrides + conditional steps + step-level harness/harness_options + step git controls + retry tails + file refs + Slack notifications + resource ref policies, manifest-driven service token permissions.
+- `references/cli.md` -- CLI quick reference: all commands by category with flags and options, including cloud-fs, endpoint, ingest, traces query, env logs --follow/--filter, env diagnose --request, `eve admin email bounces list [--recipient|--event-type|--limit|--json]`, `eve org invite --project --redirect-to`, and `eve project auth-context` commands.
+- `references/manifest.md` -- Manifest v2 spec: services, environments, pipelines, workflows, x-eve extensions, app CLI framework, toolchain declarations, cloud FS mounts, per-org OAuth, app undeploy/delete, custom domains, stable egress (`x-eve.networking.egress: stable`), workflow env_overrides + conditional steps + step-level harness/harness_options + step git controls + retry tails + file refs + Slack notifications + resource ref policies, manifest-driven service token permissions, `x-eve.branding` (logo/color/From-name), `x-eve.auth.login_method: magic_link`, `x-eve.auth.self_signup`, `x-eve.auth.invite_requires_password`, `x-eve.auth.org_access`, `x-eve.auth.domain_signup` v2 rule list `[{domain, target_org, role}]`, `x-eve.auth.allowed_redirect_origins`, `jobs.token_scope` axes (`orgfs`/`orgdocs`/`envdb`/`cloud_fs`).
 - `references/events.md` -- **Event type catalog** (all sources + payloads) and **trigger syntax** (github, slack, system, cron, manual).
-- `references/jobs.md` -- Job lifecycle, phases, CLI, git/workspace controls, scheduling hints, agent-native monitoring, production hardening, per-job HOME isolation, per-job harness/env overrides, learning loop (`system.job.attempt.completed`, carryover context, `user` memory category), stuck-job prevention + stale recovery + env-gate scope (action jobs only).
+- `references/jobs.md` -- Job lifecycle, phases, CLI, git/workspace controls, scheduling hints, agent-native monitoring, production hardening, per-job HOME isolation, per-job harness/env overrides, learning loop (`system.job.attempt.completed`, carryover context, `user` memory category), stuck-job prevention + stale recovery + env-gate scope (action jobs only), scoped job tokens via `jobs.token_scope` (axes: `orgfs`/`orgdocs`/`envdb`/`cloud_fs`).
 - `references/builds-releases.md` -- Build system (specs, runs, artifacts), releases, deploy model, promotion patterns.
 - `references/agents-teams.md` -- Agent/team/chat YAML schemas, sync flow, slug rules, embedded app conversations, agent aliases, staged team dispatch, chat outbound delivery, chat progress updates, dispatch modes, coordination threads, structured conversation event streams (`cevt_*`), chat continuity by `thr_*` id, chat regex case-insensitive, agent learning loop hooks, agent-runtime org auto-discovery.
-- `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, auto-trigger, event/app triggers, workflow input forwarding, step optimization, per-step `with_apis`, build-release-deploy pattern, env_overrides + conditional steps + step-level harness + step git controls + retry-failed + file refs + Slack notifications + resource ref policies, event→trigger observability (trigger_match_count, triggers_evaluated).
-- `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync, service principals, access visibility, custom roles, policy-as-code, BYOK model credentials, per-org OAuth credential storage, manifest-driven service token permissions + auto-injected `EVE_SERVICE_TOKEN` (read-only defaults), SSO self-signup email domain restriction (`EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS`), per-agent envdb wildcard scope.
+- `references/pipelines-workflows.md` -- Pipeline steps, triggers, workflow invocation, auto-trigger, event/app triggers, workflow input forwarding, step optimization, per-step `with_apis`, build-release-deploy pattern, env_overrides + conditional steps + step-level harness + step git controls + retry-failed + file refs + Slack notifications + resource ref policies, event→trigger observability (trigger_match_count, triggers_evaluated), scoped job tokens (workflow/step/invocation scope intersection into `jobs.token_scope`).
+- `references/secrets-auth.md` -- Secrets scopes, interpolation, auth model, identity providers, OAuth sync, service principals, access visibility, custom roles, policy-as-code, BYOK model credentials, per-org OAuth credential storage, manifest-driven service token permissions + auto-injected `EVE_SERVICE_TOKEN` (read-only defaults), SSO self-signup email domain restriction (`EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS`), per-agent envdb wildcard scope, app magic-link login opt-in (`x-eve.auth.login_method: magic_link`), magic-link confirmation interstitial (wrap tokens; prevents drive-by scanner redemption), domain-signup v2 per-rule list (`[{domain, target_org, role}]`), project-scoped redirect allowlist (`x-eve.auth.allowed_redirect_origins`), platform-guaranteed `SameSite=None` on `eve_sso` session cookies for custom-domain apps.
 - `references/skills-system.md` -- Skills format, skills.txt, install flow, discovery priority, materialization fast-path + `.agents/skills/` canonicalization + sparse pack support + `eve skills materialize` runtime path.
 - `references/deploy-debug.md` -- K8s architecture, worker images, deploy polling, ingress/TLS, secrets provisioning, workspace janitor, private endpoints (Tailscale), worker toolchain-on-demand, app undeploy/delete, CLI debugging workflows, real-time debugging, env-specific debugging, custom domains debugging (first-bind-wins, cert-manager TLS, `eve domain` subcommands), stable egress (hostNetwork v2), DeployFailure taxonomy + cluster snapshot + manifest_hash from deploy ref + `eve env diagnose`, Platform Sentinel (env health monitoring + Slack alerts).
 - `references/harnesses.md` -- Harness selection, profiles, auth priority, sandbox flags, BYOK model setup, shared invoke module, toolchain-on-demand, harness profiles for chat, per-job harness override (`--harness-override-file`) + env override (`--env-override`), harness-profile-validation endpoint, chat hint propagation, Phase 4 step-template expressions, Codex reasoning + harness model normalization, Opus 4.7 + GPT-5.5 model registrations.
 - `references/gateways.md` -- Gateway plugin architecture, Slack + Nostr + webchat + API providers (4 built-in), thread keys, structured conversation event streams (`cevt_*`), chat continuity by Eve `thr_*` id, embedded app conversations, API chat provider (no-op for polling clients).
 - `references/cli-auth.md` -- CLI auth, service accounts, access roles, and policy-as-code.
 - `references/cli-org-project.md` -- CLI commands for org/project setup, docs, FS sync, and resolver URIs.
-- `references/cli-jobs.md` -- CLI job lifecycle: create/list/update, attempt tracking, result/monitoring/attachments, per-job harness override (`--harness-override-file`) + env override (`--env-override`).
+- `references/cli-jobs.md` -- CLI job lifecycle: create/list/update, attempt tracking, result/monitoring/attachments, per-job harness override (`--harness-override-file`) + env override (`--env-override`), scoped job tokens via `jobs.token_scope` (axes: `orgfs`/`orgdocs`/`envdb`/`cloud_fs`).
 - `references/cli-pipelines.md` -- CLI build/release/pipeline/workflow command reference.
 - `references/cli-deploy-debug.md` -- CLI environment deploy/recover/lifecycle and local k3d stack, env logs --follow/--filter, env diagnose --request, traces query.
 - `references/object-store-filesystem.md` -- Object store, org filesystem sync protocol, share tokens, public paths, app buckets, access control, native GCS storage, cloud FS (Google Drive mounts), app bucket credential separation.
 - `references/ingest.md` -- Document ingest lifecycle: upload, processing, download URLs, callbacks, CORS, event integration.
 - `references/document-ingestion.md` -- Document ingestion pipeline: end-to-end flow, ingest:// URI scheme, agentpack, media processing (ffmpeg + whisper), chat file materialization, integration points, doc.ingest workflow trigger reliability fixes.
-- `references/eve-sdk.md` -- Eve SDK overview: auth + chat packages, install, quick-start patterns, token flow, embedded conversation pane, backend/frontend exports, environment variables, structured conversation event streams, chat continuity by `thr_*` id.
-- `references/auth-sdk.md` -- Eve Auth SDK deep-dive: middleware behavior, verification strategies, token types, SSO session bootstrap, NestJS patterns, project role resolution, org awareness, migration guide.
-- `references/integrations.md` -- OAuth app credentials (BYOA), Google Drive cloud FS mounts, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, external integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking.
-- `references/observability.md` -- Correlation IDs, app service logs (`eve env logs --follow`, `--filter k=v`), request diagnostics (`eve env diagnose --request`), traces (`eve traces query`), execution receipts, cost tracking, analytics, OTEL config, provider discovery, event→trigger observability (trigger_match_count, triggers_evaluated, `eve event show`).
+- `references/eve-sdk.md` -- Eve SDK overview: auth + chat packages, install, quick-start patterns, token flow, embedded conversation pane, backend/frontend exports, environment variables, structured conversation event streams, chat continuity by `thr_*` id, branded app login pattern, `useEveAppAccess()`, in-app admin invites via `POST /auth/app-invites`, app magic-link login opt-in.
+- `references/auth-sdk.md` -- Eve Auth SDK deep-dive: middleware behavior, verification strategies, token types, SSO session bootstrap, NestJS patterns, project role resolution, org awareness, migration guide, magic-link login SDK opt-in, domain-signup v2 SDK behavior, magic-link confirmation interstitial transparency to `EveAuthProvider`.
+- `references/integrations.md` -- OAuth app credentials (BYOA), Google Drive cloud FS mounts, Slack install smoothing, gateway hot-load, per-org OAuth, chat file materialization, external integrations (Slack, GitHub), identity resolution tiers, membership requests, CLI linking, app org access + in-app admin invites (`POST /auth/app-invites`, `eve org invite --project --redirect-to`, `eve project auth-context`), app-branded invite + magic-link emails (logo/color/From-name via `x-eve.branding`), project-scoped redirect allowlist.
+- `references/observability.md` -- Correlation IDs, app service logs (`eve env logs --follow`, `--filter k=v`), request diagnostics (`eve env diagnose --request`), traces (`eve traces query`), execution receipts, cost tracking, analytics, OTEL config, provider discovery, event→trigger observability (trigger_match_count, triggers_evaluated, `eve event show`), SES mailer reliability (pre-flight suppression check, bounce webhook, `email_delivery_events` table, `eve admin email bounces list [--recipient|--event-type|--limit|--json]`).
 - `references/database-ops.md` -- Managed DB provisioning, migrations, SQL access, schema/RLS inspection, scaling/reset/destroy, managed DB TLS trust (verify-full default + CA bundle injection).
 - `references/app-cli.md` -- App CLI framework: manifest declaration, env var contract, bundling, distribution, implementation patterns.
-- `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues, DeployFailure taxonomy + `eve env diagnose`, Platform Sentinel alert interpretation, stuck-job prevention + stale recovery.
+- `references/troubleshooting.md` -- Symptom-first diagnostic tables for auth, secrets, deploy, jobs, builds, network issues, DeployFailure taxonomy + `eve env diagnose`, Platform Sentinel alert interpretation, stuck-job prevention + stale recovery, SES drops (suppression / bounces / `email_delivery_events`), missing magic-link or invite emails, magic-link confirmation interstitial expectations, custom-domain `SameSite=None` cookies, redirect allowlist mismatches, scoped job token denials, domain-signup v2 migration.
 - `references/llm-wiki.md` -- LLM Wiki pattern: two-layer substrate, agent workflow, near-instant indexing, operations (ingest/query/lint/bulk), CLI enhancements (`eve docs patch`, `diff`, `watch`, `sync`, `list --tree`, `search --path/--context`, bulk-write), relationship to Company as Intelligence.
 
 ## Intent Coverage Matrix
@@ -273,6 +314,15 @@ Purpose: provide a compact, public, always-available distillation of Eve Horizon
 | Configure manifest-driven service tokens | `references/secrets-auth.md`, `references/manifest.md` | Permission scopes, auto-injected `EVE_SERVICE_TOKEN`, read-only defaults |
 | Verify managed DB TLS trust | `references/database-ops.md` | `verify-full` default, CA bundle injection path, connection string |
 | Separate app bucket credentials | `references/object-store-filesystem.md` | App bucket credential scope, isolation boundary |
+| Opt an app into passwordless magic-link login | `references/secrets-auth.md`, `references/manifest.md` | `x-eve.auth.login_method: magic_link` config, interstitial flow, SDK behavior |
+| Auto-signup users by email domain into an org with a role (Path C) | `references/secrets-auth.md`, `references/manifest.md` | `x-eve.auth.domain_signup` v2 rule list `[{domain, target_org, role}]`, applied role |
+| Allow redirect to a custom-domain app origin after invite/magic-link | `references/secrets-auth.md`, `references/manifest.md` | `x-eve.auth.allowed_redirect_origins` config, allowed origin match |
+| Brand invite + magic-link emails for an app | `references/integrations.md`, `references/manifest.md` | `x-eve.branding` logo/color/From-name, branded email preview |
+| Send an in-app admin invite to a new user | `references/integrations.md`, `references/eve-sdk.md` | `POST /auth/app-invites` call, `eve org invite --project --redirect-to`, redirect target |
+| Inspect SES bounces or suppressed recipients | `references/observability.md`, `references/cli.md`, `references/troubleshooting.md` | `eve admin email bounces list` output, `email_delivery_events` rows, suppression status |
+| Constrain a job's token to specific paths or mounts | `references/jobs.md`, `references/pipelines-workflows.md`, `references/manifest.md` | `jobs.token_scope` axes (`orgfs`/`orgdocs`/`envdb`/`cloud_fs`), workflow/step intersection |
+| Diagnose missing magic-link / invite email | `references/troubleshooting.md`, `references/observability.md` | `email_delivery_events` row, suppression/bounce reason, interstitial expectation |
+| Migrate domain-signup manifest from v1 to v2 | `references/manifest.md`, `references/secrets-auth.md` | Replace string list with `[{domain, target_org, role}]` rule list, per-rule role |
 
 ## Hard Rules
 

@@ -173,7 +173,7 @@ Unknown fields are allowed for forward compatibility.
 
 ### Project Branding And Auth (`x-eve.branding`, `x-eve.auth`)
 
-Project-level branding is used by app invite emails, app-scoped magic-link emails, and branded SSO login pages:
+Project-level branding is used by app invite emails, app-scoped magic-link emails, and branded SSO login pages. It is synced onto the project record by `eve project sync`:
 
 ```yaml
 x-eve:
@@ -186,6 +186,8 @@ x-eve:
     support_email: "support@all-track.co.uk"
     support_url: "https://all-track.co.uk/help"
 ```
+
+`app_name` is required when `branding` is present (≤60 chars, no newlines). Logo/support URLs must be valid URLs; only HTTPS logo URLs are emitted into Phase 1 emails. `primary_color` must be a six-digit hex like `#1f6feb`. `email_from_name`, `reply_to_email`, and `support_email` set the `From:`/`Reply-To:` headers on app-scoped mail while keeping the platform sender address.
 
 Apps can opt into passwordless login with:
 
@@ -308,6 +310,13 @@ auto-included too.
 
 Inspect the resolved list (manifest ∪ own custom domains ∪ cross-org domains)
 with `eve project auth-context <project_id>`.
+
+See `references/secrets-auth.md` for SSO endpoints, app context resolution,
+and the `eve org invite` / `POST /auth/app-invites` flows that consume these
+fields. `references/integrations.md` covers the per-org OAuth configs that
+back app-branded mail delivery, and `references/deploy-debug.md` covers the
+custom-domain lifecycle (`pending_dns` → `active`) that feeds the
+auto-included redirect origins.
 
 ## Workflow References
 
@@ -1204,25 +1213,6 @@ x-eve:
 `hints` can include budgeting and accounting fields such as `resource_class`,
 `max_cost`, and `max_tokens`. These map to scheduling hints and per-attempt
 budget enforcement.
-
-## Project Branding (`x-eve.branding`)
-
-Project branding is optional manifest metadata used by platform-managed invite
-emails. It is synced onto the project record by `eve project sync`.
-
-```yaml
-x-eve:
-  branding:
-    app_name: "ALL-TRACK"
-    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
-    primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
-    reply_to_email: "support@all-track.co.uk"
-    support_email: "support@all-track.co.uk"
-    support_url: "https://all-track.co.uk/help"
-```
-
-`app_name` is required when `branding` is present. Logo/support URLs must be valid URLs; only HTTPS logo URLs are emitted into Phase 1 emails. `primary_color` must be a hex color like `#1f6feb`. Invite emails sent with `eve org invite <email> --project <project_id>` use this block for subject, body, and `From:` display name while keeping the platform sender address.
 
 ## Project Agent Profiles (`x-eve.agents`)
 

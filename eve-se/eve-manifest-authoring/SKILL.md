@@ -202,6 +202,21 @@ Note: Every deploy pipeline should include a `build` step before `release`. The 
 - Use `action.type: create-pr` for PR automation when configured.
 - Workflows live under `workflows` and are invoked via CLI; `db_access` is honored.
 - Workflow steps support `harness`, `harness_profile`, and `harness_options` per step (overrides agent-resolved values), `condition` for skip-if-false gating against upstream step status, and `git` controls (now correctly materialized at dispatch). See `references/manifest.md` for the full step shape.
+- Workflow- and step-level `scope` blocks narrow the step job token and org filesystem mount. Supported axes: `orgfs`, `orgdocs`, `envdb`, `cloud_fs`. Step scope intersects workflow scope — invocation scope may narrow but not widen. Use it to grant a step exactly the paths/tables/mounts it needs, default-deny everything else.
+
+```yaml
+workflows:
+  create-design:
+    scope:
+      orgfs: { allow_prefixes: [/groups/projects/proj-a/**] }
+    steps:
+      - name: publish
+        scope:
+          cloud_fs: { allow_mount_ids: [mount_a] }
+        agent: { name: publisher }
+```
+
+Request-supplied `scope` (workflow invoke API body) requires `jobs:harness_override`. No `--scope-*` CLI flag yet.
 
 ## Custom Domains and Stable Egress
 
@@ -223,6 +238,70 @@ services:
 - `networking.egress: stable` schedules the pod on the stable-egress node group with `hostNetwork: true`. It bypasses NAT and constrains scheduling — only opt in when needed.
 
 See `references/manifest.md` for the full field shape (validation rules, max counts, per-env overrides).
+
+## Project Branding And Auth
+
+App-facing login, invite emails, and magic-link emails are project-scoped and declared in `x-eve.branding` / `x-eve.auth`. `eve project sync` writes both onto the project record; the SSO broker and Eve API mailer read from there.
+
+### `x-eve.branding` — invite + magic-link email branding
+
+```yaml
+x-eve:
+  branding:
+    app_name: "ALL-TRACK"                                    # required, <=60 chars
+    app_logo_url: "https://app.example.com/logo.svg"          # https only on emitted mail
+    primary_color: "#1f6feb"                                  # six-digit hex
+    email_from_name: "ALL-TRACK"                              # From-name header
+    reply_to_email: "support@example.com"
+    support_email: "support@example.com"
+    support_url: "https://example.com/help"
+```
+
+`email_from_name`, `reply_to_email`, `support_email` set headers on app-scoped mail while keeping the platform's verified sender address. Phase 1 emits logo + name + primary color in invite and magic-link templates.
+
+### `x-eve.auth.login_method: magic_link` — passwordless apps
+
+```yaml
+x-eve:
+  auth:
+    login_method: magic_link            # password_or_magic_link | password | magic_link
+    self_signup: false
+    invite_requires_password: false
+```
+
+Opt in per project. With `magic_link`, the SSO login page hides password and signup, and Eve API sends branded magic-link mail via `POST /auth/magic-link` (not GoTrue direct), so unknown emails get generic success without creating a GoTrue user when `self_signup: false`. With `invite_requires_password: false`, invite acceptance establishes the session and skips `/set-password`. Use `password_or_magic_link` to keep password login plus a secondary branded magic-link control.
+
+### `x-eve.auth.org_access.domain_signup` — pre-approved email domains
+
+```yaml
+x-eve:
+  auth:
+    org_access:
+      mode: allowlist
+      allowed_orgs: [org_acme, org_tesco]
+      domain_signup:
+        enabled: true
+        domains:
+          - { domain: acme.com,   target_org: org_acme,  role: member }
+          - { domain: tesco.com,  target_org: org_tesco }
+          - { domain: "*.acme.com", target_org: org_acme }  # wildcard; apex needs its own rule
+```
+
+v2 shape (2026-05-12). Each `domains[]` entry is an object with its own required `target_org`; the legacy list-of-strings + block-level `target_org` is no longer accepted. Each `target_org` must already appear in `allowed_orgs`. Matching is first-rule-in-declaration-order; declare more-specific patterns first. Invalid with `login_method: password`. Free-email domains (`gmail.com`, `outlook.com`, ...) emit a coherence warning — declaring them lets anyone on Earth join.
+
+### `x-eve.auth.allowed_redirect_origins` — custom-domain apps
+
+```yaml
+x-eve:
+  auth:
+    allowed_redirect_origins:
+      - https://app.example.com
+      - https://www.example.com
+```
+
+Origins only — `scheme://host[:port]`. Paths, queries, fragments, and userinfo are rejected at sync. `http://` permitted only for `localhost`, loopback IPs, and `*.lvh.me`. The SSO broker also auto-includes the project's eligible `custom_domains` rows and (in `allowlist` mode) custom domains owned by `allowed_orgs` siblings, so a project with a registered custom domain does not need to repeat it here. Confirm the resolved list with `eve project auth-context <project_id>`.
+
+See `references/manifest.md` for full validation rules (email-domain grammar, IDN normalization, duplicate detection, redirect-origin normalization).
 
 ## Service Token Permissions
 
