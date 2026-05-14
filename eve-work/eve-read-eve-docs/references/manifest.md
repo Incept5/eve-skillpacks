@@ -1391,6 +1391,65 @@ services:
 
 **TLS**: Custom domains use `cert-manager.io/cluster-issuer` (HTTP-01 challenge), NOT the platform wildcard cert (`EVE_DEFAULT_TLS_SECRET`). The ClusterIssuer must support HTTP-01 challenges.
 
+## Public TCP Ingress
+
+Use service `x-eve.tcp_ingress` for raw L4 TCP protocols such as device
+trackers. This is separate from HTTP ingress and renders a Kubernetes
+`Service` of type `LoadBalancer` labelled `eve.tcp_ingress=true`.
+
+```yaml
+services:
+  device-edge:
+    image: ghcr.io/acme/device-edge:latest
+    ports: [33400, 33500]
+    x-eve:
+      tcp_ingress:
+        hostname: trackers
+        allow_cidrs:
+          - 0.0.0.0/0
+        listeners:
+          - name: a1-gt06
+            port: 33400
+          - name: mictrack-mt700
+            port: 33500
+```
+
+Rules:
+- `listeners` is required and supports 1-20 entries.
+- Listener names must be lowercase alphanumeric with hyphens.
+- Each listener `port` must also appear in top-level service `ports`.
+- Listener ports cannot use the Kubernetes NodePort range `30000-32767`.
+- `allow_cidrs` is optional and becomes `loadBalancerSourceRanges`.
+- `hostname` is an optional platform alias under `EVE_TCP_INGRESS_HOSTED_ZONE`
+  or `EVE_DEFAULT_DOMAIN`; without it Eve advertises a generated service host.
+
+TCP aliases share the same global claim and reserved-name rules as HTTP ingress
+aliases. A manifest cannot declare the same alias for both HTTP and TCP.
+
+The app container receives `EVE_TCP_PUBLIC_HOST` plus listener-specific env vars:
+`EVE_TCP_LISTENER_<NAME>_PORT` and `EVE_TCP_LISTENER_<NAME>_HOST`, where hyphens
+in `<NAME>` are converted to underscores and the value is uppercased.
+
+Providers:
+- `EVE_TCP_INGRESS_PROVIDER=none`: validate only; render no public TCP service.
+- `EVE_TCP_INGRESS_PROVIDER=klipper`: local k3d/k3s LoadBalancer.
+- `EVE_TCP_INGRESS_PROVIDER=aws-nlb`: internet-facing AWS NLB; requires the AWS
+  Load Balancer Controller.
+
+Diagnostics:
+
+```bash
+eve env diagnose <project> <env>                       # TCP Ingress table
+eve env diagnose <project> <env> --json | jq '.tcp_ingress'
+eve tcp-ingress test <project> <env> --listener a1-gt06
+```
+
+For local k3d, create the cluster with the raw TCP ports mapped:
+
+```bash
+./bin/eh k8s start --tcp-ports 33400,33500 --recreate
+```
+
 ## App Undeploy & Delete
 
 Full lifecycle operations for environments, projects, and orgs.

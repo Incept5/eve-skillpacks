@@ -83,6 +83,7 @@ If `./bin/eh status` shows services stopped, restart with `./bin/eh start <mode>
 | Deploy hangs at "deploying" | Pipeline step stuck or health check loop | `eve pipeline logs <pipeline> <run-id> --follow` to find stuck step |
 | `status: degraded` after deploy | Pods unhealthy | `eve env diagnose <project> <env>` for K8s events |
 | Ingress returns 404 | Missing ingress config or DNS | Check manifest `x-eve.ingress.public: true`; verify `EVE_DEFAULT_DOMAIN` |
+| `eve tcp-ingress test` fails or TCP listener is unreachable | Listener not ready, k3d port not mapped, app not listening, or AWS/klipper LoadBalancer issue | `eve env diagnose <project> <env> --json | jq '.tcp_ingress'`; local k3d needs `./bin/eh k8s start --tcp-ports <ports> --recreate`; check `./bin/eh kubectl get svc -A -l eve.tcp_ingress=true`. |
 | "Service X ready check failed" | Container crash or config error | `eve env logs <project> <env> --service <name>` |
 | Rollback needed | Bad deploy | `eve env rollback <project> <env>` |
 | Env stuck in unknown state | K8s unreachable | `eve env recover <project> <env>` to analyze and suggest recovery |

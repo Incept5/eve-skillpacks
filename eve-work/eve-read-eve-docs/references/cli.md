@@ -844,6 +844,8 @@ Notes:
 - **ECR auto-auth:** `up` automatically authenticates Docker to ECR Public before pulling platform images. If the AWS CLI is installed and configured, it runs `aws ecr-public get-login-password` to obtain a token and logs Docker in. This avoids ECR Public's anonymous rate limits (1 pull/s, 10 pulls/min per IP). If the AWS CLI is not available, pulls proceed without auth but may fail under rate limits -- the error message includes a manual login command.
 - Image pull retries now handle `403 Forbidden` and `429 Too Many Requests` responses, and HTTP fetches (e.g. registry tag listing) retry with exponential backoff on 429.
 - The cluster binds ports 80/443 on localhost via k3d's load balancer.
+- Public raw TCP ingress tests need explicit k3d port mappings. Contributors
+  can recreate the local cluster with `./bin/eh k8s start --tcp-ports 33400,33500 --recreate`.
 - Kube context is set to `k3d-eve-local` automatically.
 
 ## Job Execution Runtime
@@ -874,8 +876,25 @@ Quick reference:
 - `eve env diagnose <project> <env> --request <id> --json` -- request-level logs, events, deploy metadata, audit rows, and traces
 - `eve env logs <project> <env> <service> --follow --filter req_id=<id>` -- stream app-service logs with structured filters
 - `eve traces query --project <project> --request-id <id> --json` -- query trace spans without console access
+- `eve tcp-ingress test <project> <env> --listener <name>` -- TCP connect probe for public raw TCP listeners
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
 - `eve system health` -- platform-wide health check
+
+### Public TCP Ingress
+
+For services declaring `x-eve.tcp_ingress`, `eve env diagnose` renders a
+`TCP Ingress` table and returns `.tcp_ingress[]` in JSON. Listener states are
+`pending`, `provisioning`, or `ready`.
+
+```bash
+eve env diagnose <project> <env> --json | jq '.tcp_ingress'
+eve tcp-ingress test <project> <env> --listener a1-gt06
+eve tcp-ingress test <project> <env> --listener a1-gt06 --timeout 10 --json
+```
+
+`eve tcp-ingress test` resolves the listener through env diagnose, opens a TCP
+socket from the CLI host, prints `OK` or `FAIL`, and exits non-zero on failure.
+It does not speak the app's device protocol.
 
 ## Resource Cleanup
 
@@ -904,6 +923,7 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Ingest** | `create` (or `<file>`), `list`, `show` |
 | **Cloud FS** | `list`, `mount`, `unmount`, `show`, `update`, `ls`, `search` |
 | **Endpoints** | `add`, `list`, `show`, `remove`, `health`, `diagnose` |
+| **TCP Ingress** | `test` |
 | **Builds** | `create`, `list`, `show`, `run`, `runs`, `logs`, `artifacts`, `diagnose`, `cancel`, `delete`, `prune` |
 | **Releases** | `resolve`, `delete`, `prune` |
 | **Pipelines** | `list`, `show`, `run`, `runs`, `show-run`, `approve`, `cancel`, `logs`, `delete` |

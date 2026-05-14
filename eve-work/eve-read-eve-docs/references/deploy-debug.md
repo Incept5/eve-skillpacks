@@ -144,6 +144,47 @@ Namespace: eve-{orgSlug}-{projectSlug}-{env}
 
 Domain resolution: 1) manifest `x-eve.ingress.domain`, 2) `EVE_DEFAULT_DOMAIN`, 3) no ingress if neither set. Local dev uses `lvh.me` (resolves to 127.0.0.1). Production: set `EVE_DEFAULT_DOMAIN=apps.yourdomain.com`.
 
+### Public TCP Ingress
+
+Services can declare `x-eve.tcp_ingress` for public raw TCP protocols. The
+deployer renders a separate `Service` of type `LoadBalancer` labelled
+`eve.tcp_ingress=true`; normal ClusterIP service behavior and HTTP ingress are
+unchanged.
+
+Providers:
+- `none`: validate only; no public TCP Service.
+- `klipper`: local k3d/k3s LoadBalancer.
+- `aws-nlb`: internet-facing AWS Network Load Balancer; requires
+  `deployment/aws-load-balancer-controller` in `kube-system`.
+
+Diagnostics:
+
+```bash
+eve env diagnose <project> <env>                    # renders TCP Ingress table
+eve env diagnose <project> <env> --json | jq '.tcp_ingress'
+eve tcp-ingress test <project> <env> --listener a1-gt06
+```
+
+`env diagnose` reports each listener as:
+- `pending`: manifest opts in but the LoadBalancer Service is absent.
+- `provisioning`: Service exists but has no external hostname/IP yet.
+- `ready`: Kubernetes reports an external hostname or IP.
+
+`eve tcp-ingress test` performs a TCP connect from the CLI host and exits
+non-zero on failure. It does not validate the device protocol payload.
+
+Local k3d needs raw TCP ports mapped at cluster creation:
+
+```bash
+./bin/eh k8s start --tcp-ports 33400,33500 --recreate
+./bin/eh k8s deploy
+```
+
+Common checks:
+- `eve env diagnose <project> <env> --json | jq '.tcp_ingress'`
+- `./bin/eh kubectl get svc -A -l eve.tcp_ingress=true`
+- Verify each listener port appears in the service's manifest `ports`.
+
 ### Custom Domain Ingresses
 
 Apps can bring their own domains via `x-eve.ingress.domains` (see

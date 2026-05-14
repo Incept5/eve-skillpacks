@@ -99,6 +99,7 @@ Quick reference:
 - `eve env diagnose <project> <env> --request <id> --json` -- one request across logs, events, deploy metadata, audit rows, and traces
 - `eve env logs <project> <env> <service> --follow --filter req_id=<id>` -- live app-service logs with structured filters
 - `eve traces query --project <project> --request-id <id> --json` -- trace spans without console access
+- `eve tcp-ingress test <project> <env> --listener <name>` -- raw TCP connect probe for `x-eve.tcp_ingress` listeners
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
 
 ## Local Stack (k3d)
@@ -140,6 +141,16 @@ eve local logs [<service>]                             # Omit service for all lo
   [--tail <n>]                                         # Lines to show (default: 50)
   [--since <duration>]                                 # e.g. 5m, 1h
 ```
+
+Contributor helper for public raw TCP ingress tests:
+
+```bash
+./bin/eh k8s start --tcp-ports 33400,33500 --recreate
+./bin/eh k8s deploy
+eve tcp-ingress test <project> <env> --listener a1-gt06
+```
+
+Existing k3d clusters must be recreated to add new host port mappings.
 
 **Services:** api, orchestrator, worker, gateway, agent-runtime, auth, mailpit, sso, postgres.
 
