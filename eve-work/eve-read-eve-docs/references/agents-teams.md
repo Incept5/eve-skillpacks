@@ -139,6 +139,8 @@ agents:
         - envdb:write
         - envs:write
         - notifications:send   # allow eve notifications send from jobs
+        - orgfs:read            # required to read the org filesystem mount
+        - orgfs:write           # required to write the org filesystem mount
 ```
 
 Rules:
@@ -148,6 +150,7 @@ Rules:
 - Only applies when minting fresh tokens. Pre-existing/embedded tokens are used as-is.
 - `notifications:send` is the least-privilege grant for non-chat Slack/channel notifications from workflow jobs.
 - **`envdb:write` is now actually grantable**: built-in roles (owner/admin/member) carry a wildcard `envdb` scope on their org/project membership grants, so an agent declaring `envdb:write` can run env DB migrations and mutations instead of being denied by the scope evaluator.
+- **`orgfs:*` / `orgdocs:*` / `cloud_fs:*` are not in the defaults**: workflows that declare `scope.orgfs` (or `scope.orgdocs`, `scope.cloud_fs`) **also** need the agent to declare the matching permission, otherwise the token is correctly scoped but cannot act and the call fails with `Missing required permission: orgfs:read`. Scope narrows; permission grants. See `references/pipelines-workflows.md` § Scope narrows; permission grants.
 
 ### Gateway Discovery Policy
 

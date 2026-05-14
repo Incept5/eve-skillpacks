@@ -424,6 +424,47 @@ Request-supplied scope requires `jobs:harness_override`. There is no
 manifest `scope` block or the workflow invoke API body. `eve manifest validate`
 rejects malformed `scope` payloads at sync time.
 
+#### Scope narrows; permission grants
+
+`scope` is a *narrowing* mechanism, not a granting one. The step's job token
+needs the underlying resource permission for the scope to be exercisable:
+
+| Axis declared in `scope` | Permission the step's agent must declare |
+|---|---|
+| `orgfs.allow_prefixes` | `orgfs:read` (and `orgfs:write` if the step writes) |
+| `orgfs.read_only_prefixes` | `orgfs:read` |
+| `orgdocs.allow_prefixes` | `orgdocs:read` (and `orgdocs:write` if the step writes) |
+| `envdb.{schemas,tables}` | `envdb:read` / `envdb:write` |
+| `cloud_fs.allow_mount_ids` | `cloud_fs:read` (and `cloud_fs:write` if the step writes) |
+
+These permissions are **not** in `DEFAULT_AGENT_PERMISSIONS` — declare them on
+the step's agent in `agents.yaml` under `access.permissions` (see
+`references/agents-teams.md` § Agent Permissions). A workflow that declares
+`scope.orgfs.allow_prefixes` without a matching `orgfs:read` on the agent
+produces a correctly-scoped token that has no permission to act, and orgfs API
+calls fail with `Missing required permission: orgfs:read`.
+
+Example pairing:
+
+```yaml
+# agents.yaml
+agents:
+  reviewer:
+    skill: review
+    access:
+      permissions: [orgfs:read]   # required to exercise the workflow scope
+
+# workflows section
+workflows:
+  scoped-review:
+    scope:
+      orgfs:
+        allow_prefixes: [/groups/projects/proj-a/**]
+    steps:
+      - name: review
+        agent: { name: reviewer }
+```
+
 See `references/jobs.md` for the per-job `token_scope` view and
 `references/manifest.md` for the manifest field shape.
 

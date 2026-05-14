@@ -301,6 +301,8 @@ Scope structure supports three resource types:
 
 Built-in roles (`owner` / `admin` / `member`) are granted a **wildcard envdb scope** automatically. Their `envdb:read` / `envdb:write` permissions resolve to access on any schema/table they have permission on, without needing an explicit `envdb` scope block on the membership. Custom roles bound via `eve access bind` still need an explicit scope to access envdb resources.
 
+> Scope narrows; permission grants. A workflow that declares `scope.orgfs.allow_prefixes` (or `scope.orgdocs.*`, `scope.cloud_fs.*`) still needs the **step agent** to declare the matching `orgfs:read` / `orgfs:write` etc. in `access.permissions`. `DEFAULT_AGENT_PERMISSIONS` does not include orgfs / orgdocs / cloud_fs. See `references/agents-teams.md` § Agent Permissions and `references/pipelines-workflows.md` § Workflow Token Scope.
+
 #### Resource-Specific Access Checks
 
 Check access against specific resources:
