@@ -776,7 +776,7 @@ trigger:
     type: document.uploaded
 ```
 
-- `source` (required): matches `event.source` (e.g., `app`, `runner`, `chat`, `github`)
+- `source` (required): matches `event.source` (e.g., `app`, `app_link`, `runner`, `chat`, `github`)
 - `type` (optional): matches `event.type` exactly; omit to match all events from that source
 
 When a workflow is triggered by an event, the event payload is forwarded as workflow input. The input JSON is included in child job descriptions so step agents can see what triggered them.
@@ -792,6 +792,22 @@ trigger:
 ```
 
 This is equivalent to `event: { source: app, type: question.answered }`. Both formats work; use whichever reads better in context.
+
+### App-Link Trigger (Cross-Project Events)
+
+For events delivered from a producer project through `x-eve.app_links`, use the
+`app_link` trigger:
+
+```yaml
+trigger:
+  app_link:
+    alias: observation
+    type: app.observation.created
+```
+
+This matches consumer-side events with `source=app_link`, filters by the
+consumer-local subscription alias, and optionally filters by event type. See
+`references/events.md` and `references/manifest.md` for the app-link contract.
 
 ### GitHub Push Triggers
 

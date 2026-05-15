@@ -634,6 +634,78 @@ When app APIs are resolved (via auto-discovery or explicit `with_apis`), the age
 
 See `references/app-cli.md` for the full implementation guide including bundling, env var contract, and testing patterns.
 
+### Cross-Project App Links (`x-eve.app_links`)
+
+App links let one project consume another project's API, image-mode CLI, and
+application events without shared long-lived secrets. Producers declare exports;
+consumers declare subscriptions.
+
+Producer example:
+
+```yaml
+x-eve:
+  app_links:
+    exports:
+      apis:
+        observation:
+          service: api
+          cli: obs
+          scopes: [observations:read, deployments:read]
+          consumers:
+            - project: consumer
+              scopes: [observations:read]
+              envs: [staging]
+      events:
+        observation-feed:
+          types: [app.observation.created]
+          consumers:
+            - project: consumer
+              types: [app.observation.created]
+```
+
+Consumer example:
+
+```yaml
+x-eve:
+  app_links:
+    consumes:
+      observation:
+        project: producer
+        api: observation
+        environment: same
+        scopes: [observations:read]
+        events:
+          feed: observation-feed
+          types: [app.observation.created]
+        inject_into:
+          services: [worker]
+          jobs: true
+```
+
+Rules:
+- Project refs can be project IDs (`proj_...`) or same-org project slugs.
+- Producer API exports must reference an existing service with `x-eve.api_spec` or `x-eve.api_specs`.
+- If an export names `cli`, that service's `x-eve.cli.name` must match and `x-eve.cli.image` is required. Cross-project CLIs use image mode because consumers do not have the producer repo checked out.
+- Consumer requested `scopes` and event `types` must be subsets of the active producer grant.
+- `environment: same` maps consumer env names to the same producer env names. A concrete value pins `producer_env_name`.
+- `inject_into.services` injects app-link env vars into deployed consumer services. `inject_into.jobs: true` injects them into agent jobs; `eve job create --with-links alias1,alias2` can request explicit links.
+
+Injected surfaces receive:
+- `EVE_APP_LINK_<ALIAS>_API_URL`
+- `EVE_APP_LINK_<ALIAS>_TOKEN`
+- `EVE_APP_LINK_<ALIAS>_SCOPES`
+- `EVE_APP_LINK_<ALIAS>_PROJECT`
+- `EVE_APP_LINK_<ALIAS>_ENV`
+- `EVE_APP_LINK_<ALIAS>_CLI` when an exported CLI image is mounted
+
+Diagnostics:
+
+```bash
+eve app-links list --project <project>
+eve app-links plan --project <consumer> --file .eve/manifest.yaml
+eve app-links explain --consumer <consumer> --alias observation
+```
+
 ### Toolchain Declarations
 
 Agents can declare toolchains they need. The platform injects them as init containers at pod creation time, keeping the base worker image small (~800MB) while making language runtimes available on demand.

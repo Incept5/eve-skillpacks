@@ -428,6 +428,22 @@ eve manifest validate [--path <path>]                   # Validate manifest
 
 See `references/manifest.md` for manifest schema and configuration.
 
+## App Links
+
+Inspect cross-project app links. App links are declared in `x-eve.app_links`
+and reconciled by `eve project sync`.
+
+```bash
+eve app-links list [project] [--project <id>] [--json]
+eve app-links plan --project <id> [--file .eve/manifest.yaml] [--env <env>] [--json]
+eve app-links explain --consumer <id> (--alias <name> | --producer <id> --api <name>) [--json]
+```
+
+Notes:
+- `list` shows producer exports, consumer subscriptions, and grants to the target project.
+- `plan` dry-runs the consumer side of a manifest against active producer grants and reports missing scopes, event feeds, or revoked grants.
+- `explain` is the fastest diagnostic for a local subscription alias. It reports `OK`, `MISSING`, `REVOKED`, or `INVALID`.
+
 ## API (Proxy)
 
 Call project API sources (OpenAPI, PostgREST, Supabase GraphQL) through Eve's auth layer.
@@ -943,6 +959,7 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Harnesses** | `list`, `get` |
 | **Database** | `schema`, `rls`, `rls init`, `sql`, `migrate`, `migrations`, `new`, `reset`, `wipe`, `status`, `rotate-credentials`, `scale`, `destroy`, `snapshot`, `snapshots`, `restore`, `backup-status` |
 | **Manifest** | `validate` |
+| **App Links** | `list`, `plan`, `explain` |
 | **Providers** | `list`, `discover` |
 | **Analytics** | `summary`, `jobs`, `pipelines`, `env-health`, `cost-by-agent` |
 | **Webhooks** | `create`, `list`, `show`, `delete`, `replay` |

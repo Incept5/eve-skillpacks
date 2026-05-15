@@ -38,7 +38,7 @@ Core fields:
 
 ## Event Sources
 
-`github`, `slack`, `cron`, `manual`, `app`, `system`, `runner`, `chat`, `auth`
+`github`, `slack`, `cron`, `manual`, `app`, `app_link`, `system`, `runner`, `chat`, `auth`
 
 ## Event Type Catalog
 
@@ -123,6 +123,27 @@ and live cost tracking. No prompt or response content is included.
 | `app.*` | Application-emitted | Any JSON |
 
 Custom events use any `type` string. No schema enforcement — payload can be arbitrary JSON.
+
+### App-Link Events
+
+Producer projects can export event feeds through `x-eve.app_links.exports`.
+When a producer event matches an active consumer subscription, the orchestrator
+creates a consumer-side event with:
+
+| Field | Value |
+|-------|-------|
+| `source` | `app_link` |
+| `type` | Same as the producer event type |
+| `dedupe_key` | `app_link:<subscription_id>:<source_event_id>` |
+| `payload_json.producer_event_id` | Original producer event ID |
+| `payload_json.producer_project_id` | Producer project ID |
+| `payload_json.producer_env_name` | Producer event env |
+| `payload_json.producer_export_name` | Exported feed name |
+| `payload_json.link_alias` | Consumer-local alias |
+| `payload_json.original` | Original producer payload |
+
+Deliveries are tracked in `app_link_event_deliveries` and retried by the event
+router if consumer event creation fails.
 
 ## API + CLI
 
@@ -256,6 +277,18 @@ trigger:
 ```
 
 Use app triggers for event-driven workflows within your application. Emit events via the API (`eve event emit --source app --type document.uploaded`) and the orchestrator auto-dispatches matching workflows.
+
+#### App-Link Trigger (Cross-Project Events)
+
+```yaml
+trigger:
+  app_link:
+    alias: observation        # Consumer-local x-eve.app_links.consumes alias
+    type: app.observation.created
+```
+
+The `app_link` trigger is a shorthand for consumer-side events with
+`source=app_link`. It can filter by subscription alias and event type.
 
 #### Generic Event Trigger
 

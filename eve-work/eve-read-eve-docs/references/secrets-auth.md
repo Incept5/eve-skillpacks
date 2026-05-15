@@ -443,6 +443,23 @@ The platform exposes `PATCH /internal/secrets/:scope_type/:scope_id/:key` for wo
 ```
 
 **Job Tokens** -- Scoped tokens issued to running jobs with limited permissions.
+
+**App-Link Tokens** -- Short-lived RS256 JWTs minted for a consumer app-link
+subscription to call a producer API. They carry `type: app_link`,
+`subscription_id`, `consumer_project_id`, `producer_project_id`,
+`consumer_principal`, `consumer_env`, `producer_env`, `api_name`, and requested
+scopes. Verification re-reads the active subscription and grant, so producer
+revocation is effective before token expiry. The token audience is
+`project:<producer_project_id>`.
+
+Internal mint endpoint:
+
+```
+POST /internal/auth/mint-app-link-token
+```
+
+Only platform workers/deployers call it with `x-eve-internal-token`; app code
+receives the minted value through `EVE_APP_LINK_<ALIAS>_TOKEN`.
 ```json
 { "user_id": "user_abc123", "org_id": "org_xyz789", "permissions": ["job:read", "job:write"], "type": "job", "iat": 1706000000, "exp": 1706086400 }
 ```

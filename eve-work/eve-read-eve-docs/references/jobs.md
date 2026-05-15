@@ -139,6 +139,7 @@ Resource refs mount into `.eve/resources/` before harness start. The worker writ
 
 ```bash
 eve job create --description "Analyze data" --with-apis coordinator,analytics
+eve job create --description "Analyze producer observations" --with-links observation
 ```
 
 `--with-apis` is now **server-side**: the CLI passes `app_apis` in job hints
@@ -147,6 +148,14 @@ named APIs exist for the project, generates the instruction block (with a
 runtime-safe Node `fetch` helper using `EVE_JOB_TOKEN`), and appends it to the
 job description. This ensures consistent behavior across CLI, API, workflow, and
 SDK job creation paths.
+
+`--with-links` requests named `x-eve.app_links.consumes` subscriptions for the
+job. Subscriptions with `inject_into.jobs: true` are also auto-discovered. The
+runtime mints short-lived app-link tokens and injects
+`EVE_APP_LINK_<ALIAS>_API_URL`, `EVE_APP_LINK_<ALIAS>_TOKEN`,
+`EVE_APP_LINK_<ALIAS>_SCOPES`, `EVE_APP_LINK_<ALIAS>_PROJECT`,
+`EVE_APP_LINK_<ALIAS>_ENV`, and `EVE_APP_LINK_<ALIAS>_CLI` when the producer
+exported an image-mode CLI.
 
 ### Attachments
 

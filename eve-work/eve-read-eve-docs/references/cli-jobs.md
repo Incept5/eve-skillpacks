@@ -31,6 +31,7 @@ eve job create --description "Fix the login bug"
   [--env staging] [--execution-mode persistent|ephemeral]
   [--resource-refs '<json-array>']                      # Resource refs (org docs/attachments)
   [--with-apis <names>]                                 # Comma-separated API names to inject
+  [--with-links <aliases>]                              # Comma-separated app-link aliases to inject
   [--claim] [--agent <id>]                              # Create and immediately claim
 
   # Scheduling hints
@@ -123,6 +124,7 @@ Notes:
 - `runner-logs` fetches K8s pod logs, useful for debugging harness startup failures.
 - `diagnose` shows heartbeat-aware stuck detection, pod name + live health from agent-runtime, and pre-harness startup timing in the latency waterfall (git clone, credentials, app CLI discovery).
 - `--with-apis` is server-side: the CLI passes `app_apis` in job hints; the server validates APIs exist, generates the instruction block, and appends it to the description. Same behavior for CLI, API, workflow, and SDK job creation paths.
+- `--with-links` passes app-link aliases from `x-eve.app_links.consumes` in job hints. Links with `inject_into.jobs: true` are auto-discovered even without the flag. The runtime mints short-lived app-link tokens and injects `EVE_APP_LINK_<ALIAS>_*` env vars plus any exported image-mode CLI.
 - `list` returns newest-first by default; recent jobs are no longer hidden by pagination.
 - `--harness-override-file` and `--env-override` are create-only; they cannot be patched via `eve job update` once an attempt exists. `eve job show <id> --json` returns the override and env placeholders verbatim — secrets are never resolved into the job row, attempts, receipts, or execution logs. Missing `${secret.KEY}` references fail fast with `error_code = missing_secret_override` before the harness launches. Override fields require `jobs:harness_override` permission; `${secret.*}` references additionally require `secrets:read`. See `references/jobs.md` for full per-job override semantics and precedence rules.
 - Scoped job tokens (path/mount scope, not just permission names) are visible on `eve job show <id> --json` under `token_scope` (axes: `orgfs`, `orgdocs`, `envdb`, `cloud_fs`). There is no `eve job create --scope-*` flag yet — scope is sourced from the workflow/step manifest or the workflow invoke API body, intersected, and persisted on `jobs.token_scope`. `null` means no narrowing (legacy behavior). See `references/jobs.md` for the propagation chain and `references/pipelines-workflows.md` for workflow declaration.

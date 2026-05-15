@@ -33,6 +33,45 @@ services:
 
 Use `bin` for Node.js/script CLIs (zero latency). Use `image` for compiled Go/Rust CLIs (2-5s init container latency).
 
+## Cross-Project App-Link CLIs
+
+When a producer project exports an API through `x-eve.app_links.exports.apis`
+and includes `cli: <name>`, the referenced service must declare a matching
+`x-eve.cli.name` and an `image`. Cross-project app links always use image mode:
+the consumer job/service does not have the producer repository checked out, so a
+repo-bundled `bin` path is not enough.
+
+```yaml
+services:
+  api:
+    image: ghcr.io/acme/producer-api:latest
+    x-eve:
+      api_spec:
+        type: openapi
+        spec_url: /openapi.json
+      cli:
+        name: observations
+        bin: observations
+        image: ghcr.io/acme/observations-cli:latest
+
+x-eve:
+  app_links:
+    exports:
+      apis:
+        observation:
+          service: api
+          cli: observations
+          scopes: [observations:read]
+          consumers:
+            - project: consumer
+              scopes: [observations:read]
+```
+
+Consumer jobs/services receive the producer CLI on `PATH` and the pointer
+`EVE_APP_LINK_<ALIAS>_CLI=<cli-name>` when the subscription resolves. The CLI
+should read `EVE_APP_LINK_<ALIAS>_API_URL` and
+`EVE_APP_LINK_<ALIAS>_TOKEN` to call the producer API.
+
 ## Environment Variable Contract
 
 The platform injects these env vars into every agent job with `with_apis`:
