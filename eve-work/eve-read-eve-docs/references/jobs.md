@@ -503,6 +503,34 @@ model.
 
 `eve job show <id> --json` surfaces the resolved scope under `token_scope`.
 
+### Per-Job Token Permissions
+
+Sibling field to `token_scope`. Pipeline `script:` and `action: { type: run }`
+steps (and workflow agent steps that opt in) can declare a per-step
+`permissions: [...]` list in the manifest. The expander resolves it
+(step-level wins over pipeline/workflow-level) and persists it on
+`jobs.token_permissions` (migration `00099_jobs_token_permissions.sql`).
+`NULL` means "use the executor's default":
+
+| Execution type | Default | Source |
+| --- | --- | --- |
+| `agent` | `DEFAULT_AGENT_PERMISSIONS` | `packages/shared/src/permissions.ts` |
+| `script` | `DEFAULT_SCRIPT_JOB_PERMISSIONS` | `packages/shared/src/permissions.ts` |
+| `action: { type: run }` | `DEFAULT_ACTION_RUN_JOB_PERMISSIONS` (least-privilege) | `packages/shared/src/permissions.ts` |
+
+The script and action-run executors mint `EVE_JOB_TOKEN` with the resolved
+list, write `~/.eve/credentials.json` into a workspace-local HOME, and
+sanitise the env so `EVE_INTERNAL_API_KEY` does not leak into user shell.
+
+The expander also rejects any permission the invoking actor does not
+themselves hold (`assertActorCanGrantPermissions`), so workflow authors
+can narrow but not escalate.
+
+`eve job show <id> --verbose` and `eve job diagnose <id>` render a
+`Token:` block with both `Permissions:` and `Scope:`. `diagnose` adds
+`⚠ scope.* set but permissions[] missing X` warnings for obvious
+misalignments.
+
 ## Scheduling Hints
 
 Preferences (not requirements) that influence scheduling:

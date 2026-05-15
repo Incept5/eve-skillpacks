@@ -468,6 +468,39 @@ workflows:
 See `references/jobs.md` for the per-job `token_scope` view and
 `references/manifest.md` for the manifest field shape.
 
+#### Per-step `permissions:` for non-agent steps
+
+Pipeline `script:` and `action: { type: run }` steps (and workflow agent
+steps) accept a `permissions: [...]` list with the same ergonomics as
+`scope:`. The expander resolves it (step-level wins over
+pipeline/workflow-level), persists it on `jobs.token_permissions`, and
+the script/action-run executors mint `EVE_JOB_TOKEN` with that exact list
+plus `~/.eve/credentials.json` so the Eve CLI authenticates inside the
+step. When the step does not declare `permissions:`, the executor falls
+back to its default (broad for `script:`, narrow read-only for
+`action: { type: run }` — see `references/secrets-auth.md`).
+
+```yaml
+pipelines:
+  scoped-jobs-only:
+    permissions: [jobs:read]      # pipeline-level default
+    steps:
+      - name: list-jobs
+        script:
+          run: eve job list --project $EVE_PROJECT_ID --json
+
+      - name: post-thread
+        permissions: [jobs:read, threads:write]   # narrow override
+        action:
+          type: run
+          command: |
+            eve thread post coord:job:$EVE_PARENT_JOB_ID --message "step done"
+```
+
+The expander rejects any permission the invoking actor does not hold
+(`assertActorCanGrantPermissions`) — workflow authors can narrow but
+never escalate.
+
 ### Prior Step Result Injection
 
 When a workflow step has `depends_on`, the orchestrator injects the completed dependency's `result_text` into the step's job description at dispatch time. This means downstream agents receive upstream outputs without making API calls.

@@ -303,6 +303,22 @@ Built-in roles (`owner` / `admin` / `member`) are granted a **wildcard envdb sco
 
 > Scope narrows; permission grants. A workflow that declares `scope.orgfs.allow_prefixes` (or `scope.orgdocs.*`, `scope.cloud_fs.*`) still needs the **step agent** to declare the matching `orgfs:read` / `orgfs:write` etc. in `access.permissions`. `DEFAULT_AGENT_PERMISSIONS` does not include orgfs / orgdocs / cloud_fs. See `references/agents-teams.md` § Agent Permissions and `references/pipelines-workflows.md` § Workflow Token Scope.
 
+#### Executor default permission sets
+
+When a `script:` or `action: { type: run }` step does not declare `permissions:`,
+the executor falls back to a built-in default. Authors widen with an explicit
+list on the step.
+
+| Execution type | Default | Includes |
+| --- | --- | --- |
+| `agent` | `DEFAULT_AGENT_PERMISSIONS` | `jobs:*` (read/write/harness_override), `projects:read`, `threads:*`, `envdb:read`, `secrets:read`, `builds:read`, `pipelines:read` |
+| `script` | `DEFAULT_SCRIPT_JOB_PERMISSIONS` | broad platform-ops baseline: `jobs:read+write`, `projects:read`, `envs:read+write`, `envdb:read+write`, `releases:read`, `builds:read`, `pipelines:read`, `secrets:read` |
+| `action: { type: run }` | `DEFAULT_ACTION_RUN_JOB_PERMISSIONS` | least-privilege: `jobs:read+write`, `projects:read`, `envs:read` only — **no** `secrets:read`. Authors opt in to wider access. |
+
+All three are defined in `packages/shared/src/permissions.ts`. The
+`assertActorCanGrantPermissions` guard rejects any declared permission
+the invoking actor does not themselves hold.
+
 #### Resource-Specific Access Checks
 
 Check access against specific resources:
