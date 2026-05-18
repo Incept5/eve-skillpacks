@@ -257,7 +257,12 @@ workflows:
       - service: coordinator
         description: Coordinator API for orchestration
     steps:
+      - name: prepare
+        script:
+          run: "eve job list --json"
+          timeout_seconds: 60
       - name: ingest
+        depends_on: [prepare]
         agent:
           name: ingestion
       - name: extract
@@ -273,6 +278,9 @@ workflows:
 **How it works:**
 - Each step becomes a child job under the root workflow job.
 - `depends_on: [step_names]` wires dependency as `blocks` relations -- the scheduler respects them.
+- Each step must define exactly one execution kind: `agent`, `script`, or
+  shorthand `run`. `script` and `run` steps create worker-executed script jobs
+  with `script_command` and optional `script_timeout_seconds`.
 - Per-step agent, harness, and toolchain resolution is supported.
 - `with_apis` can be set at the workflow level (applies to all steps) or per step.
 - `env_overrides` can be set at the workflow level and per step, then overridden
@@ -470,8 +478,8 @@ See `references/jobs.md` for the per-job `token_scope` view and
 
 #### Per-step `permissions:` for non-agent steps
 
-Pipeline `script:` and `action: { type: run }` steps (and workflow agent
-steps) accept a `permissions: [...]` list with the same ergonomics as
+Pipeline `script:` and `action: { type: run }` steps, plus workflow `script:`,
+`run:`, and `agent:` steps, accept a `permissions: [...]` list with the same ergonomics as
 `scope:`. The expander resolves it (step-level wins over
 pipeline/workflow-level), persists it on `jobs.token_permissions`, and
 the script/action-run executors mint `EVE_JOB_TOKEN` with that exact list

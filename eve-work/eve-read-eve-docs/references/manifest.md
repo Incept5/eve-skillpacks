@@ -997,11 +997,19 @@ workflows:
     hints:
       gates: ["remediate:proj_xxx:staging"]
     steps:
+      - name: prepare
+        script:
+          run: "eve job list --json"
+          timeout_seconds: 60
       - agent:
           prompt: "Audit error logs"
 ```
 
-Workflow invocation creates a job with the workflow hints merged.
+Workflow invocation creates a root container job with the workflow hints merged,
+then creates one child job per step. Each step must define exactly one execution
+kind: `agent`, `script`, or shorthand `run`. `script` and `run` workflow steps
+materialize as worker-executed script jobs. Workflow `action` steps are reserved
+for future support and are rejected at invoke time.
 
 ### Multi-Step Workflow Syntax
 
@@ -1033,6 +1041,8 @@ workflows:
 | `steps[].depends_on` | string[] | Step names this step blocks on |
 | `steps[].condition` | string | Conditional execution: `step_name.status == 'value'` or `!= 'value'` (skip step if false) |
 | `steps[].agent` | object | Agent ref: `name`, optional `prompt`/`prompt_file`, `harness`, `harness_profile`, `toolchains` |
+| `steps[].script` | object | Worker-executed script step; accepts `run` or `command` plus optional `timeout`/`timeout_seconds` |
+| `steps[].run` | string | Shorthand for `steps[].script.run`; creates a script child job |
 | `steps[].harness` | string | Step-level harness override (takes precedence over agent-resolved value) |
 | `steps[].harness_options` | object | Step-level harness options: `model`, `reasoning_effort`, `temperature` (passthrough) |
 | `steps[].harness_profile` | string | Named profile reference; supports `${inputs.<key>}` template expressions |
