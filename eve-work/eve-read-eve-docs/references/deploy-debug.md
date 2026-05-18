@@ -27,12 +27,24 @@ Object-store bucket deploy failures:
   On AWS staging, check the worker overlay for `EVE_STORAGE_BACKEND=s3`,
   `EVE_STORAGE_REGION`, `EVE_STORAGE_INTERNAL_BUCKET`,
   `EVE_STORAGE_ORG_BUCKET_PREFIX`, `EVE_STORAGE_APP_BUCKET_PREFIX`, and
-  `EVE_STORAGE_PUBLIC_ENDPOINT`. Do not set `EVE_STORAGE_ACCESS_KEY_ID` or
-  `EVE_STORAGE_SECRET_ACCESS_KEY` on AWS workers; they use IRSA.
+  `EVE_STORAGE_PUBLIC_ENDPOINT`. Do not set worker
+  `EVE_STORAGE_ACCESS_KEY_ID` or `EVE_STORAGE_SECRET_ACCESS_KEY` on AWS; the
+  worker uses its own IRSA role to provision buckets.
+- `isolation mode 'irsa' is not available`: a manifest explicitly requested
+  `x-eve.object_store.isolation: irsa`, or `auto` was expected to choose IRSA,
+  but the worker is missing `EVE_OIDC_PROVIDER_ARN`, `EVE_OIDC_PROVIDER_URL`,
+  `EVE_APP_BUCKET_ROLE_PREFIX`/app bucket prefix, public storage endpoint, or
+  IAM permissions for role/policy management. Local k3d should use `auto` or
+  `shared`; explicit `irsa` is expected to fail fast there.
 - Missing `EVE_APP_STORAGE_ACCESS_KEY_ID` / `EVE_APP_STORAGE_SECRET_ACCESS_KEY`:
-  the worker can provision buckets but cannot inject app-facing credentials.
-  On AWS staging, verify the `eve-app-storage` secret exists in namespace
-  `eve` and the worker mounts it as `EVE_APP_STORAGE_*`.
+  static credential isolation (`shared` or local `minio-static-key`) was
+  selected, but the worker cannot inject app-facing credentials. On local k3d,
+  verify MinIO env vars. On AWS, prefer IRSA; only verify the `eve-app-storage`
+  secret if deliberately using shared static app credentials.
+- Unexpected static keys in an AWS app pod: `auto` did not resolve to IRSA.
+  Check `eve env diagnose <project> <env> --json` for
+  `.storage_buckets[].isolation_mode`; expected AWS value is `irsa` with
+  `iam_role_arn` and `service_account`.
 
 For request-specific failures after an app is deployed, use the CLI-first
 request ladder:

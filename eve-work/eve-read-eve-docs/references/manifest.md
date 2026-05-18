@@ -466,13 +466,15 @@ Preload-required candidates such as `pg_cron` and `timescaledb` are not declarab
 
 ### App Object Store Buckets (`x-eve.object_store`)
 
-Declare S3-compatible buckets for a service. Eve provisions each bucket at deploy time and injects credentials as env vars.
+Declare S3-compatible buckets for a service. Eve provisions each bucket at
+deploy time and injects env vars for the resolved env-wide credential binding.
 
 ```yaml
 services:
   api:
     x-eve:
       object_store:
+        isolation: auto             # auto (default) | irsa | shared
         buckets:
           - name: uploads          # logical name → env var suffix
             visibility: private    # private (default) | public
@@ -486,27 +488,45 @@ services:
             visibility: public
 ```
 
-Buckets are provisioned during deploy, tracked in environment diagnostics, and
-fail deploy if the platform cannot create the bucket, apply public-read policy,
-or inject the required storage connection env vars. Local k3d MinIO uses
-server-wide CORS (`MINIO_API_CORS_ALLOW_ORIGIN=*`) instead of the S3 per-bucket
-CORS API. Wildcard CORS works for browser presigned URL flows; restrictive
-origins are recorded in diagnostics but are not enforced per bucket by local
-MinIO.
+Buckets are provisioned during deploy, tracked in environment diagnostics with
+`isolation_mode`, and fail deploy if the platform cannot create the bucket,
+apply public-read policy, or resolve the requested credential binding. Eve
+reconciles one binding per env across app services and job services. Local k3d
+MinIO uses server-wide CORS (`MINIO_API_CORS_ALLOW_ORIGIN=*`) instead of the S3
+per-bucket CORS API. Wildcard CORS works for browser presigned URL flows;
+restrictive origins are recorded in diagnostics but are not enforced per bucket
+by local MinIO.
 
-Injected env vars (per bucket, uppercased name):
+Static-key env vars for local MinIO or explicit `shared` mode:
 - `STORAGE_ENDPOINT` — MinIO/S3 endpoint
 - `STORAGE_REGION`
 - `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` — storage credentials injected for the app
 - `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging)
 - `STORAGE_FORCE_PATH_STYLE` — `true` for MinIO, omitted for AWS S3
 
+IRSA env vars for AWS:
+- `STORAGE_ENDPOINT`
+- `STORAGE_REGION`
+- `STORAGE_AUTH_MODE=irsa`
+- `AWS_REGION`
+- `STORAGE_BUCKET_<NAME>`
+
+IRSA pods do not receive `STORAGE_ACCESS_KEY_ID` or
+`STORAGE_SECRET_ACCESS_KEY`; AWS SDKs use the annotated Kubernetes service
+account.
+
 Visibility `public` sets the bucket ACL for anonymous GET access (suitable for static assets).
 
-AWS staging trust model: apps share one app-bucket IAM principal scoped to
-`eh1-eve-app-*`. It cannot access `eh1-eve-internal`, org filesystem buckets
-under `eh1-eve-org-*`, or non-Eve buckets, but it does not isolate app buckets
-from each other. Per-app IRSA is the production follow-up.
+Isolation resolution:
+- `auto` resolves to IRSA when the worker has AWS OIDC/IAM configuration,
+  otherwise to `minio-static-key` on local MinIO or `shared` when only static
+  app keys are available.
+- `irsa` fails fast on non-IRSA clusters.
+- `shared` uses static app credentials, resolving to `minio-static-key` on
+  local MinIO.
+
+AWS IRSA creates one IAM role per org/project/env and fully replaces its
+`app-bucket-access` inline policy with the declared physical bucket names.
 
 ### Stable Egress (`x-eve.networking.egress`)
 

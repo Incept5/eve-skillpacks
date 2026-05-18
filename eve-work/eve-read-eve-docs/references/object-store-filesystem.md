@@ -137,13 +137,17 @@ Warm pods mount org filesystem as PVC at `/org` (`EVE_ORG_FS_ROOT=/org`). Agents
 
 ## App Object Stores
 
-Declare S3-compatible buckets per service in the manifest. Eve provisions each bucket at deploy time and injects credentials as env vars. See `references/manifest.md` (App Object Store Buckets) for the full schema.
+Declare S3-compatible buckets per service in the manifest. Eve provisions each
+bucket at deploy time and injects a credential binding as env vars. See
+`references/manifest.md` (App Object Store Buckets) for the full schema.
 
 ```yaml
 services:
   api:
     x-eve:
       object_store:
+        # Optional: auto (default), irsa, or shared
+        isolation: auto
         buckets:
           - name: uploads
             visibility: private
@@ -154,13 +158,16 @@ services:
 ```
 
 Each bucket is provisioned per environment during deploy and appears in
-`eve env diagnose` under storage buckets. If Eve object storage is not
-configured, or bucket/policy setup fails, deploy fails before the app pod
-starts. Changes to `x-eve.object_store.buckets` flow through the deploy
-manifest hash, so editing buckets triggers a redeploy that re-applies bucket
-config (creation, CORS, public policy).
+`eve env diagnose` under storage buckets with its resolved `isolation_mode`.
+Eve resolves one credential binding for the whole env, including app services
+and job services that declare buckets. If Eve object storage is not configured,
+if explicit `isolation: irsa` is requested on a non-IRSA cluster, or
+bucket/policy setup fails, deploy fails before the app pod starts. Changes to
+`x-eve.object_store.buckets` flow through the deploy manifest hash, so editing
+buckets triggers a redeploy that re-applies bucket config (creation, CORS,
+public policy) and prunes stale `storage_buckets` rows.
 
-Auto-injected env vars (per bucket, uppercased name):
+Static-key env vars for local MinIO or explicit shared mode:
 
 | Variable | Description |
 |----------|-------------|
@@ -170,11 +177,25 @@ Auto-injected env vars (per bucket, uppercased name):
 | `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging) |
 | `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO, omitted for AWS S3 |
 
+IRSA env vars for AWS:
+
+| Variable | Description |
+|----------|-------------|
+| `STORAGE_ENDPOINT` | S3 endpoint |
+| `STORAGE_REGION` | Storage region |
+| `STORAGE_AUTH_MODE` | `irsa` |
+| `AWS_REGION` | Region used by AWS SDK credential providers |
+| `STORAGE_BUCKET_<NAME>` | Physical bucket name |
+
+IRSA app pods do not receive static storage access keys. Eve renders
+`ServiceAccount/eve-app` with `eks.amazonaws.com/role-arn` and sets
+`serviceAccountName: eve-app` on app/job pods that declare buckets.
+
 ### Credential Separation
 
-App pods receive **app-scoped** credentials, distinct from the worker's
-platform-internal storage credentials. The deployer resolves app-injected env
-in this order, so the worker can keep its provisioner credentials (used for
+App pods receive credentials distinct from the worker's platform-internal
+storage credentials. In static mode, the deployer resolves app-injected env in
+this order, so the worker can keep its provisioner credentials (used for
 `CreateBucket`, CORS, and public policy) separate from what app pods see:
 
 1. `EVE_APP_STORAGE_PUBLIC_ENDPOINT` / `EVE_APP_STORAGE_ENDPOINT` / `EVE_APP_STORAGE_REGION` / `EVE_APP_STORAGE_ACCESS_KEY_ID` / `EVE_APP_STORAGE_SECRET_ACCESS_KEY` (preferred)
@@ -185,9 +206,13 @@ The app bucket physical-name prefix is controlled by
 `EVE_STORAGE_ORG_BUCKET_PREFIX` for local backwards compatibility. App
 credentials are scoped to that app-bucket prefix and cannot reach the
 platform internal bucket, org filesystem buckets (`eh1-eve-org-*`), or non-Eve
-buckets. The current AWS staging stopgap shares one app-bucket IAM principal
-across all apps in a deployment, so apps are not isolated from each other;
-per-app IRSA is on the roadmap.
+buckets. On AWS, `auto` resolves to IRSA when the worker has OIDC provider
+configuration and IAM permissions. Eve creates one role per org/project/env and
+fully replaces its `app-bucket-access` inline policy with the env's declared
+physical bucket names. Local k3d resolves `auto` to `minio-static-key`; explicit
+`shared` remains available for non-IRSA clusters. Setting
+`EVE_APP_BUCKET_AUTH_MODE=shared` on the worker forces the shared fallback even
+when IRSA env vars are present.
 
 ### Operational Notes
 
