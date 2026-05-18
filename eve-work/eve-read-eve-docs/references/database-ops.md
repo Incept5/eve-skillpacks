@@ -36,7 +36,7 @@ Provisioning occurs automatically when an environment is deployed. Managed DB se
 
 ### Managed Extensions
 
-Phase 1 declarable extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`.
+Plain declarable extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`.
 
 ```bash
 eve db extensions list --env <name> [--project <id>]
@@ -46,7 +46,9 @@ Notes:
 - Eve installs declared extensions through the managed-DB reconciler as the backing instance admin, before app migration jobs run.
 - `pgvector` is the manifest name; PostgreSQL reports the installed extension as `vector`.
 - Removing an extension from the manifest does not drop it from an existing DB. Extension removal is sticky in v1.
-- Preload-required extensions such as `pg_cron` and `timescaledb` are not declarable yet; they need provider-level preload support and tenant semantics first.
+- `pg_cron` is provider-gated: it is declarable only when the platform sets `EVE_MANAGED_DB_ENABLED_PRELOAD_EXTENSIONS=pg_cron` and the backing Postgres has `shared_preload_libraries=pg_cron`.
+- `pg_cron` follows the AWS RDS model: Eve installs it in the instance admin database (`postgres`) and tenant DB scheduling is a platform-admin operation.
+- `timescaledb` is still not declarable on AWS RDS; it needs a Timescale-capable provider model first.
 
 ### Tiers
 

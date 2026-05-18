@@ -150,7 +150,7 @@ Key patterns:
 - **`eve-migrate`** for database migrations — plain SQL files mounted via `x-eve.files`. Runs after deploy because the managed DB must be provisioned first.
 - **nginx reverse proxy** on the web service proxies `/api/` to the internal API via `API_SERVICE_HOST: ${ENV_NAME}-api` (k8s service DNS). No CORS, no hard-coded hostnames.
 - **`${managed.db.url}`** — connection string injected by Eve for managed databases.
-- **`managed.extensions`** — optional Phase 1 managed Postgres extensions (`postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, `citext`). `pgvector` installs as PostgreSQL extension `vector`; extension removal is sticky and does not run `DROP EXTENSION`.
+- **`managed.extensions`** — optional managed Postgres extensions. Plain extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`. `pgvector` installs as PostgreSQL extension `vector`; extension removal is sticky and does not run `DROP EXTENSION`. `pg_cron` is provider-gated and only validates when the platform enables `EVE_MANAGED_DB_ENABLED_PRELOAD_EXTENSIONS=pg_cron` and preloads it on the backing Postgres; Eve installs it in the instance admin database (`postgres`) per the AWS RDS model. `timescaledb` is not declarable on AWS RDS.
 - **Smoke test** validates the deployed services end-to-end before pipeline success.
 
 ## Top-Level Fields
@@ -461,7 +461,7 @@ services:
         extensions: [postgis, pgvector]
 ```
 
-Supported Phase 1 extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`.
+Supported plain extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`. `pg_cron` is provider-gated; `timescaledb` is still not declarable on AWS RDS.
 Preload-required candidates such as `pg_cron` and `timescaledb` are not declarable yet.
 
 ### App Object Store Buckets (`x-eve.object_store`)
