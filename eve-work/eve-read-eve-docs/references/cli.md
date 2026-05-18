@@ -390,6 +390,7 @@ eve db reset --env <name> --force [--no-migrate]        # Drop and recreate sche
 eve db reset --url <postgres-url> --force               # Direct schema reset
 eve db wipe --env <name> --force                        # Reset schema without re-applying migrations
 eve db status --env <name>                              # Managed DB status
+eve db extensions list --env <name>                     # List installed DB extensions
 eve db rotate-credentials --env <name>                  # Rotate managed DB credentials
 eve db scale --env <name> --class db.p1|db.p2|db.p3     # Scale managed DB class
 eve db destroy --env <name> --force [--skip-snapshot]   # Destroy managed DB

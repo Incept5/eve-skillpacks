@@ -117,6 +117,7 @@ services:
         class: db.p1
         engine: postgres
         engine_version: "16"
+        extensions: [postgis, pgvector, pg_trgm]
 
 environments:
   sandbox:
@@ -149,6 +150,7 @@ Key patterns:
 - **`eve-migrate`** for database migrations — plain SQL files mounted via `x-eve.files`. Runs after deploy because the managed DB must be provisioned first.
 - **nginx reverse proxy** on the web service proxies `/api/` to the internal API via `API_SERVICE_HOST: ${ENV_NAME}-api` (k8s service DNS). No CORS, no hard-coded hostnames.
 - **`${managed.db.url}`** — connection string injected by Eve for managed databases.
+- **`managed.extensions`** — optional Phase 1 managed Postgres extensions (`postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, `citext`). `pgvector` installs as PostgreSQL extension `vector`; extension removal is sticky and does not run `DROP EXTENSION`.
 - **Smoke test** validates the deployed services end-to-end before pipeline success.
 
 ## Top-Level Fields
@@ -456,7 +458,11 @@ services:
         class: db.p1
         engine: postgres
         engine_version: "16"
+        extensions: [postgis, pgvector]
 ```
+
+Supported Phase 1 extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`.
+Preload-required candidates such as `pg_cron` and `timescaledb` are not declarable yet.
 
 ### App Object Store Buckets (`x-eve.object_store`)
 

@@ -29,9 +29,24 @@ services:
         class: db.p1
         engine: postgres
         engine_version: "16"
+        extensions: [postgis, pgvector, pg_trgm]
 ```
 
 Provisioning occurs automatically when an environment is deployed. Managed DB services are not rendered into K8s manifests.
+
+### Managed Extensions
+
+Phase 1 declarable extensions are `postgis`, `pgvector`, `pg_trgm`, `btree_gist`, `hstore`, and `citext`.
+
+```bash
+eve db extensions list --env <name> [--project <id>]
+```
+
+Notes:
+- Eve installs declared extensions through the managed-DB reconciler as the backing instance admin, before app migration jobs run.
+- `pgvector` is the manifest name; PostgreSQL reports the installed extension as `vector`.
+- Removing an extension from the manifest does not drop it from an existing DB. Extension removal is sticky in v1.
+- Preload-required extensions such as `pg_cron` and `timescaledb` are not declarable yet; they need provider-level preload support and tenant semantics first.
 
 ### Tiers
 
@@ -73,6 +88,7 @@ The previous URL-rewriting `sslmode` resolver was removed; tenant URLs are prese
 ```bash
 eve db status --env <name>                          # Managed DB status and tenant readiness
 eve db rotate-credentials --env <name>              # Rotate managed DB credentials
+eve db extensions list --env <name>                 # List installed DB extensions
 ```
 
 Always check `eve db status` before relying on managed values. Rotation replaces credentials and updates the stored secret -- redeploy services to pick up new values.
@@ -327,6 +343,7 @@ eve db destroy --env <name> --force                 # Destroy managed DB entirel
 | Intent | Command |
 |---|---|
 | Check managed DB readiness | `eve db status --env <name>` |
+| List installed extensions | `eve db extensions list --env <name>` |
 | View schema | `eve db schema --env <name>` |
 | Run read-only query | `eve db sql --env <name> --sql "..."` |
 | Run mutation | `eve db sql --env <name> --sql "..." --write` |
