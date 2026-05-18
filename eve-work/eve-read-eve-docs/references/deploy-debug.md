@@ -156,6 +156,37 @@ Namespace: eve-{orgSlug}-{projectSlug}-{env}
 
 Domain resolution: 1) manifest `x-eve.ingress.domain`, 2) `EVE_DEFAULT_DOMAIN`, 3) no ingress if neither set. Local dev uses `lvh.me` (resolves to 127.0.0.1). Production: set `EVE_DEFAULT_DOMAIN=apps.yourdomain.com`.
 
+### HTTP Ingress Timeouts and Body Size
+
+Services can tune HTTP ingress behavior without raw controller annotations:
+
+```yaml
+x-eve:
+  ingress:
+    public: true
+    port: 3000
+    timeout: 600s
+    max_body_size: 100m
+```
+
+- `timeout` sets nginx `proxy-read-timeout` and `proxy-send-timeout` for the
+  service's primary, alias, and custom-domain ingresses.
+- `max_body_size` sets nginx `proxy-body-size` for the same ingress set.
+- Platform defaults are `EVE_DEFAULT_INGRESS_TIMEOUT=300s` and
+  `EVE_DEFAULT_INGRESS_MAX_BODY_SIZE=10m`; manifest values override them.
+- Valid ranges are `1s`-`30m` and `1k`-`1g`. Use Eve jobs for longer work and
+  signed uploads/object storage for larger payloads.
+- Phase 1 emits L7 tuning only when `EVE_DEFAULT_INGRESS_CLASS` is `nginx` or
+  `nginx-ingress`. Traefik/unknown classes skip these annotations; explicit
+  tenant tuning logs a deploy warning.
+
+Diagnostics:
+
+```bash
+eve env diagnose <project> <env>                    # renders HTTP Ingress table
+eve env diagnose <project> <env> --json | jq '.http_ingress'
+```
+
 ### Public TCP Ingress
 
 Services can declare `x-eve.tcp_ingress` for public raw TCP protocols. The

@@ -406,6 +406,8 @@ services:
       ingress:
         public: true
         port: 3000
+        timeout: 300s
+        max_body_size: 10m
       api_spec:
         type: openapi
         spec_url: /openapi.json
@@ -420,7 +422,7 @@ Supported Compose fields: `image`, `build`, `environment`, `ports`, `depends_on`
 | Field | Type | Description |
 |-------|------|-------------|
 | `role` | string | `component` (default), `worker`, `job`, or `managed_db` |
-| `ingress` | object | `{ public: true\|false, port: number, alias?: string, domains?: string[] }` |
+| `ingress` | object | `{ public: true\|false, port: number, alias?: string, domains?: string[], timeout?: string, max_body_size?: string }` |
 | `api_spec` | object | Single API spec registration |
 | `api_specs` | array | Multiple API spec registrations |
 | `cli` | object | App CLI declaration (see CLI Declaration below) |
@@ -444,6 +446,9 @@ Notes:
 - If a service exposes ports and the cluster domain is configured, Eve creates ingress by default. Set `x-eve.ingress.public: false` to disable.
 - `ingress.alias` creates a vanity hostname: `{alias}.{domain}` instead of the default `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`. Useful for user-facing apps that need a clean URL.
 - `ingress.domains` brings your own domain names (e.g., `["limelee.com", "www.limelee.com"]`). Each domain gets a separate K8s Ingress with per-domain TLS via cert-manager HTTP-01. Max 10 per service. Domains under the platform domain are rejected — use `alias` instead. All three ingress types (primary, alias, custom domain) coexist and route to the same backend.
+- `ingress.timeout` sets nginx-ingress request/response timeout for the service's primary, alias, and custom-domain ingresses. Use lowercase durations such as `30s`, `5m`, or `30m`. Default: `EVE_DEFAULT_INGRESS_TIMEOUT=300s`; range: `1s`-`30m`. Use Eve jobs for longer batch work.
+- `ingress.max_body_size` sets nginx-ingress request body size for the same ingress set. Use lowercase sizes such as `512k`, `10m`, or `1g`. Default: `EVE_DEFAULT_INGRESS_MAX_BODY_SIZE=10m`; range: `1k`-`1g`. Use signed uploads/object storage for larger payloads.
+- Timeout/body-size annotations are emitted only for `EVE_DEFAULT_INGRESS_CLASS=nginx` or `nginx-ingress`. Traefik/unknown classes keep routing behavior and skip L7 tuning; explicit tuning logs a deploy warning. Confirm live values with `eve env diagnose <project> <env>` or `.http_ingress[]`.
 - **Domain ownership is env-scoped with first-bind-wins**: a hostname declared in the base manifest is claimed by the **first environment to deploy with it**. Subsequent deploys of other environments that reference the same hostname skip rendering the ingress and log `owned by environment "<A>"`. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or scope the hostname per-env via `environments.<env>.overrides`. Do NOT expect the same `ingress.domains` block to produce ingresses in every env — only the owning env gets it.
 - `audit_log_table` is optional. When set, `eve env diagnose --request <id>` runs a read-only query against that table using `request_id_column` and returns matching rows verbatim. Query failures become warnings in the diagnose response.
 
