@@ -889,13 +889,29 @@ Quick reference:
 - `eve job diagnose <id>` -- primary job debugging entry point
 - `eve job follow <id>` -- stream harness logs in real time
 - `eve job runner-logs <id>` -- K8s pod logs for startup failures
-- `eve env diagnose <project> <env>` -- environment health + K8s events
+- `eve env diagnose <project> <env>` -- environment health, K8s events, and ingress diagnostics
 - `eve env diagnose <project> <env> --request <id> --json` -- request-level logs, events, deploy metadata, audit rows, and traces
 - `eve env logs <project> <env> <service> --follow --filter req_id=<id>` -- stream app-service logs with structured filters
 - `eve traces query --project <project> --request-id <id> --json` -- query trace spans without console access
 - `eve tcp-ingress test <project> <env> --listener <name>` -- TCP connect probe for public raw TCP listeners
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
 - `eve system health` -- platform-wide health check
+
+### HTTP Ingress Diagnostics
+
+`eve env diagnose` renders an `HTTP Ingress` table and returns `.http_ingress[]`
+in JSON when services expose public HTTP ingress. Use it to confirm requested
+and effective request timeout/body-size values after changing
+`x-eve.ingress.timeout` or `x-eve.ingress.max_body_size`.
+
+```bash
+eve env diagnose <project> <env>
+eve env diagnose <project> <env> --json | jq '.http_ingress'
+```
+
+Each row includes the service, hosts, controller flavor, requested and effective
+timeout/body-size values, and the source (`manifest`, `platform_default`,
+`unsupported_controller`, or `missing`).
 
 ### Public TCP Ingress
 

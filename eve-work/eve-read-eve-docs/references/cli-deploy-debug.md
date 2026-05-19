@@ -95,12 +95,16 @@ Quick reference:
 - `eve job diagnose <id>` -- primary job debugging entry point
 - `eve job follow <id>` -- stream harness logs in real time
 - `eve job runner-logs <id>` -- K8s pod logs for startup failures
-- `eve env diagnose <project> <env>` -- environment health + K8s events
+- `eve env diagnose <project> <env>` -- environment health, K8s events, and HTTP/TCP ingress diagnostics
 - `eve env diagnose <project> <env> --request <id> --json` -- one request across logs, events, deploy metadata, audit rows, and traces
 - `eve env logs <project> <env> <service> --follow --filter req_id=<id>` -- live app-service logs with structured filters
 - `eve traces query --project <project> --request-id <id> --json` -- trace spans without console access
 - `eve tcp-ingress test <project> <env> --listener <name>` -- raw TCP connect probe for `x-eve.tcp_ingress` listeners
 - `eve env recover <project> <env>` -- analyze state and suggest recovery action
+
+Ingress checks:
+- `eve env diagnose <project> <env> --json | jq '.http_ingress'` -- confirm HTTP hosts, controller flavor, requested/effective timeout, and body-size values.
+- `eve env diagnose <project> <env> --json | jq '.tcp_ingress'` -- inspect public raw TCP listeners and provisioning state.
 
 ## Local Stack (k3d)
 
