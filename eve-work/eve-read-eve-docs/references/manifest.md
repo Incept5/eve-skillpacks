@@ -445,11 +445,11 @@ Notes:
 - `spec_path` is supported only for local `file://` repos.
 - If a service exposes ports and the cluster domain is configured, Eve creates ingress by default. Set `x-eve.ingress.public: false` to disable.
 - `ingress.alias` creates a vanity hostname: `{alias}.{domain}` instead of the default `{service}.{orgSlug}-{projectSlug}-{env}.{domain}`. Useful for user-facing apps that need a clean URL.
-- `ingress.domains` brings your own domain names (e.g., `["limelee.com", "www.limelee.com"]`). Each domain gets a separate K8s Ingress with per-domain TLS via cert-manager HTTP-01. Max 10 per service. Domains under the platform domain are rejected — use `alias` instead. All three ingress types (primary, alias, custom domain) coexist and route to the same backend.
+- `ingress.domains` brings your own domain names (e.g., `["limelee.com", "www.limelee.com"]`). Declare it either on the base service or in `environments.<env>.overrides.services.<svc>.x-eve.ingress.domains`. `eve project sync` registers both forms; a hostname declared in exactly one env override is bound to that env during sync. Each domain gets a separate K8s Ingress with per-domain TLS via cert-manager HTTP-01. Max 10 per service. Domains under the platform domain are rejected — use `alias` instead. All three ingress types (primary, alias, custom domain) coexist and route to the same backend.
 - `ingress.timeout` sets nginx-ingress request/response timeout for the service's primary, alias, and custom-domain ingresses. Use lowercase durations such as `30s`, `5m`, or `30m`. Default: `EVE_DEFAULT_INGRESS_TIMEOUT=300s`; range: `1s`-`30m`. Use Eve jobs for longer batch work.
 - `ingress.max_body_size` sets nginx-ingress request body size for the same ingress set. Use lowercase sizes such as `512k`, `10m`, or `1g`. Default: `EVE_DEFAULT_INGRESS_MAX_BODY_SIZE=10m`; range: `1k`-`1g`. Use signed uploads/object storage for larger payloads.
 - Timeout/body-size annotations are emitted only for `EVE_DEFAULT_INGRESS_CLASS=nginx` or `nginx-ingress`. Traefik/unknown classes keep routing behavior and skip L7 tuning; explicit tuning logs a deploy warning. Confirm live values with `eve env diagnose <project> <env>` or `.http_ingress[]`.
-- **Domain ownership is env-scoped with first-bind-wins**: a hostname declared in the base manifest is claimed by the **first environment to deploy with it**. Subsequent deploys of other environments that reference the same hostname skip rendering the ingress and log `owned by environment "<A>"`. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or scope the hostname per-env via `environments.<env>.overrides`. Do NOT expect the same `ingress.domains` block to produce ingresses in every env — only the owning env gets it.
+- **Domain ownership is env-scoped with first-bind-wins**: a hostname declared in the base manifest is claimed by the **first environment to deploy with it**. A hostname declared in exactly one env override is sync-bound to that env. Hostnames declared in multiple env overrides keep first-bind-wins and sync warns instead of guessing. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or `eve domain register <host> --project <id> --service <svc> --env <env>` for imperative reservations.
 - `audit_log_table` is optional. When set, `eve env diagnose --request <id>` runs a read-only query against that table using `request_id_column` and returns matching rows verbatim. Query failures become warnings in the diagnose response.
 
 ### Managed DB Services
@@ -1512,7 +1512,21 @@ services:
           - www.myapp.com         # custom domain (CNAME)
 ```
 
-**Lifecycle**: `pending_dns` → `dns_verified` → `cert_provisioning` → `active`. Domains are auto-registered during `eve project sync`, bound to environments during deploy. After setting up DNS, run `eve domain verify <hostname>` — it performs real DNS resolution server-side and transitions the status to `dns_verified`. Redeploy to create the Ingress and provision the TLS cert.
+Env-specific domains belong in environment service overrides:
+
+```yaml
+environments:
+  sandbox:
+    overrides:
+      services:
+        web:
+          x-eve:
+            ingress:
+              domains:
+                - sandbox.myapp.com
+```
+
+**Lifecycle**: `pending_dns` → `dns_verified` → `cert_provisioning` → `active`. Domains are auto-registered during `eve project sync`; env-override domains declared in exactly one env are also bound to that env during sync. After setting up DNS, run `eve domain verify <hostname>` — it performs real DNS resolution server-side and transitions the status to `dns_verified`. Redeploy to create the Ingress and provision the TLS cert. Use `eve domain register <host> --project <id> --service <svc> --env <env>` for manual reservations that are not in the manifest.
 
 **DNS**: Apex domains (`myapp.com`) require an A record pointing to the platform ingress IP. Subdomains (`www.myapp.com`) can use a CNAME to the platform ingress hostname.
 

@@ -144,10 +144,11 @@ Notes:
 
 ## Domains (Custom Ingress Domains)
 
-Bring your own domain for Eve-deployed apps. Domains are declared in the manifest under `x-eve.ingress.domains` and registered during `eve project sync`. DNS must point to the platform ingress before activation.
+Bring your own domain for Eve-deployed apps. Domains can be declared under `services.<svc>.x-eve.ingress.domains` or under `environments.<env>.overrides.services.<svc>.x-eve.ingress.domains` and are registered during `eve project sync`. Use `eve domain register` for imperative reservations. DNS must point to the platform ingress before activation.
 
 ```bash
 eve domain list [--env <name>] [--project <id>] [--json]                # List custom domains (filterable by env)
+eve domain register <hostname> --project <id> --service <svc> [--env <env>] [--json]  # Register/reuse a domain row
 eve domain verify <hostname> [--project <id>]                           # Verify DNS resolution and update status
 eve domain status <hostname> [--project <id>]                           # Show domain detail (including owning env)
 eve domain transfer <hostname> --to <env> [--project <id>] [--json]     # Move ownership to another env in the same project
@@ -156,7 +157,9 @@ eve domain remove <hostname> [--project <id>] [--json]                  # Remove
 ```
 
 Notes:
-- Domains are auto-registered during `eve project sync` from the manifest `x-eve.ingress.domains` field. No manual registration needed.
+- Domains are auto-registered during `eve project sync` from top-level service ingress domains and env override ingress domains. A hostname declared in exactly one env override is also bound to that env during sync.
+- `eve domain register <host> --project <id> --service <svc> --env <env>` creates or reuses a manual row. Manual rows survive later `eve project sync` calls even when the hostname is not in the manifest.
+- `eve domain status <host> --json` returns stable `owner_env`, `dns_state`, `cert_state`, and `last_verified_at` fields.
 - Each domain gets its own K8s Ingress with cert-manager TLS via HTTP-01 challenge.
 - `eve domain verify` performs real DNS resolution server-side — it checks A/CNAME records against platform ingress and transitions status from `pending_dns` to `dns_verified` if DNS is correct. After verification, redeploy to activate.
 - Platform subdomains (e.g., `foo.eh1.incept5.dev`) are rejected — use `ingress.alias` instead.

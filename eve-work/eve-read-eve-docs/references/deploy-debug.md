@@ -230,10 +230,14 @@ Common checks:
 
 ### Custom Domain Ingresses
 
-Apps can bring their own domains via `x-eve.ingress.domains` (see
-`references/manifest.md` for the schema). Domains are auto-registered during
-manifest sync and also by the deployer before binding. Each custom domain gets
-a separate K8s Ingress resource labeled `eve.custom_domain=true`. During
+Apps can bring their own domains via `x-eve.ingress.domains` on a base service
+or inside `environments.<env>.overrides.services.<svc>.x-eve.ingress.domains`
+(see `references/manifest.md` for the schema). Domains are auto-registered
+during manifest sync and also by the deployer before binding. A hostname
+declared in exactly one env override is bound to that env during sync. Use
+`eve domain register <host> --project <id> --service <svc> --env <env>` for
+manual reservations. Each custom domain gets a separate K8s Ingress resource
+labeled `eve.custom_domain=true`. During
 deploy, the deployer checks DNS (A/CNAME) against `EVE_PLATFORM_INGRESS_IP`
 / `EVE_PLATFORM_INGRESS_HOSTNAME`. `EVE_PLATFORM_INGRESS_IP` accepts a
 comma-separated list (e.g. `52.209.1.195,52.17.16.223`) for multi-AZ load
@@ -253,10 +257,14 @@ Stale custom domain ingresses (removed from manifest) are garbage-collected on r
 
 ```bash
 eve domain list --project <id>                      # All domains + owning env
+eve domain register <host> --project <id> --service <svc> [--env <env>]
 eve domain status <hostname> --project <id>         # Per-domain DNS / cert state
 eve domain verify <hostname> --project <id>         # Re-run DNS resolution
 eve env diagnose <project> <env>                    # Pulls in per-env custom-domain status
 ```
+
+`eve domain status <host> --json` includes stable `owner_env`, `dns_state`,
+`cert_state`, and `last_verified_at` fields for automation.
 
 `eve env diagnose` includes the per-env custom-domain rows alongside pod state,
 so an `ingress_conflict` failure or a `pending_dns` domain shows up in the same
