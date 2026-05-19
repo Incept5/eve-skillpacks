@@ -34,6 +34,7 @@ agents:
     skill: eve-orchestration        # required
     workflow: nightly-audit          # optional
     harness_profile: primary-orchestrator
+    toolchains: [python]             # optional: python | media | rust | java | kotlin
     access:
       envs: [staging, production]
       services: [api, web]
@@ -124,6 +125,14 @@ Resolution order at chat dispatch:
 4. Org default agent fallback
 
 The `@eve agents list` display shows aliases alongside canonical slugs (e.g., `pmbot-pm (-> pm)`).
+
+### Agent Toolchains
+
+Agents can declare `toolchains` with valid values `python`, `media`, `rust`,
+`java`, and `kotlin`. Agent jobs receive the requested toolchains in the runner
+pod. Workflow agent steps resolve toolchains as `step.toolchains > agent config
+toolchains > workflow.toolchains > []`; pipeline agent steps resolve
+`step.toolchains > pipeline.toolchains > []`.
 
 ### Agent Permissions
 

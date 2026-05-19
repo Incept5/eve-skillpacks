@@ -1017,6 +1017,12 @@ pipelines:
 
 Step types: `action`, `script`, `agent`, or shorthand `run`.
 
+Pipeline `toolchains` can be declared at pipeline root or step level. Valid
+values are `python`, `media`, `rust`, `java`, and `kotlin`. Script, shorthand
+`run`, agent, and `action: { type: run }` steps resolve `step.toolchains >
+pipeline.toolchains > []`. Non-run actions cannot declare step-level
+toolchains, and `action.toolchains` is rejected.
+
 See `references/pipelines-workflows.md` for step types, triggers, and the canonical build-release-deploy pattern.
 
 ## Workflows
@@ -1041,6 +1047,12 @@ then creates one child job per step. Each step must define exactly one execution
 kind: `agent`, `script`, or shorthand `run`. `script` and `run` workflow steps
 materialize as worker-executed script jobs. Workflow `action` steps are reserved
 for future support and are rejected at invoke time.
+
+Workflow `toolchains` can be declared at workflow root or step level. Script and
+shorthand `run` steps resolve `step.toolchains > workflow.toolchains > []`.
+Agent steps resolve `step.toolchains > agent config toolchains >
+workflow.toolchains > []`. The resolved value is stored on
+`jobs.hints.toolchains` and appears in `eve job show` / `eve job diagnose`.
 
 ### Multi-Step Workflow Syntax
 
@@ -1074,6 +1086,7 @@ workflows:
 | `steps[].agent` | object | Agent ref: `name`, optional `prompt`/`prompt_file`, `harness`, `harness_profile`, `toolchains` |
 | `steps[].script` | object | Worker-executed script step; accepts `run` or `command` plus optional `timeout`/`timeout_seconds` |
 | `steps[].run` | string | Shorthand for `steps[].script.run`; creates a script child job |
+| `steps[].toolchains` | string[] | Step-level toolchains (`python`, `media`, `rust`, `java`, `kotlin`) |
 | `steps[].harness` | string | Step-level harness override (takes precedence over agent-resolved value) |
 | `steps[].harness_options` | object | Step-level harness options: `model`, `reasoning_effort`, `temperature` (passthrough) |
 | `steps[].harness_profile` | string | Named profile reference; supports `${inputs.<key>}` template expressions |
@@ -1087,6 +1100,7 @@ workflows:
 | `resource_refs` | string \| string[] \| object | Default invocation resource policy for all workflow steps |
 | `env_overrides` | object | Default env overrides applied to every workflow step |
 | `scope` | object | Default job token scope applied to every workflow step |
+| `toolchains` | string[] | Default toolchains for workflow steps |
 | `with_apis` | object[] | API specs attached to the workflow — `{ service, description }` (workflow-level or per-step) |
 | `db_access` | string | `read_only` or `read_write` |
 | `hints` | object | Merged into the root job at invocation time (gates, timeouts, harness prefs) |

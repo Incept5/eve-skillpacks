@@ -549,6 +549,7 @@ Preferences (not requirements) that influence scheduling:
 | `worker_type` | e.g., `default`, `gpu` |
 | `permission_policy` | `yolo` (default), `auto_edit`, `never` |
 | `timeout_seconds` | Execution timeout |
+| `toolchains` | Resolved toolchains for agent, workflow/pipeline script, shorthand `run`, or pipeline `action: { type: run }` jobs. Inspect with `eve job show <id> --json` or `eve job diagnose <id>` |
 
 ## Coordination Threads
 

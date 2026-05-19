@@ -94,6 +94,13 @@ This chain ensures that what was built is exactly what gets released and deploye
 - **agent**: AI agent job (prompt-driven)
 - **run**: shorthand for `script.run`
 
+Pipeline root and step definitions can declare `toolchains` with valid values
+`python`, `media`, `rust`, `java`, and `kotlin`. Script, shorthand `run`,
+agent, and `action: { type: run }` steps resolve `step.toolchains >
+pipeline.toolchains > []`; the resolved value is stored on
+`jobs.hints.toolchains`. Other action types cannot declare step-level
+toolchains, and `action.toolchains` is rejected.
+
 ### Pipeline Runs
 
 - A run creates one job per step with dependencies wired from `depends_on`.
@@ -281,7 +288,11 @@ workflows:
 - Each step must define exactly one execution kind: `agent`, `script`, or
   shorthand `run`. `script` and `run` steps create worker-executed script jobs
   with `script_command` and optional `script_timeout_seconds`.
-- Per-step agent, harness, and toolchain resolution is supported.
+- Per-step agent, harness, and toolchain resolution is supported. Script and
+  shorthand `run` steps resolve `step.toolchains > workflow.toolchains > []`;
+  agent steps resolve `step.toolchains > agent config toolchains >
+  workflow.toolchains > []`. Workflow `action` steps remain unsupported and
+  cannot declare toolchains.
 - `with_apis` can be set at the workflow level (applies to all steps) or per step.
 - `env_overrides` can be set at the workflow level and per step, then overridden
   at invocation time with `--env-override`.
