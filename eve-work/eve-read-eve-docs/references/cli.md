@@ -211,6 +211,9 @@ See `references/agents-teams.md` for full agent and team configuration details.
 # View effective config (pack resolution pipeline)
 eve agents config [--repo-dir <path>] [--no-harnesses] [--json]
 
+# JSON includes policy plus resolved agents, teams, and chat_routes arrays.
+# Missing implicit teams/chat files in agents-only projects report [].
+
 # Agent runtime status
 eve agents runtime-status --org org_xxx [--json]
 

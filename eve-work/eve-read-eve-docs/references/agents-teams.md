@@ -365,6 +365,8 @@ eve agents config --repo-dir ./my-app
 
 Sync resolves AgentPacks from `x-eve.packs`, deep-merges pack agents/teams/chat with local overrides, validates org-wide slug and alias uniqueness, and pushes to the API.
 
+Single-agent projects do not need `teams.yaml` or `chat.yaml` stub files. If the manifest does not name `agents.teams_path`, `x-eve.chat.config_path`, or legacy top-level `chat.config_path`, missing local teams/chat files default to empty teams (`teams: {}`) and empty chat routes (`routes: []`). If the manifest explicitly declares one of those paths, the named file must exist. Sparse packs remain sparse: missing implicit local overlays are ignored, while explicit local overlay paths still use the strict rule.
+
 ### Pack Overlay
 
 Local YAML overlays pack defaults via deep merge. Use `_remove: true` to drop a pack agent.
