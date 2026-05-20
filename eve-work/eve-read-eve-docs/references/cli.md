@@ -835,6 +835,22 @@ eve local logs [<service>]                             # Omit service for all lo
   [--follow] [-f]                                      # Tail logs
   [--tail <n>]                                         # Lines to show (default: 50)
   [--since <duration>]                                 # e.g. 5m, 1h
+
+# Multi-project app-link mesh on the local k3d stack
+eve local mesh init <name> [--org <org_id>] [--env local] [--profile <profile>] [--force]
+eve local mesh add <project-slug> --path <checkout> [--role producer|consumer] [--workspace <name>]
+eve local mesh use <name>
+eve local mesh list [--json]
+eve local mesh show [--workspace <name>] [--json]
+eve local mesh up [--workspace <name|path>] [--only <project>] [--skip-pre-check] [--skip-cli-build] [--json]
+eve local mesh redeploy <project> [--workspace <name>] [--skip-cli-build]
+eve local mesh status [--workspace <name>] [--json]
+eve local mesh diagnose [--workspace <name>] [--project <slug>] [--probe] [--json]
+eve local mesh logs <project>/<component> [--workspace <name>] [--follow] [--tail <n>] [--since <duration>]
+eve local mesh down [--workspace <name>] [--delete-projects]
+
+# Build/import a producer app-link CLI image directly
+eve project image build-cli [project-slug|project-id] [--repo-dir <path>] [--dockerfile <path>] [--tag <image>] [--import-to-k3d] [--json]
 ```
 
 **Services:** api, orchestrator, worker, gateway, agent-runtime, auth, mailpit, sso, postgres.
@@ -860,6 +876,14 @@ eve local reset --force                                # Nuclear option: destroy
 Notes:
 - `up` is idempotent: re-running starts a stopped cluster or skips if already running.
 - `down` without `--destroy` preserves cluster state; `up` resumes quickly.
+- `eve local mesh` requires a running local API and refuses non-local API URLs.
+- Mesh workspace project names are Eve project slugs (4-8 alphanumeric chars)
+  and must match `x-eve.app_links.*.project` references.
+- Every project in a mesh should declare the same environment name, normally
+  `environments.local`.
+- When a producer export uses an image-mode `x-eve.cli`, `mesh up` builds
+  `Dockerfile.cli`, imports `local/<producer>-cli:<sha>` into k3d, and syncs
+  that image into the grant for local job CLI injection.
 - `reset` is equivalent to `down --destroy` followed by `up`.
 - Version resolution queries the configured registry for the latest common platform tag.
   - Set `ECR_REGISTRY=<registry>` to override the registry host.

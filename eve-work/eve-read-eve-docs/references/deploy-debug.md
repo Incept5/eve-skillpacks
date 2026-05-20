@@ -588,6 +588,28 @@ Optimized for fast local iteration. **Security note:** exposes services on local
 | Prod parity | Moderate | High |
 | Runner pods | No (local process) | Yes (ephemeral) |
 
+## Local Multi-Project Mesh
+
+Use `eve local mesh` for k3d verification when two or more Eve projects talk
+through `x-eve.app_links`.
+
+```bash
+export EVE_API_URL=http://api.eve.lvh.me
+eve local mesh init obs --org org_manualtestorg --env local
+eve local mesh add prod --path ../producer
+eve local mesh add cons --path ../consumer
+eve local mesh up
+eve local mesh status
+eve local mesh diagnose --probe
+eve local mesh redeploy cons
+eve local mesh down
+```
+
+The platform stack must already be running. Mesh project names are Eve project
+slugs and every project should declare `environments.local`. The command syncs
+and deploys producer projects before consumers, and it can build/import
+producer `Dockerfile.cli` images into k3d for app-link job CLI injection.
+
 ## First Deploy Quickstart
 
 The fastest path from zero to a running deployment. Create a minimal `.eve/manifest.yaml`:

@@ -720,6 +720,11 @@ Rules:
 - Consumer requested `scopes` and event `types` must be subsets of the active producer grant.
 - `environment: same` maps consumer env names to the same producer env names. A concrete value pins `producer_env_name`.
 - `inject_into.services` injects app-link env vars into deployed consumer services. `inject_into.jobs: true` injects them into agent jobs; `eve job create --with-links alias1,alias2` can request explicit links.
+- Local k3d meshes should use one shared env name across all projects, normally
+  `environments.local`. `eve local mesh up` fails fast if a project in the
+  workspace does not declare the workspace env.
+- For local mesh work, workspace project names are Eve project slugs and should
+  match `project` refs in producer/consumer app-link blocks.
 
 Injected surfaces receive:
 - `EVE_APP_LINK_<ALIAS>_API_URL`
