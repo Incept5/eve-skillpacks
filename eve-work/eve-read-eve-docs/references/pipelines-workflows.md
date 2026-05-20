@@ -101,6 +101,13 @@ pipeline.toolchains > []`; the resolved value is stored on
 `jobs.hints.toolchains`. Other action types cannot declare step-level
 toolchains, and `action.toolchains` is rejected.
 
+Pipeline root and step definitions can also declare `env_overrides` for
+`action: { type: run }` steps. The persisted action-run job receives the merged
+map with step keys overriding pipeline keys; other action types ignore
+`env_overrides` because they are platform operations rather than user shell.
+`${secret.KEY}` values are resolved in memory before bash starts, and the job
+row keeps the raw placeholder text for audit.
+
 ### Pipeline Runs
 
 - A run creates one job per step with dependencies wired from `depends_on`.
@@ -379,9 +386,10 @@ retried steps land on the same branch and ref the original step used.
 
 ### Workflow Env Overrides
 
-Workflow steps can receive secret-backed environment overrides without
-hand-building a job DAG. The effective step-job `env_overrides` object is merged
-by key with this precedence: invocation request > step YAML > workflow YAML.
+Workflow agent, script, and shorthand `run` steps can receive secret-backed
+environment overrides without hand-building a job DAG. The effective step-job
+`env_overrides` object is merged by key with this precedence: invocation request
+> step YAML > workflow YAML.
 
 ```yaml
 workflows:
@@ -410,6 +418,11 @@ may contain `${secret.KEY}` placeholders only, and unsupported `${env.X}` style
 expressions are rejected. `eve manifest validate --validate-secrets` and
 `eve project sync --validate-secrets` include workflow env override secret refs
 in missing-secret reports.
+
+At execution time, resolved values are injected into the agent harness or bash
+environment. Missing secret placeholders fail the step before bash/harness
+execution with `missing_secret_override`; logs preserve the missing key names,
+while `eve job show <job> --json` still returns the unresolved placeholders.
 
 ### Workflow Token Scope (Scoped Job Tokens)
 

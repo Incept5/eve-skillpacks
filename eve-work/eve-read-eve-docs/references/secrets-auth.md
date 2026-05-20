@@ -76,6 +76,17 @@ environment:
   API_KEY: ${secret.EXTERNAL_API_KEY}
 ```
 
+Job `env_overrides` support the same `${secret.KEY}` placeholders for agent
+steps, workflow script/shorthand `run` steps, and pipeline `action: { type: run
+}` steps. Values are resolved in memory immediately before the harness or bash
+process starts; persisted job rows and `eve job show` continue to expose only
+the raw placeholder text.
+
+If an override references a missing secret, the step fails before execution with
+`missing_secret_override` and the execution log includes the unresolved key
+names. Reserved runtime keys such as `PATH`, `HOME`, and `EVE_*` are rejected by
+schema validation and stripped defensively at execution time for legacy rows.
+
 ### Local Dev Secrets
 
 Create `.eve/dev-secrets.yaml` (gitignored) for local overrides:
