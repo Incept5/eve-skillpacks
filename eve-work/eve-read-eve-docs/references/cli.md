@@ -907,6 +907,12 @@ Platform behaviors that affect how jobs and harnesses execute. These are not CLI
 
 **Log normalization:** The platform stream API now includes a pre-computed `text` field on every log event, providing human-readable output without harness-specific parsing. Both `eve job logs` and `eve job follow` use a shared normalization layer (`normalizeLogLine` from `@eve/shared`) that handles Codex, Claude, and other harness event formats uniformly.
 
+Budget-configured jobs emit `budget.summary` rows on completion and
+`budget.exceeded` rows when enforcement terminates an attempt. Use
+`eve job logs <id> --json` or `eve job diagnose <id> --json` to inspect
+`total_tokens`, `weighted_tokens`, `cache_read_tokens`,
+`cache_read_token_weight`, and `cache_read_tokens_excluded`.
+
 **Codex harness improvements:**
 - Streaming logs render cleanly: tool use shows the tool name with a truncated input preview, status messages are prefixed with `>`, and result text is extracted properly.
 - Final result text and token usage are extracted from Codex job logs for display in `eve job show` and `eve job result`.

@@ -549,7 +549,15 @@ Preferences (not requirements) that influence scheduling:
 | `worker_type` | e.g., `default`, `gpu` |
 | `permission_policy` | `yolo` (default), `auto_edit`, `never` |
 | `timeout_seconds` | Execution timeout |
+| `max_cost` | Authoritative per-attempt budget cap; prefer this over token caps |
+| `max_tokens` | Coarse guardrail; cache-read tokens are discounted by rate-card weight when cheaper than input tokens |
 | `toolchains` | Resolved toolchains for agent, workflow/pipeline script, shorthand `run`, or pipeline `action: { type: run }` jobs. Inspect with `eve job show <id> --json` or `eve job diagnose <id>` |
+
+Budget-configured attempts emit `budget.summary` on completion and
+`budget.exceeded` when enforcement fires. Inspect them with
+`eve job logs <id> --json` or `eve job diagnose <id> --json`. Both rows retain
+`total_tokens` and add `weighted_tokens`, `cache_read_tokens`,
+`cache_read_token_weight`, and `cache_read_tokens_excluded`.
 
 ## Coordination Threads
 

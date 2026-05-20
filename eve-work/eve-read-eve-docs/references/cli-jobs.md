@@ -39,7 +39,8 @@ eve job create --description "Fix the login bug"
   [--variant <v>] [--model <m>] [--reasoning low|medium|high|x-high]
   [--worker-type default] [--permission auto_edit]
   [--timeout 3600] [--resource-class job.c1]
-  [--max-tokens 100000] [--max-cost 5.00]
+  [--max-cost 5.00] [--max-cost-currency usd]
+  [--max-tokens 100000]
 
   # Per-job harness + env overrides (jobs:harness_override required)
   [--harness-override-file ./profile.json]                # inline {harness, model?, reasoning_effort?, variant?, temperature?}
@@ -115,6 +116,10 @@ eve job attachment <job-id> <name>                      # Get attachment content
 eve job batch --project <id> --file <path>              # Submit batch job graph
 eve job batch-validate --file <path>                    # Validate batch without submitting
 ```
+
+Prefer `--max-cost` over `--max-tokens`. Token counting discounts cache-read
+tokens by rate-card weight when the model has a cheaper cache-read rate, but
+the cost cap is the authoritative budget.
 
 Notes:
 - `--claim` on create is the inline-execution pattern: create + claim in one call.
