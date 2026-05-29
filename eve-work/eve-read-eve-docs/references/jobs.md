@@ -207,6 +207,33 @@ eve job runner-logs <job-id>                    # kubectl pod logs
 
 `wait` exit codes: 0=success, 1=failed, 124=timeout, 125=cancelled.
 
+### Script and Action-Run Execution
+
+Pipeline/workflow script jobs and pipeline `action: { type: run }` jobs are
+worker-executed bash commands. The orchestrator submits these jobs to the worker
+with a short request and then waits for runner events, so long-running commands
+are not tied to a single open HTTP request.
+
+Output behavior:
+- stdout/stderr are appended to attempt logs while the command is still running.
+- `eve job follow <job-id>` and `eve job logs <job-id> --attempt <n>` show the
+  streamed entries.
+- Final job results keep a bounded stdout/stderr tail for quick inspection.
+- Per-stream output is capped by `EVE_SCRIPT_OUTPUT_CAP_BYTES` (default 10 MiB).
+  When the cap is reached, Eve drains the process output and writes one
+  `output_truncated` warning per stream.
+
+Timeout behavior:
+- Script jobs use `jobs.script_timeout_seconds` first, then
+  `hints.timeout_seconds`, then the 30-minute default.
+- Pipeline `action: { type: run }` jobs use `action_input.timeout_seconds`,
+  then `action_input.timeout`, then `hints.timeout_seconds`, then the 30-minute
+  default.
+- Script timeout logs use code `script_timeout`; action-run timeout logs use
+  `action_run_timeout`.
+- If the worker never publishes a terminal runner event, the orchestrator marks
+  the attempt failed with `poll_timeout`.
+
 ### Claim/Release (Agent Use)
 
 ```bash
@@ -548,7 +575,7 @@ Preferences (not requirements) that influence scheduling:
 |------|-------------|
 | `worker_type` | e.g., `default`, `gpu` |
 | `permission_policy` | `yolo` (default), `auto_edit`, `never` |
-| `timeout_seconds` | Execution timeout |
+| `timeout_seconds` | Execution timeout hint. Script jobs prefer `script_timeout_seconds`; `action: { type: run }` jobs prefer `action_input.timeout_seconds` / `action_input.timeout`; this hint is the fallback before the 30-minute default |
 | `max_cost` | Authoritative per-attempt budget cap; prefer this over token caps |
 | `max_tokens` | Coarse guardrail; cache-read tokens are discounted by rate-card weight when cheaper than input tokens |
 | `toolchains` | Resolved toolchains for agent, workflow/pipeline script, shorthand `run`, or pipeline `action: { type: run }` jobs. Inspect with `eve job show <id> --json` or `eve job diagnose <id>` |

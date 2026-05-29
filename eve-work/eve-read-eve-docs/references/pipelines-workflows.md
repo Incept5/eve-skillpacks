@@ -30,7 +30,7 @@ pipelines:
       - name: build
         action: { type: build }
       - name: unit-tests
-        script: { run: "pnpm test", timeout: 1800 }
+        script: { run: "pnpm test", timeout_seconds: 1800 }
       - name: deploy
         depends_on: [build, unit-tests]
         action: { type: deploy }
@@ -90,9 +90,28 @@ This chain ensures that what was built is exactly what gets released and deploye
 ### Step Types
 
 - **action**: built-in actions (`build`, `release`, `deploy`, `run`, `job`, `create-pr`, `notify`, `env-ensure`, `env-delete`)
-- **script**: shell command executed by worker (`run` or `command` + `timeout`)
+- **script**: shell command executed by worker (`run` or `command` + `timeout_seconds`)
 - **agent**: AI agent job (prompt-driven)
 - **run**: shorthand for `script.run`
+
+Script steps and `action: { type: run }` commands run durably: the
+orchestrator submits the job to the worker with a short request, the worker
+executes bash in the background, and completion is reported with runner events.
+Long-running commands do not depend on an open HTTP request between
+orchestrator and worker.
+
+Timeout source order:
+- pipeline/workflow `script:` or shorthand `run`: `script.timeout_seconds`
+  persisted as `jobs.script_timeout_seconds`, then `jobs.hints.timeout_seconds`,
+  then the 30-minute default.
+- pipeline `action: { type: run }`: `action.timeout_seconds`, then
+  `action.timeout`, then `jobs.hints.timeout_seconds`, then the 30-minute
+  default.
+
+Worker stdout/stderr are streamed into attempt logs while the process runs.
+The worker stores a bounded tail for the final step output and drains excess
+output after the per-stream cap (`EVE_SCRIPT_OUTPUT_CAP_BYTES`, default 10 MiB)
+with an `output_truncated` warning.
 
 Pipeline root and step definitions can declare `toolchains` with valid values
 `python`, `media`, `rust`, `java`, and `kotlin`. Script, shorthand `run`,
@@ -191,6 +210,11 @@ Output format:
 [14:24:01] [deploy] Deployment started; waiting up to 180s
 [14:24:12] [deploy] Deployment status: 1/1 ready
 ```
+
+For script and `action: { type: run }` steps, stdout/stderr lines appear as
+attempt log entries before the command exits. Use `--follow` when supervising a
+long-running shell command; a quiet but still-running command remains active
+until its configured timeout.
 
 ### Failure Hints
 
@@ -294,7 +318,8 @@ workflows:
 - `depends_on: [step_names]` wires dependency as `blocks` relations -- the scheduler respects them.
 - Each step must define exactly one execution kind: `agent`, `script`, or
   shorthand `run`. `script` and `run` steps create worker-executed script jobs
-  with `script_command` and optional `script_timeout_seconds`.
+  with `script_command` and optional `script_timeout_seconds`. Execution is
+  durable and streams stdout/stderr to attempt logs like pipeline script steps.
 - Per-step agent, harness, and toolchain resolution is supported. Script and
   shorthand `run` steps resolve `step.toolchains > workflow.toolchains > []`;
   agent steps resolve `step.toolchains > agent config toolchains >
