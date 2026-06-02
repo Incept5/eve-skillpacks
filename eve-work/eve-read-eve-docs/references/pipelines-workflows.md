@@ -291,6 +291,7 @@ Workflows compile to a full job DAG at invocation time. A multi-step workflow cr
 ```yaml
 workflows:
   ingestion-pipeline:
+    env: local
     with_apis:
       - service: coordinator
         description: Coordinator API for orchestration
@@ -315,11 +316,18 @@ workflows:
 
 **How it works:**
 - Each step becomes a child job under the root workflow job.
+- Workflow-level `env:` is persisted on the root job and every step job. It also
+  scopes env-sensitive API and app-link resolution; workflows without `env:` keep
+  the previous unscoped behavior.
 - `depends_on: [step_names]` wires dependency as `blocks` relations -- the scheduler respects them.
 - Each step must define exactly one execution kind: `agent`, `script`, or
   shorthand `run`. `script` and `run` steps create worker-executed script jobs
   with `script_command` and optional `script_timeout_seconds`. Execution is
   durable and streams stdout/stderr to attempt logs like pipeline script steps.
+- Workflow `script:` and `run` steps receive `EVE_APP_LINK_*` env vars for
+  project app-link subscriptions that declare `inject_into.jobs: true`, using the
+  same short-lived token minting as direct jobs. Logs include injected key names
+  only; scripts must redact token values if they print diagnostics.
 - Per-step agent, harness, and toolchain resolution is supported. Script and
   shorthand `run` steps resolve `step.toolchains > workflow.toolchains > []`;
   agent steps resolve `step.toolchains > agent config toolchains >

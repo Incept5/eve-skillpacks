@@ -150,12 +150,14 @@ job description. This ensures consistent behavior across CLI, API, workflow, and
 SDK job creation paths.
 
 `--with-links` requests named `x-eve.app_links.consumes` subscriptions for the
-job. Subscriptions with `inject_into.jobs: true` are also auto-discovered. The
-runtime mints short-lived app-link tokens and injects
+job. Subscriptions with `inject_into.jobs: true` are also auto-discovered for
+direct jobs and workflow step jobs, including worker-executed `script:` and
+`run` steps. The runtime mints short-lived app-link tokens and injects
 `EVE_APP_LINK_<ALIAS>_API_URL`, `EVE_APP_LINK_<ALIAS>_TOKEN`,
 `EVE_APP_LINK_<ALIAS>_SCOPES`, `EVE_APP_LINK_<ALIAS>_PROJECT`,
 `EVE_APP_LINK_<ALIAS>_ENV`, and `EVE_APP_LINK_<ALIAS>_CLI` when the producer
-exported an image-mode CLI.
+exported an image-mode CLI. Platform status logs name injected keys only;
+scripts that print diagnostics must redact token values.
 
 ### Attachments
 

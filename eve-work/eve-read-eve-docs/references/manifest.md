@@ -719,7 +719,11 @@ Rules:
 - If an export names `cli`, that service's `x-eve.cli.name` must match and `x-eve.cli.image` is required. Cross-project CLIs use image mode because consumers do not have the producer repo checked out.
 - Consumer requested `scopes` and event `types` must be subsets of the active producer grant.
 - `environment: same` maps consumer env names to the same producer env names. A concrete value pins `producer_env_name`.
-- `inject_into.services` injects app-link env vars into deployed consumer services. `inject_into.jobs: true` injects them into agent jobs; `eve job create --with-links alias1,alias2` can request explicit links.
+- `inject_into.services` injects app-link env vars into deployed consumer services.
+- `inject_into.jobs: true` injects app-link env vars into direct jobs and
+  workflow step jobs, including worker-executed `script:` and `run` steps.
+  `eve job create --with-links alias1,alias2` can request explicit links for a
+  direct job; workflows do not add a separate app-link grammar.
 - Local k3d meshes should use one shared env name across all projects, normally
   `environments.local`. `eve local mesh up` fails fast if a project in the
   workspace does not declare the workspace env.
@@ -1101,6 +1105,7 @@ workflows:
 | `steps[].env_overrides` | object | Step env overrides; merged over workflow-level defaults |
 | `steps[].scope` | object | Step job token scope; intersected with workflow/invocation scope |
 | `inputs` | object | Workflow-level named inputs. Each entry: `{ from?: 'event.payload.<path>', default?: any }` |
+| `env` | string | Workflow environment name; persisted on root/step jobs and used to resolve env-scoped APIs and app links |
 | `git` | object | Default job git controls inherited by steps unless overridden |
 | `resource_refs` | string \| string[] \| object | Default invocation resource policy for all workflow steps |
 | `env_overrides` | object | Default env overrides applied to every workflow step |
