@@ -253,7 +253,11 @@ eve cloud-fs mount \
 eve cloud-fs list
 eve cloud-fs ls / --mount <mount-id>
 eve cloud-fs ls /subfolder --mount <mount-id>          # alias: browse
-eve cloud-fs search <query> [--mount <mount-id>]
+eve cloud-fs ls / --mount <mount-id> --page-size 100
+eve cloud-fs ls / --mount <mount-id> --page-token <token>
+eve cloud-fs ls / --mount <mount-id> --all --json
+eve cloud-fs ls / --mount <mount-id> --recursive --json
+eve cloud-fs search <query> [--mount <mount-id>] [--mime-type <type>] [--all]
 
 # Manage
 eve cloud-fs show <mount-id>
@@ -278,13 +282,24 @@ Workflow job tokens may carry `scope.cloud_fs.allow_mount_ids`. When present,
 from allowed mounts, and explicit per-mount routes return
 `403 resource_access_denied` for mounts outside the token scope.
 
+Browse/search return one provider page by default. Responses may include
+`next_page_token`; pass it with `--page-token` or use `--all`. `--all --json`
+returns merged `entries` plus `complete`, `page_count`, and `next_page_token`
+when the auto-page cap (`EVE_CLOUD_FS_MAX_AUTO_PAGES`, default 200) stops
+iteration. `--page-size` is clamped server-side, and `--order-by` accepts
+`name`, `name_desc`, `modified`, or `modified_desc`.
+
+Recursive browse (`--recursive` or `-r`) is a bounded server-side traversal. It
+rejects `--page-token` and `--all`, returns full entry paths, and may include
+`truncated: true` when server guardrails stop traversal.
+
 ### Per-Mount File Operations API
 
 The March 18, 2026 Cloud FS update added direct per-mount file operations in the API for Drive-backed mounts. These routes are useful for app UIs and service-to-service flows that need to browse a mounted folder, fetch metadata, download files, upload content, or create folders without going through provider SDKs.
 
 | Method | Route | Purpose |
 |--------|-------|---------|
-| `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/browse?path=/subdir` | Browse a specific mount by path or `folder_id` |
+| `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/browse?path=/subdir&page_size=100&page_token=...` | Browse a specific mount by path or `folder_id` |
 | `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/files/:file_id` | Fetch file metadata |
 | `GET` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/files/:file_id/download` | Stream file contents |
 | `POST` | `/orgs/:org_id/cloud-fs/mounts/:mount_id/upload` | Upload a file to a target path |

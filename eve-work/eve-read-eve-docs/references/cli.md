@@ -119,9 +119,22 @@ eve cloud-fs update <mount_id> --org org_xxx            # Update mount settings
 eve cloud-fs unmount <mount_id> --org org_xxx           # Remove a mount (aliases: remove, delete)
 eve cloud-fs ls [<path>] --org org_xxx                  # Browse files (alias: browse)
   [--mount <mount_id>]                                  # Default path: /
+  [--page-token <token>] [--page-size <n>]
+  [--order-by name|name_desc|modified|modified_desc]
+  [--all]                                               # Auto-page, capped by EVE_CLOUD_FS_MAX_AUTO_PAGES
+  [--recursive|-r]                                      # Bounded server traversal, no page token/all
 eve cloud-fs search <query> --org org_xxx               # Search across mounts
   [--mount <mount_id>] [--mime-type <type>]
+  [--page-token <token>] [--page-size <n>]
+  [--order-by name|name_desc|modified|modified_desc]
+  [--all]
 ```
+
+Notes:
+- Browse/search return one provider page by default. If `next_page_token` is present, pass it with `--page-token` or use `--all`.
+- `--all --json` merges pages and returns `complete`, `page_count`, and `next_page_token` when the auto-page cap stops iteration.
+- Search `--mime-type` is sent to the provider as a MIME filter.
+- Recursive browse rejects `--page-token` and `--all`; JSON may include `truncated: true` when server guardrails stop traversal.
 
 ## Endpoints (Private Networking)
 

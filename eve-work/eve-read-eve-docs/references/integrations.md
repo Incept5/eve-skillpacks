@@ -170,11 +170,24 @@ Browse files at a path within a mount, or search across all mounts:
 # Browse files at a path
 eve cloud-fs ls / --mount <mount_id> --org <org_id>
 eve cloud-fs ls /reports --mount <mount_id> --org <org_id>
+eve cloud-fs ls / --mount <mount_id> --page-size 100 --org <org_id>
+eve cloud-fs ls / --mount <mount_id> --page-token <token> --org <org_id>
+eve cloud-fs ls / --mount <mount_id> --all --json --org <org_id>
+eve cloud-fs ls / --mount <mount_id> --recursive --json --org <org_id>
 
 # Search files
 eve cloud-fs search "Q4 report" --org <org_id>
-eve cloud-fs search "*.pdf" --mount <mount_id> --mime-type application/pdf --org <org_id>
+eve cloud-fs search "*.pdf" --mount <mount_id> --mime-type application/pdf --all --org <org_id>
 ```
+
+Browse/search return one provider page by default and may include
+`next_page_token`. Use `--page-token` for manual cursor round trips or `--all`
+to auto-page up to `EVE_CLOUD_FS_MAX_AUTO_PAGES` (default 200). JSON `--all`
+output includes `complete`, `page_count`, and `next_page_token` when iteration
+stops early. `--order-by` accepts `name`, `name_desc`, `modified`, or
+`modified_desc`. Search `--mime-type` is passed through to Google Drive as a
+MIME filter. Recursive browse is bounded server-side, rejects `--page-token`
+and `--all`, and may return `truncated: true`.
 
 ### RBAC Permissions
 
