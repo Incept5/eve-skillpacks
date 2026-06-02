@@ -127,6 +127,11 @@ Ownership is **env-scoped with first-bind-wins**: the first env to deploy with a
 
 The platform runs a continuous environment sentinel that posts Slack alerts when envs degrade. Treat a sentinel ping as a starting point: pull the project/env from the alert, then run `eve env diagnose <project> <env>` to confirm the current state before reacting — alerts can lag a self-heal.
 
+The daily Sentinel summary may include a monthly cost section. Use
+`eve system env-cost --all` for the full breakdown; it reads stored
+environment cost snapshots and labels stale or unavailable estimates. Do not
+query OpenCost directly from the Slack-summary path.
+
 ## Common Error Messages
 
 | Error | Cause | Fix |

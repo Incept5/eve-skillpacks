@@ -177,10 +177,16 @@ eve secrets export --project proj_xxx --keys API_KEY
 eve system status
 eve system jobs
 eve system envs
+eve system env-health --json
+eve system env-cost --all
 eve system logs api --tail 50
 eve system pods
 eve system events
 ```
+
+`eve system env-cost` returns month-to-date environment allocation snapshots
+from the admin API. It is a snapshot view, not a live OpenCost query; stale or
+unavailable estimates are labelled in the output.
 
 ## Workflows
 

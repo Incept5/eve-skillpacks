@@ -466,11 +466,36 @@ Configuration (orchestrator env vars):
 | `EVE_ENV_HEALTH_CIRCUIT_BREAK_ENABLED` | `true` | Gate scale-to-zero |
 | `EVE_ENV_HEALTH_CIRCUIT_BREAK_AFTER_RESTARTS` | `50` | CrashLoop trigger |
 | `EVE_ENV_HEALTH_CIRCUIT_BREAK_AFTER_MS` | `1800000` | Time-in-failure trigger |
+| `EVE_SENTINEL_COST_TOP_N` | `5` | Environment rows shown in the daily cost summary |
+| `EVE_SENTINEL_COST_STALE_AFTER_HOURS` | `26` | Age after which cost snapshots are labelled stale |
 
 Slack channel + workspace are stored as system settings
 (`sentinel.slack.integration_id`, `sentinel.slack.channel_id`,
 `sentinel.enabled`). Notifications are deduplicated within a 4h window per
 environment+signature.
+
+The daily Sentinel report also appends a month-to-date environment cost
+section when cost snapshots exist. This section reads only
+`environment_cost_snapshots` from Postgres; it never calls billing APIs or
+OpenCost during Slack send. It labels data as `fresh estimate`,
+`stale estimate`, or `unavailable`, includes shared platform overhead, and
+points operators to `eve system env-cost --all` for the full breakdown.
+
+Environment cost collection is opt-in and cloud-neutral. The orchestrator
+collector speaks the OpenCost allocation API and writes snapshots; OpenCost
+itself is provisioned/configured in the infra repo, not by Eve application
+deploys. Collector env vars:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `EVE_ENV_COST_COLLECTOR_ENABLED` | `false` | Master kill switch |
+| `EVE_ENV_COST_COLLECTOR_CRON` | `0 * * * *` | Refresh cadence for MTD snapshots |
+| `EVE_OPENCOST_URL` | unset | In-cluster OpenCost allocation API base URL |
+| `EVE_ENV_COST_SHARE_IDLE` | `false` | Attribute idle cost to envs instead of shared overhead |
+| `EVE_OPENCOST_TIMEOUT_MS` | `10000` | OpenCost fetch timeout |
+
+OpenCost outages do not delete last-good snapshots. The CLI and Sentinel
+summary surface stale or unavailable state instead.
 
 ## Managed DB TLS Trust
 

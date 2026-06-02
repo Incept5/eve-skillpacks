@@ -776,6 +776,8 @@ eve system settings get <key>                           # Get setting value
 eve system settings set <key> <value>                   # Set setting value
 eve system env-health [--status <healthy|degraded|critical>] [--limit 100] [--json]
                                                      # Cross-org environment health report (system_admin)
+eve system env-cost [--all] [--month YYYY-MM] [--source opencost] [--json]
+                                                     # Cross-org MTD environment cost estimates
 
 eve system orchestrator status                          # Orchestrator state
 eve system orchestrator set-concurrency <n>             # Set job concurrency
@@ -790,6 +792,8 @@ eve system events [--limit 50]                          # Recent platform events
 
 Notes:
 - `eve system env-health` is the platform-wide sentinel view. It returns the latest health check row per environment, including issue details, degraded tick counters, and any circuit-breaker actions.
+- `eve system env-cost` reads `GET /admin/cost/environments` and returns month-to-date environment allocation snapshots. Default table output shows the top 20 environments; `--all` shows every environment; `--json` emits the raw API payload with `total_usd`, `shared_usd`, `observed_at`, `stale`, and `stale_after_hours`.
+- Environment cost uses precomputed snapshots from the opt-in orchestrator OpenCost collector. The command never queries OpenCost directly. Freshness labels are explicit: `fresh estimate`, `stale estimate`, or `unavailable`.
 - `eve analytics env-health --org <org_id>` remains the org-scoped aggregate view. Use `eve system env-health` when you need cross-org detail as a `system_admin`.
 - Sentinel configuration is stored in system settings:
   - `sentinel.enabled`
@@ -1028,4 +1032,4 @@ eve pipeline delete <name> [--project=]     # Delete pipeline + run history
 | **Local Stack** | `up`, `down`, `status`, `health`, `reset`, `logs` |
 | **User** | `show` |
 | **Admin** | `users`, `invite`, `access-requests`, `balance`, `usage`, `pricing`, `receipts`, `ingress-aliases`, `email bounces` |
-| **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `logs`, `pods`, `events` |
+| **System** | `status`, `health`, `config`, `settings`, `orchestrator`, `jobs`, `envs`, `env-health`, `env-cost`, `logs`, `pods`, `events` |
