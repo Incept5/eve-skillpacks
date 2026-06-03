@@ -117,8 +117,11 @@ Pipeline root and step definitions can declare `toolchains` with valid values
 `python`, `media`, `rust`, `java`, and `kotlin`. Script, shorthand `run`,
 agent, and `action: { type: run }` steps resolve `step.toolchains >
 pipeline.toolchains > []`; the resolved value is stored on
-`jobs.hints.toolchains`. Other action types cannot declare step-level
-toolchains, and `action.toolchains` is rejected.
+`jobs.hints.toolchains` and provisioned before bash or harness launch. Other
+action types cannot declare step-level toolchains, and `action.toolchains` is
+rejected. If provisioning fails, the attempt fails with
+`result_json.error_code = "toolchain_unavailable"`; inspect
+`runtime_meta.toolchains` with `eve job diagnose <job-id>`.
 
 Pipeline root and step definitions can also declare `env_overrides` for
 `action: { type: run }` steps. The persisted action-run job receives the merged

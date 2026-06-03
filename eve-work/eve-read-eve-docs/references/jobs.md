@@ -580,7 +580,7 @@ Preferences (not requirements) that influence scheduling:
 | `timeout_seconds` | Execution timeout hint. Script jobs prefer `script_timeout_seconds`; `action: { type: run }` jobs prefer `action_input.timeout_seconds` / `action_input.timeout`; this hint is the fallback before the 30-minute default |
 | `max_cost` | Authoritative per-attempt budget cap; prefer this over token caps |
 | `max_tokens` | Coarse guardrail; cache-read tokens are discounted by rate-card weight when cheaper than input tokens |
-| `toolchains` | Resolved toolchains for agent, workflow/pipeline script, shorthand `run`, or pipeline `action: { type: run }` jobs. Inspect with `eve job show <id> --json` or `eve job diagnose <id>` |
+| `toolchains` | Resolved toolchains for agent, workflow/pipeline script, shorthand `run`, or pipeline `action: { type: run }` jobs. Runtime provisioning details appear in `runtime_meta.toolchains` and `eve job diagnose <id>` |
 
 Budget-configured attempts emit `budget.summary` on completion and
 `budget.exceeded` when enforcement fires. Inspect them with
@@ -639,6 +639,12 @@ eve job logs <job-id> --summary
 For active jobs, the CLI now exposes the same signals operators previously had to cross-check in kubectl:
 
 - `eve job diagnose <job-id>` includes the latest attempt pod name from `runtime_meta`, best-effort live pod health from agent-runtime status, and the most recent harness heartbeat age.
+- For classified failures, `diagnose` renders `result_json.error_code` such as
+  `toolchain_unavailable`, `attempt_init_timeout`, `attempt_startup_timeout`,
+  `attempt_timeout`, or `attempt_stale`.
+- For declared toolchains, `diagnose` renders `runtime_meta.toolchains`
+  (`execution_mode`, `requested`, `resolved`, `missing`, `source`) and recent
+  provisioning log lines.
 - `eve job follow <job-id>` warns after 60s and 120s of silence. If heartbeat lifecycle events are still arriving, it reports the harness as alive but quiet; otherwise it warns that the run may have stalled.
 - `eve agents runtime-status --org <org-id>` now shows stale pods and active-job counts in the tabular output.
 - `eve system status` now renders agent-runtime health alongside API, orchestrator, worker, and queue state when the backend returns it.
@@ -740,6 +746,16 @@ log JSON.
 
 Every job assignee — not just `orchestrator` — is in scope for the watchdog:
 
+- `recoverAttemptInitTimeouts` fails attempts that were claimed but never
+  reached runtime acceptance (`execution_started_at IS NULL`) within
+  `EVE_ORCH_ATTEMPT_INIT_TIMEOUT_SECONDS` (default 300s). Durable code:
+  `attempt_init_timeout`.
+- `recoverAttemptStartupTimeouts` fails accepted attempts that never emitted
+  `lifecycle_harness_start` within
+  `EVE_ORCH_ATTEMPT_STARTUP_TIMEOUT_SECONDS` (default 600s). Durable code:
+  `attempt_startup_timeout`.
+- Stale/hard-timeout recovery stores `attempt_stale` or `attempt_timeout` in
+  `result_json.error_code`.
 - `recoverActiveJobsWithTerminatedAttempts` periodic sweep catches jobs left
   `active` after their attempts were finalized externally (pod drain, recovery,
   agent-runtime restart). Sweep grace period via `EVE_ORCH_TERMINATED_GRACE_SECONDS`

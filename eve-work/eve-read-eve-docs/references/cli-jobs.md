@@ -127,7 +127,7 @@ Notes:
 - `--stuck` filters to jobs active longer than expected (default or `--stuck-minutes`).
 - `follow` uses SSE streaming with built-in silence detection (60s/120s warnings). Heartbeat lifecycle events from the harness are silently tracked but not printed as log lines. `watch` combines status polling with log tailing.
 - `runner-logs` fetches K8s pod logs, useful for debugging harness startup failures.
-- `diagnose` shows heartbeat-aware stuck detection, pod name + live health from agent-runtime, and pre-harness startup timing in the latency waterfall (git clone, credentials, app CLI discovery).
+- `diagnose` shows heartbeat-aware stuck detection, pod name + live health from agent-runtime, classified `result_json.error_code` values, runtime toolchain metadata, and pre-harness startup timing in the latency waterfall (git clone, credentials, app CLI discovery).
 - `--with-apis` is server-side: the CLI passes `app_apis` in job hints; the server validates APIs exist, generates the instruction block, and appends it to the description. Same behavior for CLI, API, workflow, and SDK job creation paths.
 - `--with-links` passes app-link aliases from `x-eve.app_links.consumes` in job hints. Links with `inject_into.jobs: true` are auto-discovered even without the flag. The runtime mints short-lived app-link tokens and injects `EVE_APP_LINK_<ALIAS>_*` env vars plus any exported image-mode CLI.
 - `list` returns newest-first by default; recent jobs are no longer hidden by pagination.

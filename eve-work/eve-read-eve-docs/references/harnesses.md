@@ -77,6 +77,7 @@ both worker and agent-runtime. Key modules:
 | `eve-message-relay.ts`   | EveMessageRelay: deliver to chat + coordination thread |
 | `resource-hydration.ts`  | Hydrate resources with lifecycle events              |
 | `harness-lifecycle.ts`   | Log harness start/end events                         |
+| `toolchain-cache.ts`     | Provision declared toolchains into runtime PATH/env   |
 | `codex-auth.ts`          | Write-back refreshed Codex auth tokens               |
 
 New agent-execution features go in the shared module, never in a single runtime.
@@ -220,12 +221,28 @@ Toolchain precedence: workflow step `toolchains` overrides agent `toolchains` ov
 empty (base-only). The `full` image remains available via `EVE_WORKER_VARIANT=full` for
 backwards compatibility.
 
+### Inline Runtime Provisioning
+
+Worker script/action-run jobs and the default inline agent-runtime path provision
+declared toolchains on demand before launching bash or the harness. Provisioning
+uses `EVE_TOOLCHAIN_ROOT`, `EVE_TOOLCHAIN_IMAGE_PREFIX`,
+`EVE_TOOLCHAIN_IMAGE_TAG`, and local `EVE_TOOLCHAIN_REGISTRY_INSECURE=true`
+when reading the in-cluster registry. The returned toolchain `bin` paths are
+prepended to `PATH`, and each `env.sh` overlay is injected before user
+`env_overrides` are applied.
+
+If provisioning fails, the attempt fails before harness spawn with
+`result_json.error_code = "toolchain_unavailable"`. Inspect
+`eve job diagnose <job-id>` for `runtime_meta.toolchains` and toolchain
+provisioning log lines.
+
 ### Runner Pod Injection
 
 For K8s runner pods, the orchestrator generates init containers from the `toolchains`
 array. Each init container copies its payload into a shared `emptyDir` volume mounted
 at `/opt/eve/toolchains/`. On nodes with a persistent toolchain cache (node-local PVC),
-init containers skip the copy if the cached version matches.
+init containers skip the copy if the cached version matches. Runner pods also report
+the same `runtime_meta.toolchains` block, with `source: init_container`.
 
 ---
 

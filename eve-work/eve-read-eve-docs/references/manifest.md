@@ -748,7 +748,10 @@ eve app-links explain --consumer <consumer> --alias observation
 
 ### Toolchain Declarations
 
-Agents can declare toolchains they need. The platform injects them as init containers at pod creation time, keeping the base worker image small (~800MB) while making language runtimes available on demand.
+Agents can declare toolchains they need. Inline agent-runtime and worker
+script/action-run jobs provision toolchains on demand before launching the
+harness or shell, keeping base runtime images small while making language
+runtimes available deterministically.
 
 ```yaml
 # In eve/agents.yaml
@@ -788,9 +791,18 @@ workflows:
 
 Toolchain precedence: workflow step `toolchains` > agent `toolchains` > none.
 
-Each toolchain is a small container image (~50-300MB) copied to `/opt/eve/toolchains/{name}/` via init containers. The entrypoint extends `PATH` from `EVE_TOOLCHAIN_PATHS`. Per-toolchain `env.sh` files set additional variables (e.g., `JAVA_HOME`, `RUSTUP_HOME`).
+Each toolchain is a small container image (~50-300MB) extracted into
+`/opt/eve/toolchains/{name}/`. Inline runtimes use `crane` and the shared
+toolchain cache, then prepend toolchain `bin` dirs to `PATH` and inject
+per-toolchain `env.sh` variables (for example `JAVA_HOME`, `RUSTUP_HOME`).
+Runner-pod mode uses init containers and reports the same
+`runtime_meta.toolchains` shape.
 
-Agents without `toolchains` run on the `base` image (Node.js + harnesses only). The `full` image (~2.6GB, all toolchains baked in) remains available via `EVE_WORKER_VARIANT=full`.
+Agents without `toolchains` run on the base runtime. If provisioning fails, the
+attempt fails with `result_json.error_code = "toolchain_unavailable"`; inspect
+`eve job diagnose <job-id>` for `runtime_meta.toolchains` and provisioning logs.
+The `full` image (~2.6GB, all toolchains baked in) remains available via
+`EVE_WORKER_VARIANT=full` for worker deployments that still need it.
 
 ### Cloud FS Mounts
 
@@ -1030,7 +1042,9 @@ Pipeline `toolchains` can be declared at pipeline root or step level. Valid
 values are `python`, `media`, `rust`, `java`, and `kotlin`. Script, shorthand
 `run`, agent, and `action: { type: run }` steps resolve `step.toolchains >
 pipeline.toolchains > []`. Non-run actions cannot declare step-level
-toolchains, and `action.toolchains` is rejected.
+toolchains, and `action.toolchains` is rejected. The resolved value is stored on
+`jobs.hints.toolchains`, provisioned before execution, and reported in
+`runtime_meta.toolchains`.
 
 See `references/pipelines-workflows.md` for step types, triggers, and the canonical build-release-deploy pattern.
 
@@ -1061,7 +1075,8 @@ Workflow `toolchains` can be declared at workflow root or step level. Script and
 shorthand `run` steps resolve `step.toolchains > workflow.toolchains > []`.
 Agent steps resolve `step.toolchains > agent config toolchains >
 workflow.toolchains > []`. The resolved value is stored on
-`jobs.hints.toolchains` and appears in `eve job show` / `eve job diagnose`.
+`jobs.hints.toolchains`, provisioned before execution, and appears in
+`runtime_meta.toolchains` through `eve job diagnose`.
 
 ### Multi-Step Workflow Syntax
 
