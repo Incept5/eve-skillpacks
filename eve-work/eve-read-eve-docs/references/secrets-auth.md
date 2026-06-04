@@ -409,6 +409,16 @@ eve auth creds --claude       # Only Claude
 eve auth creds --codex        # Only Codex
 ```
 
+Verify managed Claude auth after syncing:
+
+```bash
+eve auth verify --harness claude --project proj_xxx --json
+```
+
+This creates a short managed Claude job and returns `ok`, selected key/scope,
+token class, Claude Code `apiKeySource`, and whether the model replied
+`EVE_AUTH_OK`.
+
 ### OAuth Token Sync
 
 Sync local OAuth tokens into Eve secrets:
@@ -420,7 +430,14 @@ eve auth sync --project proj_xxx  # Sync to project-level
 eve auth sync --dry-run       # Preview without syncing
 ```
 
-This sets `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_OAUTH_REFRESH_TOKEN` (Claude) and `CODEX_AUTH_JSON_B64` (Codex/Code) at the requested scope.
+This sets `CLAUDE_CODE_OAUTH_TOKEN` (Claude) and `CODEX_AUTH_JSON_B64` (Codex/Code) at the requested scope.
+
+Claude runtime selection uses scope specificity first (`project > org > user >
+system`). Within the same scope, `ANTHROPIC_API_KEY` wins over
+`CLAUDE_CODE_OAUTH_TOKEN`; across scopes, a more-specific setup-token beats a
+broader API key. Setup-tokens are materialized to attempt-scoped
+`CLAUDE_CONFIG_DIR` under `EVE_JOB_USER_HOME`, and conflicting Claude auth env
+vars are scrubbed after `env_overrides`.
 
 #### Token Types and Lifetimes
 
@@ -925,7 +942,8 @@ Eve does not manage inference endpoints or proxy LLM traffic. Apps and agents br
 
 | Harness | Secret | Optional |
 |---------|--------|----------|
-| mclaude / claude / zai | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` (for custom endpoints) |
+| mclaude / claude | `CLAUDE_CODE_OAUTH_TOKEN` setup-token or `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` (for custom endpoints) |
+| zai | `Z_AI_API_KEY` | `Z_AI_BASE_URL` |
 | code / codex | `OPENAI_API_KEY` or `CODEX_AUTH_JSON_B64` | `OPENAI_BASE_URL` |
 | gemini | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | |
 | zai | `Z_AI_API_KEY` | |
@@ -942,8 +960,9 @@ For Tailscale-only endpoints, use private endpoints (platform networking primiti
 
 ```
 Job created with harness=mclaude
-  -> Worker resolves project secrets (ANTHROPIC_API_KEY, etc.)
-  -> Harness adapter injects env vars into the harness process
+  -> Runtime resolves project/org/user/system secrets
+  -> Claude selector chooses key/scope/token class and materializes setup-token if needed
+  -> Harness adapter injects sanitized env/config into the harness process
   -> Harness calls provider API directly
   -> Eve never touches inference traffic
 ```

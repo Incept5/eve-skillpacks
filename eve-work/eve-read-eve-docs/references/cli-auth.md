@@ -78,6 +78,11 @@ eve auth creds --json                                   # Machine-readable
 # creds now shows Claude token type: "setup-token (long-lived)" vs "oauth (short-lived, ~15h)"
 # For Codex, picks the freshest token across ~/.codex/auth.json and ~/.code/auth.json
 
+# Managed Claude auth probe
+eve auth verify --harness claude --project proj_xxx --json
+# Creates a short managed Claude job, checks claude_auth_selected, apiKeySource != none,
+# and model reply EVE_AUTH_OK. JSON includes key, scope, token class, and apiKeySource.
+
 # OAuth token sync to Eve
 eve auth sync                                           # Sync to user-level (default)
 eve auth sync --org org_xxx                             # Sync to org-level

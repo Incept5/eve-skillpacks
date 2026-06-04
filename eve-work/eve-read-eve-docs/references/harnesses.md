@@ -268,30 +268,29 @@ K8s: per-attempt PVCs are deleted after completion. Session-scoped PVCs use TTL 
 
 ## Authentication
 
-### Claude-Based Harnesses (mclaude, claude, zai)
+### Claude-Based Harnesses (mclaude, claude)
 
-**Priority:** `ANTHROPIC_API_KEY` (highest, skips OAuth) -> OAuth tokens
-(`CLAUDE_CODE_OAUTH_TOKEN` + `CLAUDE_OAUTH_REFRESH_TOKEN`).
+Claude auth is selected by the shared runtime selector:
 
-**OAuth refresh:** Automatic with 5-minute buffer before expiry. Cached in-memory for
-the worker process lifetime. Refresh endpoint:
+1. Scope specificity wins: `project > org > user > system`.
+2. Within the same scope, `ANTHROPIC_API_KEY` wins over `CLAUDE_CODE_OAUTH_TOKEN`.
+3. Across scopes, a more-specific setup-token beats a broader API key.
+
+Setup-tokens (`sk-ant-oat01-*`) are materialized to:
+`$EVE_JOB_USER_HOME/.claude-runtime/<claude|mclaude>/<variant-or-default>/.credentials.json`.
+This path is outside `repoPath`; credentials are never written under
+`.agent/harnesses/*`. After `env_overrides`, the runtime scrubs conflicting Claude
+auth env vars. OAuth tokens remain env-based and emit a warning.
+
+Diagnostics:
+- `claude_auth_selected`: redacted key/scope/token-class/materialization info.
+- `claude_auth_failed`: emitted once on `apiKeySource: none` or 401/invalid credentials.
+
+Verify managed auth with:
+
+```bash
+eve auth verify --harness claude --project proj_xxx --json
 ```
-POST https://console.anthropic.com/v1/oauth/token
-{ "grant_type": "refresh_token", "refresh_token": "<token>",
-  "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e" }
-```
-
-**Credentials file search order:**
-1. `~/.claude/.credentials.json`
-2. `~/.claude/credentials.json` (legacy)
-3. `$XDG_CONFIG_HOME/claude/.credentials.json`
-4. `$XDG_CONFIG_HOME/claude/credentials.json` (legacy)
-5. `$CLAUDE_CONFIG_DIR/.credentials.json` (cc-mirror)
-
-**File format:** `{ "claudeAiOauth": { "accessToken": "...", "refreshToken": "...", "expiresAt": <ms> } }`
-
-The Docker entrypoint writes credentials to `~/.claude/.credentials.json` and the
-cc-mirror config dir at container startup.
 
 ### Zai Harness
 
@@ -322,11 +321,10 @@ To initially register tokens, re-auth with `codex auth` / `code auth`, then run 
 
 ## Token Lifecycle Management
 
-### Claude OAuth Tokens
+### Claude Tokens
 
-Claude OAuth tokens (`sk-ant-oat01-*`) are short-lived (~15h) and cannot be refreshed by the
-worker -- the Claude harness handles refresh internally during a session. For jobs that may
-exceed the token's remaining lifetime, prefer `ANTHROPIC_API_KEY` (a long-lived setup-token).
+Claude setup-tokens (`sk-ant-oat01-*`) are long-lived and preferred for managed
+jobs. Other `sk-ant-*` tokens are treated as short-lived OAuth tokens.
 
 Token types detected by `eve auth creds` and `eve auth sync`:
 
@@ -710,10 +708,9 @@ All harness output is logged to the `execution_logs` table:
 
 | Variable                       | Description                                    |
 |--------------------------------|------------------------------------------------|
-| `ANTHROPIC_API_KEY`            | API key for Claude harnesses (overrides OAuth) |
-| `CLAUDE_CODE_OAUTH_TOKEN`      | OAuth access token for Claude harnesses        |
-| `CLAUDE_OAUTH_REFRESH_TOKEN`   | OAuth refresh token                            |
-| `CLAUDE_OAUTH_EXPIRES_AT`      | Token expiry (ms since epoch)                  |
+| `ANTHROPIC_API_KEY`            | Claude API key; wins only within same secret scope |
+| `CLAUDE_CODE_OAUTH_TOKEN`      | Claude setup-token or OAuth token secret       |
+| `CLAUDE_OAUTH_EXPIRES_AT`      | Optional OAuth expiry metadata                 |
 | `Z_AI_API_KEY`                 | API key for zai harness                        |
 | `GEMINI_API_KEY` / `GOOGLE_API_KEY` | API key for Gemini                        |
 | `CODEX_AUTH_JSON_B64`          | Base64-encoded auth.json for Code/Codex        |
