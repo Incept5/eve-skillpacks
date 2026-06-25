@@ -211,7 +211,7 @@ x-eve:
     alias: eden
 ```
 
-**Impact:** Without `alias`, the app gets a verbose auto-generated hostname. The alias creates a clean vanity URL. An agent building a user-facing app would miss this and end up with `web.orgslug-projectslug-sandbox.eh1.incept5.dev` instead of `eden.eh1.incept5.dev`.
+**Impact:** Without `alias`, the app gets a verbose auto-generated hostname. The alias creates a clean vanity URL. An agent building a user-facing app would miss this and end up with `web.orgslug-projectslug-sandbox.eve.example.com` instead of `eden.eve.example.com`.
 
 **Ref:** `references/manifest.md` line 230
 

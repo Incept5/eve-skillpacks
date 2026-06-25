@@ -6,3 +6,6 @@
 .pi/
 
 secrets.env
+
+# Local Eve profile
+.eve/profile.yaml

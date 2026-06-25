@@ -11,7 +11,7 @@ Use this skill as the command map for Eve. Keep examples short and concrete.
 
 ```bash
 # Create and use a profile
-eve profile create staging --api-url https://api.eh1.incept5.dev
+eve profile create staging --api-url https://api.eve.example.com
 eve profile use staging
 
 # Set defaults to avoid repeating flags
@@ -57,7 +57,7 @@ eve project members remove user_abc --project proj_xxx
 ```
 
 **URL impact:** The org `--slug` and project `--slug` directly form your deployment URLs and K8s namespaces:
-- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myorg-my-app-staging.eh1.incept5.dev`)
+- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myorg-my-app-staging.eve.example.com`)
 - Namespace: `eve-{orgSlug}-{projectSlug}-{env}` (e.g., `eve-myorg-my-app-staging`)
 
 Choose slugs carefully — they are immutable after creation.

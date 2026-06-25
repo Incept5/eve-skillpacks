@@ -38,7 +38,7 @@ eve profile list
 If no `staging` profile exists, create one:
 
 ```bash
-eve profile create staging --api-url https://api.eh1.incept5.dev
+eve profile create staging --api-url https://api.eve.example.com
 eve profile use staging
 ```
 
@@ -166,7 +166,7 @@ Use the `eve-manifest-authoring` skill for detailed manifest guidance.
 Read the Eve platform reference to understand all capabilities:
 
 ```
-https://web.incept5-evshow-staging.eh1.incept5.dev/llms
+https://showcase.eve.example.com/llms
 ```
 
 This covers CLI commands, manifest syntax, agent harnesses, job lifecycle, and more.

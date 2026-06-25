@@ -26,7 +26,7 @@ Complete reference for the Eve Horizon CLI (`eve`). Every command supports `--js
 Default to **staging** for user guidance. Use local/docker only when explicitly asked.
 
 ```bash
-export EVE_API_URL=https://api.eh1.incept5.dev   # staging (default)
+export EVE_API_URL=https://api.eve.example.com   # staging (default)
 export EVE_API_URL=http://localhost:4801          # local/docker (opt-in)
 export EVE_API_URL=http://api.eve.lvh.me          # k8s ingress (local k3d stack)
 ```
@@ -175,7 +175,7 @@ Notes:
 - `eve domain status <host> --json` returns stable `owner_env`, `dns_state`, `cert_state`, and `last_verified_at` fields.
 - Each domain gets its own K8s Ingress with cert-manager TLS via HTTP-01 challenge.
 - `eve domain verify` performs real DNS resolution server-side — it checks A/CNAME records against platform ingress and transitions status from `pending_dns` to `dns_verified` if DNS is correct. After verification, redeploy to activate.
-- Platform subdomains (e.g., `foo.eh1.incept5.dev`) are rejected — use `ingress.alias` instead.
+- Platform subdomains (e.g., `foo.eve.example.com`) are rejected — use `ingress.alias` instead.
 - Max 10 custom domains per project (configurable via `EVE_MAX_CUSTOM_DOMAINS_PER_PROJECT`).
 - Hostname is globally unique — first project to claim wins.
 - **Env-scoped, first-bind-wins**: within a project, a hostname is owned by the first env to deploy with it. Other envs that reference the same hostname log `owned by environment "<A>"` and skip rendering the ingress. Use `eve domain transfer <host> --to <env>` + redeploys to move ownership, or `eve domain unbind <host>` to clear and let the next deploy claim it. `eve domain list` shows `HOSTNAME | SERVICE | ENV | STATUS | VERIFIED` so you can see who owns what.

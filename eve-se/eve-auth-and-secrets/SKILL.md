@@ -129,10 +129,10 @@ Projects opt into app-branded invites with `x-eve.branding` in the manifest. The
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"
+    app_name: "ACME Portal"
     app_logo_url: "https://app.example.com/assets/logo.svg"   # https-only
     primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
+    email_from_name: "ACME Portal"
     reply_to_email: "support@example.com"
     support_email: "support@example.com"
     support_url: "https://example.com/help"
@@ -371,16 +371,16 @@ x-eve:
     invite_requires_password: false
     org_access:
       mode: allowlist
-      allowed_orgs: [org_Alltrack, org_Tesco, org_Morrisons]
+      allowed_orgs: [org_Acme, org_Partner, org_Retailer]
       domain_signup:
         enabled: true
         domains:
-          - { domain: incept5.com,  target_org: org_Alltrack, role: member }
-          - { domain: tesco.com,    target_org: org_Tesco }
-          - { domain: morrisons.com, target_org: org_Morrisons }
+          - { domain: example.com,  target_org: org_Acme, role: member }
+          - { domain: partner.example,    target_org: org_Partner }
+          - { domain: retailer.example, target_org: org_Retailer }
 ```
 
-Rules are walked in declaration order — first match wins, so declare more-specific patterns first. Each rule's `target_org` must appear in `allowed_orgs`. Declaring free-email providers (`gmail.com`) is allowed but produces a manifest coherence warning. Explicit pending invites take priority over domain signup (Path B beats Path C). Removing a rule stops new signups but does not retroactively remove existing memberships — drop those with `eve org members remove`.
+Rules are walked in declaration order — first match wins, so declare more-specific patterns first. Each rule's `target_org` must appear in `allowed_orgs`. Declaring free-email providers (`free-mail.example`) is allowed but produces a manifest coherence warning. Explicit pending invites take priority over domain signup (Path B beats Path C). Removing a rule stops new signups but does not retroactively remove existing memberships — drop those with `eve org members remove`.
 
 Audit via the event spine: `auth.domain_signup.invite_created` and `auth.domain_signup.member_attached` carry `org_id`, `matched_rule`, and `matched_domain`.
 

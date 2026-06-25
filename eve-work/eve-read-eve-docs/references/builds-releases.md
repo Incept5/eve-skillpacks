@@ -60,7 +60,7 @@ Output images from a successful build.
 | Field | Type | Description |
 |-------|------|-------------|
 | `service_name` | string | Which service was built |
-| `image_ref` | string | Full image reference (e.g., `registry.eh1.incept5.dev/org/api`) |
+| `image_ref` | string | Full image reference (e.g., `registry.eve.example.com/org/api`) |
 | `digest` | string | `sha256:...` content digest |
 | `platforms` | string[]? | e.g., `["linux/amd64", "linux/arm64"]` |
 | `size_bytes` | number? | Image size |
@@ -186,7 +186,7 @@ services:
       context: ./apps/api
 ```
 
-The derived name is prefixed with the registry host at build time (e.g., `registry.eh1.incept5.dev/api:sha-abc123`). You can still set `image` explicitly to override the default.
+The derived name is prefixed with the registry host at build time (e.g., `registry.eve.example.com/api:sha-abc123`). You can still set `image` explicitly to override the default.
 
 ### Zero-Artifact Build Failure
 
@@ -204,7 +204,7 @@ Services can specify their full image path without a tag:
 ```yaml
 services:
   api:
-    image: registry.eh1.incept5.dev/myorg/my-project-api
+    image: registry.eve.example.com/myorg/my-project-api
     build:
       context: ./apps/api
 ```
@@ -219,10 +219,10 @@ For fast iteration without pushing to a remote registry:
 
 ```bash
 # Build with :local tag
-docker build -t registry.eh1.incept5.dev/myorg/my-project-api:local ./apps/api
+docker build -t registry.eve.example.com/myorg/my-project-api:local ./apps/api
 
 # Import directly into k3d cluster (no push/pull roundtrip)
-k3d image import registry.eh1.incept5.dev/myorg/my-project-api:local -c eve-local
+k3d image import registry.eve.example.com/myorg/my-project-api:local -c eve-local
 
 # Deploy
 eve env deploy test --ref main --repo-dir .

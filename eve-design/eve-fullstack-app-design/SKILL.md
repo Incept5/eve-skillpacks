@@ -82,7 +82,7 @@ services:
 3. **Mark external services explicitly.** Use `x-eve.external: true` with `x-eve.connection_url` for services hosted outside Eve (Redis, third-party APIs).
 4. **Use `x-eve.role: job` for one-off tasks.** Migrations, seeds, and data backfills are job services, not persistent processes.
 5. **Expose ingress intentionally.** Only services that need external HTTP access get `x-eve.ingress.public: true`. Internal services communicate via cluster networking.
-6. **Choose a hostname strategy early.** Every public service gets a generated platform URL by default. Layer on `x-eve.ingress.alias` for a friendlier platform-subdomain (`ingest.eh1.incept5.dev`), or `x-eve.ingress.domains: [limelee.com]` to bring your own domain. Custom domains are env-scoped and first-bind-wins — design which environment owns the apex (usually `production`) before declaring it. See `eve-manifest-authoring` and `eve-deploy-debugging` for declaration and DNS verification flow.
+6. **Choose a hostname strategy early.** Every public service gets a generated platform URL by default. Layer on `x-eve.ingress.alias` for a friendlier platform-subdomain (`ingest.eve.example.com`), or `x-eve.ingress.domains: [limelee.com]` to bring your own domain. Custom domains are env-scoped and first-bind-wins — design which environment owns the apex (usually `production`) before declaring it. See `eve-manifest-authoring` and `eve-deploy-debugging` for declaration and DNS verification flow.
 
 ### Stable Outbound IPs (Egress)
 
@@ -154,7 +154,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: ${managed.db.url}
-      CORS_ORIGIN: "https://myapp.eh1.incept5.dev"
+      CORS_ORIGIN: "https://myapp.eve.example.com"
     # No x-eve.ingress — API is internal only
 
   web:
@@ -171,7 +171,7 @@ services:
       ingress:
         public: true
         port: 80
-        alias: myapp                        # https://myapp.{org}-{project}-{env}.eh1.incept5.dev
+        alias: myapp                        # https://myapp.{org}-{project}-{env}.eve.example.com
 
   migrate:
     image: public.ecr.aws/w7c4v0w3/eve-horizon/migrate:latest
@@ -791,10 +791,10 @@ Per-app branding is a manifest concern, not a code concern. Declare it once and 
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"
+    app_name: "ACME Portal"
     app_logo_url: "https://app.example.com/assets/logo.svg"
     primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
+    email_from_name: "ACME Portal"
     reply_to_email: "support@example.com"
     support_email: "support@example.com"
     support_url: "https://example.com/help"
@@ -842,7 +842,7 @@ x-eve:
 
 **Design implications:**
 - Rules are walked in declaration order — first match wins. Declare more-specific patterns first.
-- The trust model is "operator declares, platform trusts" — no DNS proof in v1. Declaring `gmail.com` produces a coherence warning but is permitted.
+- The trust model is "operator declares, platform trusts" — no DNS proof in v1. Declaring `free-mail.example` produces a coherence warning but is permitted.
 - Explicit pending invites (Path B) always win over domain signup (Path C); existing users with allowed-org membership (Path A) get the standard branded send.
 - Removing a rule stops new signups but does not retroactively remove existing memberships — plan offboarding as an explicit `eve org members remove`.
 - Audit via `auth.domain_signup.invite_created` and `auth.domain_signup.member_attached` events.

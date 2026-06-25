@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WORKSPACE=${1:-/Users/adam/dev/incept5/eve-skillpacks}
+WORKSPACE=${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}
 CDIR=${WORKSPACE}/eve-work/eve-read-eve-docs
 FAILED=0
 

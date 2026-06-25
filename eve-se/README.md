@@ -24,7 +24,7 @@ Skills for app developers using Eve Horizon to deploy, debug, and operate Eve-co
 
 Add to your `skills.txt`:
 ```
-https://github.com/incept5/eve-skillpacks
+https://github.com/eve-horizon/eve-skillpacks
 ```
 
 This installs all packs in the repo. For a local clone or targeted installs, you can also use:

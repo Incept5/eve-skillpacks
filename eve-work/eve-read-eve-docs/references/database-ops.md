@@ -227,7 +227,7 @@ services:
       retries: 5
 
   migrate:
-    image: ghcr.io/incept5/eve-migrate:latest
+    image: ghcr.io/eve-horizon/eve-migrate:latest
     environment:
       DATABASE_URL: postgres://app:app@db:5432/myapp
     volumes:

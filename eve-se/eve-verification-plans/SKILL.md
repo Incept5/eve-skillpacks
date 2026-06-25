@@ -301,7 +301,7 @@ Scenarios marked `Parallel Safe: Yes` can run concurrently. Typically:
 
 ```bash
 # In CI, set environment and run
-export EVE_API_URL=https://api.eh1.incept5.dev
+export EVE_API_URL=https://api.eve.example.com
 eve auth login --email $CI_EMAIL --ssh-key $CI_SSH_KEY
 
 # Run all scenarios, collect artifacts

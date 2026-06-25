@@ -149,7 +149,7 @@ For local dev, use the same image via Docker Compose for parity:
 # docker-compose.yml
 services:
   migrate:
-    image: ghcr.io/incept5/eve-migrate:latest
+    image: ghcr.io/eve-horizon/eve-migrate:latest
     environment:
       DATABASE_URL: postgres://app:app@db:5432/myapp
     volumes:
@@ -248,10 +248,10 @@ App-facing login, invite emails, and magic-link emails are project-scoped and de
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"                                    # required, <=60 chars
+    app_name: "ACME Portal"                                    # required, <=60 chars
     app_logo_url: "https://app.example.com/logo.svg"          # https only on emitted mail
     primary_color: "#1f6feb"                                  # six-digit hex
-    email_from_name: "ALL-TRACK"                              # From-name header
+    email_from_name: "ACME Portal"                              # From-name header
     reply_to_email: "support@example.com"
     support_email: "support@example.com"
     support_url: "https://example.com/help"
@@ -278,16 +278,16 @@ x-eve:
   auth:
     org_access:
       mode: allowlist
-      allowed_orgs: [org_acme, org_tesco]
+      allowed_orgs: [org_acme, org_partner]
       domain_signup:
         enabled: true
         domains:
           - { domain: acme.com,   target_org: org_acme,  role: member }
-          - { domain: tesco.com,  target_org: org_tesco }
+          - { domain: partner.example,  target_org: org_partner }
           - { domain: "*.acme.com", target_org: org_acme }  # wildcard; apex needs its own rule
 ```
 
-v2 shape (2026-05-12). Each `domains[]` entry is an object with its own required `target_org`; the legacy list-of-strings + block-level `target_org` is no longer accepted. Each `target_org` must already appear in `allowed_orgs`. Matching is first-rule-in-declaration-order; declare more-specific patterns first. Invalid with `login_method: password`. Free-email domains (`gmail.com`, `outlook.com`, ...) emit a coherence warning — declaring them lets anyone on Earth join.
+v2 shape (2026-05-12). Each `domains[]` entry is an object with its own required `target_org`; the legacy list-of-strings + block-level `target_org` is no longer accepted. Each `target_org` must already appear in `allowed_orgs`. Matching is first-rule-in-declaration-order; declare more-specific patterns first. Invalid with `login_method: password`. Free-email domains (`free-mail.example`, `outlook.com`, ...) emit a coherence warning — declaring them lets anyone on Earth join.
 
 ### `x-eve.auth.allowed_redirect_origins` — custom-domain apps
 
@@ -499,7 +499,7 @@ When object store buckets are provisioned, these env vars are injected into the 
 | `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO local dev, omitted for AWS S3 |
 
 On AWS staging, apps currently share one app-bucket IAM principal scoped to
-`eh1-eve-app-*`. It cannot access platform internal buckets or org filesystem
+`demo-eve-app-*`. It cannot access platform internal buckets or org filesystem
 buckets, but it does not isolate app buckets from each other. Per-app IRSA is
 the production follow-up.
 

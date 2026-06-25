@@ -80,7 +80,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: ${managed.db.url}
-      CORS_ORIGIN: "https://my-project.eh1.incept5.dev"
+      CORS_ORIGIN: "https://my-project.eve.example.com"
     # No x-eve.ingress — API is internal, reached via web's /api/ proxy
 
   web:
@@ -180,13 +180,13 @@ Project-level branding is used by app invite emails, app-scoped magic-link email
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"
-    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    app_name: "ACME Portal"
+    app_logo_url: "https://sandbox.acme.example/assets/logo.svg"
     primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
-    reply_to_email: "support@all-track.co.uk"
-    support_email: "support@all-track.co.uk"
-    support_url: "https://all-track.co.uk/help"
+    email_from_name: "ACME Portal"
+    reply_to_email: "support@acme.example"
+    support_email: "support@acme.example"
+    support_url: "https://acme.example/help"
 ```
 
 `app_name` is required when `branding` is present (≤60 chars, no newlines). Logo/support URLs must be valid URLs; only HTTPS logo URLs are emitted into Phase 1 emails. `primary_color` must be a six-digit hex like `#1f6feb`. `email_from_name`, `reply_to_email`, and `support_email` set the `From:`/`Reply-To:` headers on app-scoped mail while keeping the platform sender address.
@@ -235,21 +235,21 @@ x-eve:
     invite_requires_password: false
     org_access:
       mode: allowlist
-      allowed_orgs: [org_Alltrack, org_Tesco, org_Morrisons, org_ALLTAG]
+      allowed_orgs: [org_Acme, org_Partner, org_Retailer, org_Partner]
       domain_signup:
         enabled: true
         domains:
-          - domain: incept5.com
-            target_org: org_Alltrack
+          - domain: example.com
+            target_org: org_Acme
             role: member                    # optional; defaults to 'member'
-          - domain: tesco.com
-            target_org: org_Tesco
-          - domain: morrisons.com
-            target_org: org_Morrisons
-          - domain: all-tag.com
-            target_org: org_ALLTAG
-          - domain: "*.all-tag.com"         # wildcard matches subdomains, not the apex
-            target_org: org_ALLTAG
+          - domain: partner.example
+            target_org: org_Partner
+          - domain: retailer.example
+            target_org: org_Retailer
+          - domain: partner.example
+            target_org: org_Partner
+          - domain: "*.partner.example"         # wildcard matches subdomains, not the apex
+            target_org: org_Partner
 ```
 
 **v2 schema (2026-05-12, breaking change).** `domains` is now a list of rule objects. The v1 list-of-strings shape and the block-level `target_org`/`role` fields are gone; manifest sync rejects them.
@@ -263,7 +263,7 @@ Rules:
 - Domain patterns are lowercased and IDN-normalized (punycode) at parse time.
 - `*.acme.com` matches `eu.acme.com` and `sub.eu.acme.com` but **not** bare `acme.com`. Declare both as separate rules if both should match.
 - Invalid with `login_method: password`. `magic_link` and `password_or_magic_link` are both valid.
-- Declaring `gmail.com` (or any free-email provider) emits a manifest coherence warning per rule — the effect is unbounded for that target org.
+- Declaring `free-mail.example` (or any free-email provider) emits a manifest coherence warning per rule — the effect is unbounded for that target org.
 - No DNS proof. The operator declares; the platform trusts.
 
 Eligibility precedence on `POST /auth/magic-link`:
@@ -289,7 +289,7 @@ x-eve:
   auth:
     login_method: magic_link
     allowed_redirect_origins:
-      - https://sandbox.all-track.co.uk
+      - https://sandbox.acme.example
       - https://app.example.com
 ```
 
@@ -327,14 +327,14 @@ workflow files:
 
 ```yaml
 workflows:
-  alltrack-make-plan:
-    $ref: .eve/workflows/alltrack-make-plan
+  acme-make-plan:
+    $ref: .eve/workflows/acme-make-plan
 ```
 
 Recommended layout:
 
 ```text
-.eve/workflows/alltrack-make-plan/
+.eve/workflows/acme-make-plan/
   workflow.yaml
   prompts/
     plan.md
@@ -353,7 +353,7 @@ Workflow files can keep long prompts in Markdown files:
 steps:
   - name: plan
     agent:
-      name: alltrack-planner
+      name: acme-planner
       prompt_file: prompts/plan.md
 ```
 
@@ -506,7 +506,7 @@ Static-key env vars for local MinIO or explicit `shared` mode:
 - `STORAGE_ENDPOINT` — MinIO/S3 endpoint
 - `STORAGE_REGION`
 - `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` — storage credentials injected for the app
-- `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging)
+- `STORAGE_BUCKET_<NAME>` — physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `demo-eve-app-myorg-myapp-test-uploads` on staging)
 - `STORAGE_FORCE_PATH_STYLE` — `true` for MinIO, omitted for AWS S3
 
 IRSA env vars for AWS:
@@ -572,13 +572,13 @@ services:
 - Each opt-in pod inherits the IP of the egress node it's scheduled on.
   Phase 1 ships a single-AZ, single-instance pool — node replacement /
   upgrade gives a new public IP. Apps that rely on STUN auto-reconnect
-  (pvscam-class) tolerate this; vendors that allow-list source IPs do not.
+  (vendor-x-class) tolerate this; vendors that allow-list source IPs do not.
   Phase 2 introduces a pre-allocated EIP pool.
 - `NetworkPolicy` does not apply to hostNetwork pods — closed-egress
   policies on the namespace are silently bypassed.
 - Verify with `eve env diagnose <project> <env>` (the rendered pod has
   `hostNetwork: true` + the `eve.io/egress-pool` selector) and the
-  `udp-diag.py` helper in `incept5-eve-infra/scripts/stable-egress/`
+  `udp-diag.py` helper in `deployment-instance-repo/scripts/stable-egress/`
   (run inside the pod; same-socket STUN should report
   `endpoint-independent (good)`).
 
@@ -921,8 +921,8 @@ Eve automatically injects these variables into all deployed services:
 | Variable | Description |
 |----------|-------------|
 | `EVE_API_URL` | Internal cluster URL for server-to-server calls (e.g., `http://eve-api:4701`) |
-| `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps (e.g., `https://api.eh1.incept5.dev`) |
-| `EVE_SSO_URL` | SSO broker URL for user authentication (e.g., `https://sso.eh1.incept5.dev`) |
+| `EVE_PUBLIC_API_URL` | Public ingress URL for browser-facing apps (e.g., `https://api.eve.example.com`) |
+| `EVE_SSO_URL` | SSO broker URL for user authentication (e.g., `https://sso.eve.example.com`) |
 | `EVE_PROJECT_ID` | The project ID (e.g., `proj_01abc123...`) |
 | `EVE_ORG_ID` | The organization ID (e.g., `org_01xyz789...`) |
 | `EVE_ENV_NAME` | The environment name (e.g., `staging`, `production`) |
@@ -1415,7 +1415,7 @@ x-eve:
   install_agents: [claude-code, codex, gemini-cli]  # defaults to [claude-code]
   packs:
     - source: ./skillpacks/my-pack
-    - source: incept5/eve-skillpacks
+    - source: eve-horizon/eve-skillpacks
       ref: 0123456789abcdef0123456789abcdef01234567
     - source: ./skillpacks/claude-only
       install_agents: [claude-code]
@@ -1468,7 +1468,7 @@ resolved_at: "2026-02-09T..."
 project_slug: myproject
 packs:
   - id: pack-id
-    source: incept5/eve-skillpacks
+    source: eve-horizon/eve-skillpacks
     ref: 0123456789abcdef0123456789abcdef01234567
     pack_version: 1
 effective:
@@ -1531,7 +1531,7 @@ services:
     x-eve:
       ingress:
         public: true
-        alias: myapp              # myapp.eh1.incept5.dev (platform subdomain)
+        alias: myapp              # myapp.eve.example.com (platform subdomain)
         domains:
           - myapp.com             # custom domain (A record)
           - www.myapp.com         # custom domain (CNAME)

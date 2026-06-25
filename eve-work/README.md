@@ -16,7 +16,7 @@ Skills for doing productive work using Eve Horizon patterns.
 
 Add to your `skills.txt`:
 ```
-https://github.com/incept5/eve-skillpacks
+https://github.com/eve-horizon/eve-skillpacks
 ```
 
 This installs all packs in the repo. For a local clone or targeted installs, you can also use:

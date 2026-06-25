@@ -110,7 +110,7 @@ When working inside the Eve Horizon source repo, use the repo-pinned Playwright 
 ./bin/eh browser test -g "<name>"  # run the dashboard Playwright suite
 ```
 
-Defaults: `chromium` browser, persistent profile under `tmp/playwright-browser/profile`, screenshots in `tmp/playwright-browser/screenshots`, codegen output in `tmp/playwright-browser/codegen`, dashboard URL `http://dashboard.eve.lvh.me`, API URL `http://api.eve.lvh.me`. Set `EVE_API_URL=https://api.eh1.incept5.dev` to point at staging.
+Defaults: `chromium` browser, persistent profile under `tmp/playwright-browser/profile`, screenshots in `tmp/playwright-browser/screenshots`, codegen output in `tmp/playwright-browser/codegen`, dashboard URL `http://dashboard.eve.lvh.me`, API URL `http://api.eve.lvh.me`. Set `EVE_API_URL=https://api.eve.example.com` to point at staging.
 
 `./bin/eh browser dashboard` mints a token via `eve auth token --raw` and injects it as `sessionStorage.eve_access_token`. If minting fails, run `eve auth login` first.
 

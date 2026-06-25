@@ -389,12 +389,12 @@ React: `useEveAppAccess().inviteMember({ orgId, email })`. CLI fallback: `eve or
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"
-    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    app_name: "ACME Portal"
+    app_logo_url: "https://sandbox.acme.example/assets/logo.svg"
     primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
-    reply_to_email: "support@all-track.co.uk"
-    support_email: "support@all-track.co.uk"
+    email_from_name: "ACME Portal"
+    reply_to_email: "support@acme.example"
+    support_email: "support@acme.example"
 ```
 
 `projects.branding` (migration `00093_project_branding.sql`) drives the email subject, body, and `From:` display name for invite and magic-link mail when the invite is created with `--project <project_id>`. The sender address remains the platform default in Phase 1; missing branding falls back to "Eve Horizon" defaults. Header-injection guards reject CR/LF in `app_name`, `email_from_name`, `reply_to_email`; non-HTTPS logos are silently omitted.
@@ -407,7 +407,7 @@ For apps on custom domains, declare which off-cluster origins SSO may redirect t
 x-eve:
   auth:
     allowed_redirect_origins:
-      - https://sandbox.all-track.co.uk
+      - https://sandbox.acme.example
       - https://app.example.com
 ```
 

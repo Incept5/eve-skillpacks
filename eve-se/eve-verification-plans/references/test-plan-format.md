@@ -43,7 +43,7 @@ Every plan starts setup with environment detection:
 if [[ "$EVE_API_URL" == https://* ]]; then
   ENV_TYPE="cloud"
   APP_SCHEME="https"
-  APP_DOMAIN="${EVE_API_URL#https://api.}"  # e.g., eh1.incept5.dev
+  APP_DOMAIN="${EVE_API_URL#https://api.}"  # e.g., eve.example.com
 else
   ENV_TYPE="local"
   APP_SCHEME="http"

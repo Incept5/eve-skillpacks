@@ -155,7 +155,7 @@ Skills for doing productive work using Eve Horizon patterns.
 Add this repo to `skills.txt` to install all packs:
 
 ```txt
-https://github.com/incept5/eve-skillpacks
+https://github.com/eve-horizon/eve-skillpacks
 ```
 
 This installs every skill in the repo. For selective installs, clone the repo and list only the packs/skills you want in `skills.txt`, then run:
@@ -203,7 +203,7 @@ Brief description of the pack's domain and purpose.
 
 Add to your `skills.txt`:
 ```
-https://github.com/incept5/eve-skillpacks
+https://github.com/eve-horizon/eve-skillpacks
 ```
 
 ## Who Should Use This
@@ -301,6 +301,6 @@ The packs live in a dedicated public repo so any project can reference them via 
 
 ## Navigation
 
-- Skills system: https://github.com/incept5/eve-horizon/blob/main/docs/system/skills.md
-- Skills manifest: https://github.com/incept5/eve-horizon/blob/main/docs/system/skills-manifest.md
-- Skillpacks user guide: https://github.com/incept5/eve-horizon/blob/main/docs/system/skillpacks.md
+- Skills system: https://github.com/eve-horizon/eve-horizon/blob/main/docs/system/skills.md
+- Skills manifest: https://github.com/eve-horizon/eve-horizon/blob/main/docs/system/skills-manifest.md
+- Skillpacks user guide: https://github.com/eve-horizon/eve-horizon/blob/main/docs/system/skillpacks.md

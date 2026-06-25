@@ -6,12 +6,12 @@ Public skill packs for Eve Horizon. Dev-only packs live in the eve-horizon repo 
 
 Add to your `skills.txt`:
 ```
-https://github.com/incept5/eve-skillpacks
+https://github.com/eve-horizon/eve-skillpacks
 ```
 
 This installs all skills in the repo for on-clone installs. For local installs, run:
 ```
-skills add https://github.com/incept5/eve-skillpacks -a claude-code -y --all
+skills add https://github.com/eve-horizon/eve-skillpacks -a claude-code -y --all
 # or add to skills.txt and run ./bin/eh skills install in an Eve repo
 ```
 

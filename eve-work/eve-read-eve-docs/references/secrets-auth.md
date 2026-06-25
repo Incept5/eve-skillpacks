@@ -674,13 +674,13 @@ Projects define invite email branding in `.eve/manifest.yaml`:
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"
-    app_logo_url: "https://sandbox.all-track.co.uk/assets/logo.svg"
+    app_name: "ACME Portal"
+    app_logo_url: "https://sandbox.acme.example/assets/logo.svg"
     primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
-    reply_to_email: "support@all-track.co.uk"
-    support_email: "support@all-track.co.uk"
-    support_url: "https://all-track.co.uk/help"
+    email_from_name: "ACME Portal"
+    reply_to_email: "support@acme.example"
+    support_email: "support@acme.example"
+    support_url: "https://acme.example/help"
 ```
 
 Run `eve project sync` after changing the manifest. If an invite omits `project_id` or the project has no branding, Eve Horizon defaults are used. Phase 1 keeps the sender address on the platform default; only the display name is app-branded.
@@ -738,21 +738,21 @@ x-eve:
     invite_requires_password: false
     org_access:
       mode: allowlist
-      allowed_orgs: [org_Alltrack, org_Tesco, org_Morrisons]
+      allowed_orgs: [org_Acme, org_Partner, org_Retailer]
       domain_signup:
         enabled: true
         domains:
-          - domain: incept5.com
-            target_org: org_Alltrack
-          - domain: tesco.com
-            target_org: org_Tesco
-          - domain: morrisons.com
-            target_org: org_Morrisons
+          - domain: example.com
+            target_org: org_Acme
+          - domain: partner.example
+            target_org: org_Partner
+          - domain: retailer.example
+            target_org: org_Retailer
 ```
 
 **v2 schema (2026-05-12, breaking change).** Each entry under `domains` is now an object with a required `target_org`. The v1 list-of-strings shape and the block-level `target_org`/`role` fields are gone; manifest sync rejects them.
 
-The operator declares the trusted domains; the platform trusts them (no DNS proof). Free-email providers like `gmail.com` emit a manifest coherence warning per rule but are not blocked.
+The operator declares the trusted domains; the platform trusts them (no DNS proof). Free-email providers like `free-mail.example` emit a manifest coherence warning per rule but are not blocked.
 
 Eligibility ordering on `POST /auth/magic-link`:
 
@@ -770,7 +770,7 @@ To revoke access for a rule: remove it from the manifest (stops new signups unde
 ### Post-Auth Redirect Allowlist (Custom Domains)
 
 By default the SSO broker only accepts `redirect_to` and CORS origins under the
-cluster domain (`EVE_DEFAULT_DOMAIN`, e.g. `eh1.incept5.dev`). Apps deployed on
+cluster domain (`EVE_DEFAULT_DOMAIN`, e.g. `eve.example.com`). Apps deployed on
 their own domain need their origin opted into the allowlist or the SSO drops
 the redirect and lands users on the SSO root.
 
@@ -852,7 +852,7 @@ Set `EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS` on the SSO service to gate `/auth/signup`
 ```yaml
 # k8s/base/sso-deployment.yaml
 - name: EVE_SIGNUP_ALLOWED_EMAIL_DOMAINS
-  value: "incept5.com,incept5.co.uk"
+  value: "example.com,example.co.uk"
 ```
 
 - Comma-separated, case-insensitive on the domain part of the email.

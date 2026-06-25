@@ -84,7 +84,7 @@ agent-browser wait --url "**/accounts.google.com**"
 agent-browser snapshot -i
 
 # Fill Google credentials
-agent-browser fill @e1 "user@gmail.com"
+agent-browser fill @e1 "user@free-mail.example"
 agent-browser click @e2  # Next button
 agent-browser wait 2000
 agent-browser snapshot -i

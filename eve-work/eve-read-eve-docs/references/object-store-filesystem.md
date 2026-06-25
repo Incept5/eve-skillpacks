@@ -174,7 +174,7 @@ Static-key env vars for local MinIO or explicit shared mode:
 | `STORAGE_ENDPOINT` | S3-compatible endpoint |
 | `STORAGE_REGION` | Storage region |
 | `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | App-scoped storage credentials injected for the app |
-| `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `eh1-eve-app-myorg-myapp-test-uploads` on staging) |
+| `STORAGE_BUCKET_<NAME>` | Physical bucket name (e.g. `eve-org-myorg-myapp-test-uploads` locally or `demo-eve-app-myorg-myapp-test-uploads` on staging) |
 | `STORAGE_FORCE_PATH_STYLE` | `true` for MinIO, omitted for AWS S3 |
 
 IRSA env vars for AWS:
@@ -202,10 +202,10 @@ this order, so the worker can keep its provisioner credentials (used for
 2. `EVE_STORAGE_*` fallback (local MinIO compatibility only)
 
 The app bucket physical-name prefix is controlled by
-`EVE_STORAGE_APP_BUCKET_PREFIX` (e.g. `eh1-eve-app`), defaulting to
+`EVE_STORAGE_APP_BUCKET_PREFIX` (e.g. `demo-eve-app`), defaulting to
 `EVE_STORAGE_ORG_BUCKET_PREFIX` for local backwards compatibility. App
 credentials are scoped to that app-bucket prefix and cannot reach the
-platform internal bucket, org filesystem buckets (`eh1-eve-org-*`), or non-Eve
+platform internal bucket, org filesystem buckets (`demo-eve-org-*`), or non-Eve
 buckets. On AWS, `auto` resolves to IRSA when the worker has OIDC provider
 configuration and IAM permissions. Eve creates one role per org/project/env and
 fully replaces its `app-bucket-access` inline policy with the env's declared

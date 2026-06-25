@@ -95,7 +95,7 @@ blank lines and `#` comments are ignored. Always prefix local paths with `./`,
 ```txt
 ./skillpacks/my-pack/*                   # All skills in a local pack
 ./skillpacks/my-pack/specific-skill      # One specific skill
-https://github.com/incept5/eve-skillpacks  # Remote source
+https://github.com/eve-horizon/eve-skillpacks  # Remote source
 ```
 
 ```bash
@@ -117,7 +117,7 @@ x-eve:
   install_agents: [claude-code, codex, gemini-cli, pi]   # default for all four
   packs:
     - source: ./skillpacks/my-pack
-    - source: incept5/eve-skillpacks
+    - source: eve-horizon/eve-skillpacks
       ref: 0123456789abcdef0123456789abcdef01234567       # pinned 40-char SHA
 ```
 
@@ -308,5 +308,5 @@ git@github.com:your-org/team-skills
 ```txt
 ./skillpacks/my-pack/*                     # Local pack (all skills)
 ./skillpacks/another-pack/special-skill    # Single skill from another pack
-https://github.com/incept5/eve-skillpacks  # Remote packs
+https://github.com/eve-horizon/eve-skillpacks  # Remote packs
 ```

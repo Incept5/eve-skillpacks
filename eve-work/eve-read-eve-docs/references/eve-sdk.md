@@ -180,9 +180,9 @@ Apps opt into branded SSO and passwordless login by adding `x-eve.branding` and 
 ```yaml
 x-eve:
   branding:
-    app_name: "ALL-TRACK"
+    app_name: "ACME Portal"
     primary_color: "#1f6feb"
-    email_from_name: "ALL-TRACK"
+    email_from_name: "ACME Portal"
   auth:
     login_method: magic_link        # or password_or_magic_link
     self_signup: false

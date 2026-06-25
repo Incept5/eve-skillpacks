@@ -42,18 +42,18 @@ This shows what environments are running, the correct `EVE_API_URL` for each, po
 | K8s (k3d) | `http://api.eve.lvh.me` | Manual tests, deployment testing |
 | Docker Compose | `http://localhost:4801` | Integration tests, quick dev loop |
 | Local pnpm dev | `http://localhost:4801` | Hot-reload development |
-| Staging | `https://api.eh1.incept5.dev` | Production-like testing |
+| Staging | `https://api.eve.example.com` | Production-like testing |
 
 No port-forwarding required for K8s -- all services are accessible via Ingress.
 
 ### No Direct AWS Infrastructure Changes
 
-All AWS infrastructure changes must go through Terraform in the `incept5-eve-infra` repo. Never run AWS CLI commands that mutate infrastructure (security groups, IAM, DNS, EKS, ASGs, etc.). Terraform is authoritative -- out-of-band changes are silently reverted on the next `terraform apply`.
+All AWS infrastructure changes must go through Terraform in the `deployment-instance-repo` repo. Never run AWS CLI commands that mutate infrastructure (security groups, IAM, DNS, EKS, ASGs, etc.). Terraform is authoritative -- out-of-band changes are silently reverted on the next `terraform apply`.
 
 If staging infra is broken (API unreachable, SG rules wrong, DNS misconfigured):
 
 1. Diagnose with read-only commands (curl, dig, AWS CLI reads are fine).
-2. Fix in `../incept5-eve-infra/terraform/aws/`.
+2. Fix in `../deployment-instance/terraform/aws/`.
 3. Run `terraform plan` then `terraform apply` from that repo.
 4. Verify the plan shows "No changes" after apply.
 
@@ -61,12 +61,12 @@ If you lack access to the infra repo, escalate to the user -- do not apply a qui
 
 ### Staging Kubeconfig Safety
 
-When operating the Incept5 staging EKS cluster:
+When operating the hosted staging EKS cluster:
 
-- **Only** use `../incept5-eve-infra/config/kubeconfig.yaml` as kubeconfig.
-- Prefer running operations from `../incept5-eve-infra` via `./bin/eve-infra ...`.
-- **Never** use `~/.kube/eve-staging.yaml` or the implicit default kube context for staging.
-- If direct `kubectl` is unavoidable, always pass both `--kubeconfig ../incept5-eve-infra/config/kubeconfig.yaml` and `--context arn:aws:eks:eu-west-1:767828750268:cluster/eh1-cluster`.
+- **Only** use `../deployment-instance/config/kubeconfig.yaml` as kubeconfig.
+- Prefer running operations from `../deployment-instance` via `./bin/eve-infra ...`.
+- **Never** use `~/.kube/eve-hosted.yaml` or the implicit default kube context for staging.
+- If direct `kubectl` is unavoidable, always pass both `--kubeconfig ../deployment-instance/config/kubeconfig.yaml` and `--context arn:aws:eks:eu-west-1:<aws-account-id>:cluster/<cluster-name>`.
 
 ## Developer Quick Start
 
@@ -303,7 +303,7 @@ Integration tests use API endpoints, not direct DB queries. Test and dev use sep
 
 | Repo | Expected Path | Purpose |
 |---|---|---|
-| incept5-eve-infra | `../incept5-eve-infra` | K8s manifests, kustomize overlays, deploy automation |
+| deployment-instance-repo | `../deployment-instance` | K8s manifests, kustomize overlays, deploy automation |
 | eve-horizon-starter | `../eve-horizon-starter` | Starter template for new Eve projects |
 | eve-horizon-fullstack-example | `../eve-horizon-fullstack-example` | Example fullstack app for deployment testing |
 | eve-skillpacks | `../eve-skillpacks` | Published skill packs referenced by `skills.txt` |
@@ -328,7 +328,7 @@ The standard deployment flow:
 2. **Release**: capture a deployable snapshot (SHA + manifest + digests).
 3. **Deploy**: apply release to an environment.
 
-Staging deploys use a **two-repo model**: source repo (`eve-horizon`) builds and pushes images on `release-v*` tags, then dispatches to the infra repo (`incept5-eve-infra`) which applies K8s manifests.
+Staging deploys use a **two-repo model**: source repo (`eve-horizon`) builds and pushes images on `release-v*` tags, then dispatches to the infra repo (`deployment-instance-repo`) which applies K8s manifests.
 
 Pipelines orchestrate these steps as a job graph. See `references/builds-releases.md`.
 
@@ -409,4 +409,4 @@ See `references/skills-system.md`.
 | Object store + filesystem | `references/object-store-filesystem.md` |
 | Document ingest | `references/ingest.md` |
 
-**Note:** These references are distilled from the Eve Horizon system docs. For narrative walkthroughs and tutorials, see the [eve-horizon](https://github.com/incept5/eve-horizon) repository docs.
+**Note:** These references are distilled from the Eve Horizon system docs. For narrative walkthroughs and tutorials, see the [eve-horizon](https://github.com/eve-horizon/eve-horizon) repository docs.

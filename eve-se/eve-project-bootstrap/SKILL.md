@@ -13,7 +13,7 @@ Use this flow to connect an existing repo to Eve and get the first deploy runnin
 - Create and use a profile:
 
 ```bash
-eve profile create staging --api-url https://api.eh1.incept5.dev
+eve profile create staging --api-url https://api.eve.example.com
 eve profile use staging
 ```
 
@@ -25,7 +25,7 @@ eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my
 ```
 
 **URL impact:** These slugs determine your deployment URLs and K8s namespaces:
-- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myorg-my-app-staging.eh1.incept5.dev`)
+- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myorg-my-app-staging.eve.example.com`)
 - Namespace: `eve-{orgSlug}-{projectSlug}-{env}` (e.g., `eve-myorg-my-app-staging`)
 
 Slugs are immutable — choose short, meaningful values.

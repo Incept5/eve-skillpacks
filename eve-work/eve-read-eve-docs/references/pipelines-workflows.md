@@ -255,7 +255,7 @@ workflow and reference it from the manifest:
 
 ```text
 .eve/workflows/
-  alltrack-make-plan/
+  acme-make-plan/
     workflow.yaml
     prompts/
       plan.md
@@ -264,8 +264,8 @@ workflow and reference it from the manifest:
 
 ```yaml
 workflows:
-  alltrack-make-plan:
-    $ref: .eve/workflows/alltrack-make-plan
+  acme-make-plan:
+    $ref: .eve/workflows/acme-make-plan
 ```
 
 If `$ref` points to a directory, `eve project sync` and
@@ -280,7 +280,7 @@ In `workflow.yaml`, use `agent.prompt_file` for long Markdown prompts:
 steps:
   - name: plan
     agent:
-      name: alltrack-planner
+      name: acme-planner
       prompt_file: prompts/plan.md
 ```
 

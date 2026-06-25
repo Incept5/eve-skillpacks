@@ -106,10 +106,10 @@ x-eve:
         enabled: true
         domains:
           - { domain: acme.com, target_org: org_acme, role: member }
-          - { domain: tesco.com, target_org: org_tesco }
+          - { domain: partner.example, target_org: org_partner }
 ```
 
-Each rule must declare its own `target_org`, and each `target_org` must already appear in the project's `allowed_orgs`. Free-email domains (`gmail.com`, `outlook.com`, ...) emit a coherence warning, not a reject — declaring them is almost always wrong. See `references/manifest.md` and `docs/system/auth.md#domain-based-signup` for the full v2 shape.
+Each rule must declare its own `target_org`, and each `target_org` must already appear in the project's `allowed_orgs`. Free-email domains (`free-mail.example`, `outlook.com`, ...) emit a coherence warning, not a reject — declaring them is almost always wrong. See `references/manifest.md` and `docs/system/auth.md#domain-based-signup` for the full v2 shape.
 
 ### Workflow Step Token "Resource Denied"
 

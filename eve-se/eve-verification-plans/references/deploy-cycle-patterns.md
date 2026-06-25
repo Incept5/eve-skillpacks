@@ -57,14 +57,14 @@ kubectl -n eve get pods  # Check all pods are Running/Ready
 Two repos are involved:
 
 1. **Source repo** (`eve-horizon`): `publish-images.yml` builds container images
-2. **Infra repo** (`incept5-eve-infra`): receives dispatch, applies k8s manifests
+2. **Infra repo** (`deployment-instance-repo`): receives dispatch, applies k8s manifests
 
 ```bash
 # Check source repo workflow
-gh run list --repo incept5/eve-horizon-2 --workflow publish-images.yml --limit 3
+gh run list --repo eve-horizon/eve-horizon --workflow publish-images.yml --limit 3
 
 # Check infra repo workflow
-gh run list --repo incept5/incept5-eve-infra --limit 3
+gh run list --repo your-org/deployment-instance-repo --limit 3
 ```
 
 ### Typical Timing

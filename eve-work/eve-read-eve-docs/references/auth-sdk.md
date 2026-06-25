@@ -149,7 +149,7 @@ Job tokens now include `agent_slug` and a stable `email` claim when the job targ
   "type": "job",
   "sub": "user_01abc...",
   "user_id": "user_01abc...",
-  "org_id": "org_Incept5",
+  "org_id": "org_example",
   "project_id": "proj_01xyz...",
   "job_id": "eden-08c64625",
   "agent_slug": "map-generator",
@@ -411,7 +411,7 @@ User tokens include an `orgs` array populated at mint time:
   "type": "user",
   "orgs": [
     { "id": "org_ManualTestOrg", "role": "owner" },
-    { "id": "org_Incept5", "role": "admin" }
+    { "id": "org_example", "role": "admin" }
   ]
 }
 ```
@@ -523,7 +523,7 @@ GET /api/events?token=eyJ...
 
 ## Implementation Pattern (NestJS + React)
 
-Distilled from a real migration (sentinel-mgr: 777 lines of custom auth replaced by ~50 lines of SDK usage).
+Distilled from a real migration (reference-app: 777 lines of custom auth replaced by ~50 lines of SDK usage).
 
 **Backend — `main.ts`:**
 Apply `eveUserAuth()` as global Express middleware. If the app has existing controllers that expect a different shape on `req.user`, add a thin bridge middleware to map fields:

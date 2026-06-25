@@ -150,7 +150,7 @@ The worker runs a periodic reaper that cleans up orphaned runner pods and PVCs a
 
 ```
 Pattern:   {service}.{orgSlug}-{projectSlug}-{env}.{domain}
-Example:   api.myorg-myproj-staging.eh1.incept5.dev
+Example:   api.myorg-myproj-staging.eve.example.com
 Namespace: eve-{orgSlug}-{projectSlug}-{env}
 ```
 
@@ -412,7 +412,7 @@ local UDP socket — same-socket STUN is the only valid way to classify
 endpoint-independent vs address-and-port-dependent NAT.
 
 ```bash
-INFRA=../incept5-eve-infra
+INFRA=../deployment-instance
 kubectl -n <ns> cp $INFRA/scripts/stable-egress/udp-diag.py <pod>:/tmp/udp-diag.py -c <container>
 kubectl -n <ns> exec <pod> -c <container> -- python3 /tmp/udp-diag.py
 ```
@@ -824,7 +824,7 @@ Manifest environment values support these interpolation variables:
 | `${ORG_ID}` | Organization ID | `org_01xyz...` |
 | `${ORG_SLUG}` | Organization slug | `acme` |
 | `${COMPONENT_NAME}` | Current service name | `api`, `web` |
-| `${SSO_URL}` | Platform SSO broker URL | `https://sso.eh1.incept5.dev` |
+| `${SSO_URL}` | Platform SSO broker URL | `https://sso.eve.example.com` |
 | `${secret.KEY}` | Secret value | `${secret.DB_PASSWORD}` |
 | `${managed.<service>.<field>}` | Managed DB value (when provisioned) | `${managed.db.url}` |
 
@@ -876,11 +876,11 @@ K8s: per-attempt PVCs are deleted after completion. Session-scoped PVCs require 
 
 ## Infrastructure Change Policy
 
-All AWS infrastructure changes must go through Terraform in the `incept5-eve-infra` repo. No exceptions.
+All AWS infrastructure changes must go through Terraform in the `deployment-instance-repo` repo. No exceptions.
 
 - **Never** mutate AWS resources (security groups, IAM, DNS, EKS, ASGs) via CLI or console -- Terraform will silently revert them on the next apply, which has caused production outages.
 - **Read-only** AWS CLI commands (`describe`, `list`, `get`) are fine for diagnosis.
-- If staging infra is broken, fix it in `incept5-eve-infra/terraform/aws/`, run `terraform plan` then `terraform apply`, and verify the plan shows no changes after apply.
+- If staging infra is broken, fix it in `deployment-instance-repo/terraform/aws/`, run `terraform plan` then `terraform apply`, and verify the plan shows no changes after apply.
 - If you lack access to the infra repo, escalate to the user -- do not apply ad-hoc fixes.
 
 ## CLI-First Debugging Ladder

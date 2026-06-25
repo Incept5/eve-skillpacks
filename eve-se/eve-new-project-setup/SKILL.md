@@ -40,7 +40,7 @@ npm install -g @eve-horizon/cli
 Create a profile for the staging environment:
 
 ```bash
-eve profile create staging --api-url https://api.eh1.incept5.dev
+eve profile create staging --api-url https://api.eve.example.com
 eve profile use staging
 ```
 
@@ -84,7 +84,7 @@ eve project ensure --name "My App" --slug my-app --repo-url git@github.com:me/my
 ```
 
 **URL impact:** The org and project slugs directly form deployment URLs and K8s namespaces:
-- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myco-my-app-staging.eh1.incept5.dev`)
+- URL: `{service}.{orgSlug}-{projectSlug}-{env}.{domain}` (e.g., `api.myco-my-app-staging.eve.example.com`)
 - Namespace: `eve-{orgSlug}-{projectSlug}-{env}` (e.g., `eve-myco-my-app-staging`)
 - `${ORG_SLUG}` is available for interpolation in manifest values
 
@@ -208,5 +208,5 @@ eve auth login
 
 ### "No profile"
 ```bash
-eve profile create staging --api-url https://api.eh1.incept5.dev
+eve profile create staging --api-url https://api.eve.example.com
 ```
