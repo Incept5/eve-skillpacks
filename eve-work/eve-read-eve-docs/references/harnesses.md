@@ -94,6 +94,7 @@ New agent-execution features go in the shared module, never in a single runtime.
 | `gemini`   | `gemini`  | --       | @google/gemini-cli                                   |
 | `code`     | `code`    | `coder`  | @just-every/code. Use `coder` on host to avoid VS Code clash |
 | `codex`    | `codex`   | --       | @openai/codex                                        |
+| `pi`       | `pi`      | --       | Pi CLI (integration in progress)                     |
 
 Do not parse `harness:variant` syntax. Use `harness_options.variant` instead.
 
